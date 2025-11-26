@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ✅ Model User - Bảng "nguoiDung"
+model User {
+  id            String    @id @map("idND")
+  name          String    @map("hoTen")
+  email         String    @unique @map("email")
+  emailVerified Boolean   @default(false) @map("daXacThucEmail")
+  image         String?   @map("anhDaiDien")
+  createdAt     DateTime  @default(now()) @map("ngayTao")
+  updatedAt     DateTime  @updatedAt @map("ngayCapNhat")
+
+  sessions      Session[]
+  accounts      Account[]
+
+  @@map("nguoiDung")
+}
+
+// ✅ Model Session - Bảng "phienDangNhap"
+model Session {
+  id         String   @id @map("idPhien")
+  expiresAt  DateTime @map("hetHan")
+  token      String   @unique @map("maToken")
+  createdAt  DateTime @default(now()) @map("ngayTao")
+  updatedAt  DateTime @updatedAt @map("ngayCapNhat")
+  ipAddress  String?  @map("diaChiIP")
+  userAgent  String?  @map("trangThaiNguoiDung")
+
+  userId     String   @map("idNguoiDung")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("phienDangNhap")
+}
+
+// ✅ Model Account - Bảng "taiKhoan"
+model Account {
+  id                    String    @id @map("idTK")
+  accountId             String    @map("maTaiKhoan")
+  providerId            String    @map("maNhaCungCap")
+
+  userId                String    @map("idNguoiDung")
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  accessToken           String?   @map("maToken")
+  refreshToken          String?   @map("maLamMoiToken")
+  idToken               String?   @map("idToken")
+  accessTokenExpiresAt  DateTime? @map("maTokenHetHan")
+  refreshTokenExpiresAt DateTime? @map("maLamMoiTokenHetHan")
+  scope                 String?   @map("phamVi")
+  password              String?   @map("matKhau")
+
+  createdAt             DateTime  @default(now()) @map("ngayTao")
+  updatedAt             DateTime  @updatedAt @map("ngayCapNhat")
+
+  @@map("taiKhoan")
+}
+
+// ✅ Model Verification - Bảng "xacMinh"
+model Verification {
+  id         String   @id @map("idXM")
+  identifier String   @map("maDinhDanh")
+  value      String   @map("giaTri")
+  expiresAt  DateTime @map("hetHan")
+  createdAt  DateTime @default(now()) @map("ngayTao")
+  updatedAt  DateTime @updatedAt @map("ngayCapNhat")
+
+  @@map("xacMinh")
+}
+
+

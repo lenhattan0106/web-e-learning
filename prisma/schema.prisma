@@ -7,7 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ✅ Model User - Bảng "nguoiDung"
+//Model User - Bảng "nguoiDung"
 model User {
   id            String    @id @map("idND")
   name          String    @map("hoTen")
@@ -16,14 +16,14 @@ model User {
   image         String?   @map("anhDaiDien")
   createdAt     DateTime  @default(now()) @map("ngayTao")
   updatedAt     DateTime  @updatedAt @map("ngayCapNhat")
-
+  courses       Course[]
   sessions      Session[]
   accounts      Account[]
 
   @@map("nguoiDung")
 }
 
-// ✅ Model Session - Bảng "phienDangNhap"
+//Model Session - Bảng "phienDangNhap"
 model Session {
   id         String   @id @map("idPhien")
   expiresAt  DateTime @map("hetHan")
@@ -39,7 +39,7 @@ model Session {
   @@map("phienDangNhap")
 }
 
-// ✅ Model Account - Bảng "taiKhoan"
+//Model Account - Bảng "taiKhoan"
 model Account {
   id                    String    @id @map("idTK")
   accountId             String    @map("maTaiKhoan")
@@ -62,7 +62,7 @@ model Account {
   @@map("taiKhoan")
 }
 
-// ✅ Model Verification - Bảng "xacMinh"
+//Model Verification - Bảng "xacMinh"
 model Verification {
   id         String   @id @map("idXM")
   identifier String   @map("maDinhDanh")
@@ -74,4 +74,36 @@ model Verification {
   @@map("xacMinh")
 }
 
+//Model Course - Bảng "khoaHoc"
+model Course {
+  id               String       @id @default(uuid()) @map("idKH")
+  title            String       @map("tieuDe")
+  description      String       @map("moTa")
+  fileKey          String       @map("tepKH")
+  price            Int          @map("gia")
+  duration         Int          @map("thoiLuong")
+  level            CourseLevel  @default(Beginner) @map("capDo")
+  category         String       @map("danhMuc")
+  smallDescription String       @map("moTaNgan")
+  slug             String       @unique @map("duongDan")
+  status           CourseStatus @default(Draft) @map("trangThai")
+  createdAt        DateTime     @default(now()) @map("ngayTao")
+  updatedAt        DateTime     @updatedAt @map("ngayCapNhat")
 
+  userId           String       @map("idNguoiDung")
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("khoaHoc")
+}
+
+enum CourseLevel {
+  Beginner     @map("NguoiMoi")
+  Intermediate @map("TrungCap")
+  Advanced     @map("NangCao")
+}
+
+enum CourseStatus {
+  Draft     @map("BanNhap")
+  Published @map("DaXuatBan")
+  Archived  @map("DaLuuTru")
+}

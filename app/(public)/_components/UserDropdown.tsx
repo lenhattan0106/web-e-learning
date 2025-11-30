@@ -62,7 +62,7 @@ export function   UserDropDown({email,name,image}: iAppProps) {
           />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="center" className="max-w-64">
+      <DropdownMenuContent align="center" className="min-w-48">
         <DropdownMenuLabel className="flex min-w-0 flex-col">
           <span className="truncate font-medium text-foreground text-sm">
             {name}

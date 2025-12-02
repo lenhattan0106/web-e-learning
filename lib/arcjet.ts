@@ -1,3 +1,4 @@
+import "server-only"
 import arcjet, {
   detectBot,
   fixedWindow,
@@ -17,7 +18,7 @@ export {
     slidingWindow
 };
 
-// ✅ Export default instance đã khởi tạo
+//Export default instance đã khởi tạo
 const aj = arcjet({
     key: env.ARCJET_KEY,
     characteristics: ['fingerprint'],

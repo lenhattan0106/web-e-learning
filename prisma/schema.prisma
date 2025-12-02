@@ -20,33 +20,42 @@ model User {
   sessions      Session[]
   accounts      Account[]
 
+  // Admin plugin fields - mapped sang tiếng Việt
+  role       String?   @map("vaiTro")
+  banned     Boolean?  @default(false) @map("biCam")
+  banReason  String?   @map("lyDoCam")
+  banExpires DateTime? @map("hetHanCam")
+
   @@map("nguoiDung")
 }
 
 //Model Session - Bảng "phienDangNhap"
 model Session {
-  id         String   @id @map("idPhien")
-  expiresAt  DateTime @map("hetHan")
-  token      String   @unique @map("maToken")
-  createdAt  DateTime @default(now()) @map("ngayTao")
-  updatedAt  DateTime @updatedAt @map("ngayCapNhat")
-  ipAddress  String?  @map("diaChiIP")
-  userAgent  String?  @map("trangThaiNguoiDung")
+  id        String   @id @map("idPhien")
+  expiresAt DateTime @map("hetHan")
+  token     String   @unique @map("maToken")
+  createdAt DateTime @default(now()) @map("ngayTao")
+  updatedAt DateTime @updatedAt @map("ngayCapNhat")
+  ipAddress String?  @map("diaChiIP")
+  userAgent String?  @map("trangThaiNguoiDung")
 
-  userId     String   @map("idNguoiDung")
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("idNguoiDung")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  impersonatedBy String? @map("biMaoDanh")
 
   @@map("phienDangNhap")
+  @@index([userId])
 }
 
 //Model Account - Bảng "taiKhoan"
 model Account {
-  id                    String    @id @map("idTK")
-  accountId             String    @map("maTaiKhoan")
-  providerId            String    @map("maNhaCungCap")
+  id         String @id @map("idTK")
+  accountId  String @map("maTaiKhoan")
+  providerId String @map("maNhaCungCap")
 
-  userId                String    @map("idNguoiDung")
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("idNguoiDung")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   accessToken           String?   @map("maToken")
   refreshToken          String?   @map("maLamMoiToken")
@@ -56,10 +65,11 @@ model Account {
   scope                 String?   @map("phamVi")
   password              String?   @map("matKhau")
 
-  createdAt             DateTime  @default(now()) @map("ngayTao")
-  updatedAt             DateTime  @updatedAt @map("ngayCapNhat")
+  createdAt DateTime @default(now()) @map("ngayTao")
+  updatedAt DateTime @updatedAt @map("ngayCapNhat")
 
   @@map("taiKhoan")
+  @@index([userId])
 }
 
 //Model Verification - Bảng "xacMinh"
@@ -72,6 +82,7 @@ model Verification {
   updatedAt  DateTime @updatedAt @map("ngayCapNhat")
 
   @@map("xacMinh")
+  @@index([identifier])
 }
 
 //Model Course - Bảng "khoaHoc"
@@ -82,28 +93,28 @@ model Course {
   fileKey          String       @map("tepKH")
   price            Int          @map("gia")
   duration         Int          @map("thoiLuong")
-  level            CourseLevel  @default(Beginner) @map("capDo")
+  level            CourseLevel  @default(NguoiMoi) @map("capDo")
   category         String       @map("danhMuc")
   smallDescription String       @map("moTaNgan")
   slug             String       @unique @map("duongDan")
-  status           CourseStatus @default(Draft) @map("trangThai")
+  status           CourseStatus @default(BanNhap) @map("trangThai")
   createdAt        DateTime     @default(now()) @map("ngayTao")
   updatedAt        DateTime     @updatedAt @map("ngayCapNhat")
 
-  userId           String       @map("idNguoiDung")
-  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("idNguoiDung")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("khoaHoc")
 }
 
 enum CourseLevel {
-  Beginner     @map("NguoiMoi")
-  Intermediate @map("TrungCap")
-  Advanced     @map("NangCao")
+  NguoiMoi     
+  TrungCap 
+  NangCao   
 }
 
 enum CourseStatus {
-  Draft     @map("BanNhap")
-  Published @map("DaXuatBan")
-  Archived  @map("DaLuuTru")
+  BanNhap     
+  BanChinhThuc
+  BanLuuTru  
 }

@@ -1,38 +1,38 @@
 import {z} from "zod"
 
-export const courseLevels = ['Beginner','Intermediate','Advanced'] as const;
+export const courseLevels = ['NguoiMoi','TrungCap','NangCao'] as const;
 
 export const courseStatus = [
-    "Draft", "Published","Archived"
+    "BanNhap", "BanChinhThuc","BanLuuTru"
 ] as const;
 
 export const courseCategories = [
-    "Development",
-    "Business",
-    "Finance",
-    "It & Software",
-    "Personal Development",
-    "Education"
+    "Lập Trình",
+    "Kinh Doanh",
+    "Tài Chính",
+    "Công Nghệ Thông Tin",
+    "Phát Triển Bản Thân",
+    "Giáo Dục"
 ] as const;
 
 export const courseSchema = z.object({
-    title: z.string().min(3,{message:"Title must be at least 3 characters long"}).max(100,{message:"Title must be as most 100 characters long..."}),
-    description: z.string().min(3, {message:"Description must be at least 3 characters long"}),
-    fileKey: z.string().min(1, {message:"File is required"}),
-    price: z.number().min(1, {message:"Price must be a positive number"}),
-    duration: z.number().min(1,{message:"Duration must be at least 1 hour"}).max(500,{
-        message:"Duration must be at most 500 hours"
+    title: z.string().min(3,{message:"Tiêu đề phải có ít nhất 3 ký tự"}).max(100,{message:"Tiêu đề không được vượt quá 100 ký tự"}),
+    description: z.string().min(3, {message:"Mô tả phải có ít nhất 3 ký tự"}),
+    fileKey: z.string().min(1, {message:"Tệp tin là bắt buộc"}),
+    price: z.number().min(1, {message:"Giá phải là số dương"}),
+    duration: z.number().min(1,{message:"Thời lượng phải ít nhất 1 giờ"}).max(500,{
+        message:"Thời lượng không được vượt quá 500 giờ"
     }),
     level: z.enum(courseLevels, {
-        message:"Level is required"
+        message:"Cấp độ là bắt buộc"
     }),
     category: z.enum(courseCategories,{
-        message:"Category is required"
+        message:"Danh mục là bắt buộc"
     }),
-    smallDescription: z.string().min(3, {message:"Small description must be at least 3 characters long"}).max(200,{message:"Small description must be at most 200 characters long"}),
-    slug: z.string().min(3, {message:"Slug must be 3 characters long"}),
+    smallDescription: z.string().min(3, {message:"Mô tả ngắn phải có ít nhất 3 ký tự"}).max(200,{message:"Mô tả ngắn không được vượt quá 200 ký tự"}),
+    slug: z.string().min(3, {message:"Đường dẫn phải có ít nhất 3 ký tự"}),
     status: z.enum(courseStatus,{
-        message:"Status is required"
+        message:"Trạng thái là bắt buộc"
     }),
 })
 

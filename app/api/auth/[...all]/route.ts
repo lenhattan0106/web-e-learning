@@ -16,30 +16,30 @@ import { toNextJsHandler } from "better-auth/next-js";
 import { NextRequest } from "next/server";
 
 const emailOptions = {
-  mode: "LIVE", // will block requests. Use "DRY_RUN" to log only
-  // Block emails that are disposable, invalid, or have no MX records
+  mode: "LIVE", // sẽ chặn yêu cầu. Sử dụng "DRY_RUN" để chỉ ghi log
+  // Chặn email dùng tạm, không hợp lệ, hoặc không có bản ghi MX
   block: ["DISPOSABLE", "INVALID", "NO_MX_RECORDS"],
 } satisfies EmailOptions;
 
 const botOptions = {
   mode: "LIVE",
-  // configured with a list of bots to allow from
+  // cấu hình danh sách bot được phép từ
   // https://arcjet.com/bot-list
-  allow: [], // prevents bots from submitting the form
+  allow: [], // ngăn bot gửi form
 } satisfies BotOptions;
 
 const rateLimitOptions = {
   mode: "LIVE",
-  interval: "2m", // counts requests over a 2 minute sliding window
-  max: 5, // allows 5 submissions within the window
+  interval: "2m", // đếm yêu cầu trong khung thời gian 2 phút
+  max: 5, // cho phép 5 lần gửi trong khung thời gian
 } satisfies SlidingWindowRateLimitOptions<[]>;
 
 const signupOptions = {
   email: emailOptions,
-  // uses a sliding window rate limit
+  // sử dụng giới hạn tốc độ theo khung thời gian trượt
   bots: botOptions,
-  // It would be unusual for a form to be submitted more than 5 times in 10
-  // minutes from the same IP address
+  // Sẽ bất thường nếu form được gửi hơn 5 lần trong 10 phút
+  // từ cùng một địa chỉ IP
   rateLimit: rateLimitOptions,
 } satisfies ProtectSignupOptions<[]>;
 
@@ -48,38 +48,38 @@ async function protect(req: NextRequest): Promise<ArcjetDecision> {
     headers: req.headers,
   });
 
-  // If the user is logged in we'll use their ID as the identifier. This
-  // allows limits to be applied across all devices and sessions (you could
-  // also use the session ID). Otherwise, fall back to the IP address.
+  // Nếu người dùng đã đăng nhập, chúng ta sẽ sử dụng ID của họ làm định danh.
+  // Điều này cho phép áp dụng giới hạn trên tất cả thiết bị và phiên (bạn cũng
+  // có thể sử dụng session ID). Nếu không, sẽ dùng địa chỉ IP.
   let userId: string;
   if (session?.user.id) {
     userId = session.user.id;
   } else {
-    userId = ip(req) || "127.0.0.1"; // Fall back to local IP if none
+    userId = ip(req) || "127.0.0.1"; // Dự phòng IP local nếu không có
   }
 
-  // If this is a signup then use the special protectSignup rule
-  // See https://docs.arcjet.com/signup-protection/quick-start
+  // Nếu đây là đăng ký thì sử dụng quy tắc protectSignup đặc biệt
+  // Xem https://docs.arcjet.com/signup-protection/quick-start
   if (req.nextUrl.pathname.startsWith("/api/auth/sign-up")) {
-    // Better-Auth reads the body, so we need to clone the request preemptively
+    // Better-Auth đọc body, nên chúng ta cần clone request trước
     const body = await req.clone().json();
 
-    // If the email is in the body of the request then we can run
-    // the email validation checks as well. See
+    // Nếu email có trong body của request thì chúng ta có thể chạy
+    // các kiểm tra xác thực email. Xem
     // https://www.better-auth.com/docs/concepts/hooks#example-enforce-email-domain-restriction
     if (typeof body.email === "string") {
       return aj 
         .withRule(protectSignup(signupOptions))
         .protect(req, { email: body.email, fingerprint: userId });
     } else {
-      // Otherwise use rate limit and detect bot
+      // Nếu không thì sử dụng rate limit và phát hiện bot
       return aj
         .withRule(detectBot(botOptions))
         .withRule(slidingWindow(rateLimitOptions))
         .protect(req, { fingerprint:userId });
     }
   } else {
-    // For all other auth requests
+    // Cho tất cả các yêu cầu auth khác
     return aj.withRule(detectBot(botOptions)).protect(req, { fingerprint:userId });
   }
 }
@@ -88,11 +88,11 @@ const authHandlers = toNextJsHandler(auth.handler);
 
 export const { GET } = authHandlers;
 
-// Wrap the POST handler with Arcjet protections
+// Bọc POST handler với các bảo vệ của Arcjet
 export const POST = async (req: NextRequest) => {
   const decision = await protect(req);
 
-  console.log("Arcjet Decision:", decision);
+  console.log("Quyết định Arcjet:", decision);
 
   if (decision.isDenied()) {
     if (decision.reason.isRateLimit()) {
@@ -101,16 +101,16 @@ export const POST = async (req: NextRequest) => {
       let message: string;
 
       if (decision.reason.emailTypes.includes("INVALID")) {
-        message = "Email address format is invalid. Is there a typo?";
+        message = "Định dạng địa chỉ email không hợp lệ. Có lỗi chính tả không?";
       } else if (decision.reason.emailTypes.includes("DISPOSABLE")) {
-        message = "We do not allow disposable email addresses.";
+        message = "Chúng tôi không cho phép địa chỉ email tạm thời.";
       } else if (decision.reason.emailTypes.includes("NO_MX_RECORDS")) {
         message =
-          "Your email domain does not have an MX record. Is there a typo?";
+          "Tên miền email của bạn không có bản ghi MX. Có lỗi chính tả không?";
       } else {
-        // This is a catch all, but the above should be exhaustive based on the
-        // configured rules.
-        message = "Invalid email.";
+        // Đây là trường hợp bắt tất cả, nhưng các điều kiện trên nên đầy đủ
+        // dựa trên các quy tắc đã cấu hình.
+        message = "Email không hợp lệ.";
       }
 
       return Response.json({ message }, { status: 400 });

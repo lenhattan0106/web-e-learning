@@ -2,6 +2,7 @@ import { TeacherEditCourse } from "@/app/data/admin/edit-course";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EditCourseForm } from "./_components/EditCourseForm";
+import { CourseStructure } from "./_components/CourseStructure";
 
 type Params = Promise<{ courseId: string }>;
 export default async function EditRoute({ params }: { params: Params }) {
@@ -26,6 +27,17 @@ export default async function EditRoute({ params }: { params: Params }) {
                 </CardHeader>
                 <CardContent>
                     <EditCourseForm data={data}></EditCourseForm>
+                </CardContent>
+            </Card>
+        </TabsContent>
+            <TabsContent value="course-structure">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Cấu trúc khóa học</CardTitle>
+                    <CardDescription>Bạn có thể chỉnh sửa cấu trúc khóa học của bạn ở đây</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <CourseStructure data={data}></CourseStructure>
                 </CardContent>
             </Card>
         </TabsContent>

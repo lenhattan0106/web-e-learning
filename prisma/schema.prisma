@@ -103,7 +103,7 @@ model Course {
 
   userId String @map("idNguoiDung")
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  chapter Chapter[]
   @@map("khoaHoc")
 }
 
@@ -117,4 +117,37 @@ enum CourseStatus {
   BanNhap     
   BanChinhThuc
   BanLuuTru  
+}
+
+model Chapter{
+  id        String   @id @default(uuid()) @map("idC")
+  title     String   @map("tenChuong")
+  position  Int      @map("thuTu")
+  createdAt DateTime @default(now()) @map("ngayTao")
+  updatedAt DateTime @updatedAt @map("ngayCapNhat")
+  
+  lessons   Lesson[]
+  courseId  String   @map("idKH")
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@map("chuong")
+  @@index([courseId])
+}
+
+model Lesson{
+  id           String   @id @default(uuid()) @map("idBH")
+  title        String   @map("tenBaiHoc")
+  description  String?  @map("moTa") 
+  thumbnailKey String?  @map("anhBaiHoc")
+  videoKey     String?  @map("maVideo")
+  position     Int      @map("thuTu")
+  duration     Int?     @map("thoiLuong")
+  isFree       Boolean  @default(false) @map("mienPhi")
+  createdAt    DateTime @default(now()) @map("ngayTao")
+  updatedAt    DateTime @updatedAt @map("ngayCapNhat")
+  chapterId String  @map("idC")
+  chapter   Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@map("baiHoc")
+  @@index([chapterId])
 }

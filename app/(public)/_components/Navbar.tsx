@@ -9,9 +9,9 @@ import { buttonVariants } from "@/components/ui/button";
 import { UserDropDown } from "./UserDropdown";
 
 const navigationItems = [
-  { name: "Home", href: "/" },
-  { name: "Course", href: "/admin/courses" },
-  { name: "Dashboard", href: "/admin" },
+  { name: "Trang chủ", href: "/" },
+  { name: "Khóa học", href: "/admin/courses" },
+  { name: "Bảng điều khiển", href: "/admin" },
 ];
 export function Navbar() {
   const { data: session, isPending } = authClient.useSession();
@@ -51,10 +51,10 @@ export function Navbar() {
                     variant: "secondary",
                   })}
                 >
-                  Login
+                  Đăng nhập
                 </Link>
                 <Link href="/login" className={buttonVariants({})}>
-                  Get Started
+                  Bắt đầu
                 </Link>
               </>
             )}

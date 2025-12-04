@@ -64,7 +64,7 @@ export function Uploader({ onChange, value }: iAppProps) {
           }),
         });
         if (!presignedResponse.ok) {
-          toast.error("Failed to get presigned URL");
+          toast.error("Không thể lấy URL tải lên");
           setFileState((prev) => ({
             ...prev,
             uploading: false,
@@ -94,21 +94,21 @@ export function Uploader({ onChange, value }: iAppProps) {
                 key: key,
               }));
               onChange?.(key);
-              toast.success("File uploaded successfully");
+              toast.success("Tải lên tệp thành công");
               resolve();
             } else {
-              reject(new Error("Upload failed..."));
+              reject(new Error("Tải lên thất bại"));
             }
           };
           xhr.onerror = () => {
-            reject(new Error("Upload failed"));
+            reject(new Error("Tải lên thất bại"));
           };
           xhr.open("PUT", presignedURL);
           xhr.setRequestHeader("Content-Type", file.type);
           xhr.send(file);
         });
       } catch {
-        toast.error("Something went wrong");
+        toast.error("Đã xảy ra lỗi không mong muốn");
         setFileState((prev) => ({
           ...prev,
           progress: 0,
@@ -164,7 +164,7 @@ export function Uploader({ onChange, value }: iAppProps) {
         }),
       });
       if (!response.ok) {
-        toast.error("Failed to remove file from storage");
+        toast.error("Không thể xóa tệp khỏi bộ nhớ");
         setFileState((prev) => ({
           ...prev,
           isDeleting: true,
@@ -186,9 +186,9 @@ export function Uploader({ onChange, value }: iAppProps) {
         id: null,
         isDeleting: false,
       }));
-      toast.success("File removed successfully");
+      toast.success("Xóa tệp thành công");
     } catch {
-      toast.error("Error removing file, please try again");
+      toast.error("Lỗi khi xóa tệp, vui lòng thử lại");
       setFileState((prev) => ({
         ...prev,
         isDeleting: false,
@@ -206,10 +206,10 @@ export function Uploader({ onChange, value }: iAppProps) {
         (rejection) => rejection.errors[0].code === "file-too-large"
       );
       if (fileSizeToBig) {
-        toast.error("File Sizes exceeds the limit");
+        toast.error("Kích thước tệp vượt quá giới hạn cho phép");
       }
       if (tooManyFiles) {
-        toast.error("Too many files selected,max is 1");
+        toast.error("Chọn quá nhiều tệp, tối đa là 1 tệp");
       }
     }
   }

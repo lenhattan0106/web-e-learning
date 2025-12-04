@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { courseSchema, CourseSchemaType } from "@/lib/zodSchemas";
 import { request } from "@arcjet/next";
+import { revalidatePath } from "next/cache";
 
 const arcjet = aj.withRule(
   detectBot({
@@ -65,4 +66,69 @@ export async function editCourse(data: CourseSchemaType, courseId:string): Promi
             message:"Khóa học cập nhật thất bại"
          }
     }
+}
+export async function reorderLessons(chapterId:string,lesson:{id:string;position:number}[],
+  courseId:string
+): Promise<ApiResponse>{
+  await requireAdmin();
+  try{
+   if(!lesson || lesson.length ===0){
+      return{
+        status:"error",
+        message:"Không có bài học nào để sắp xếp lại.",
+      }
+   }
+   const updates= lesson.map((lesson)=> prisma.lesson.update({
+    where:{
+      id:lesson.id,
+      chapterId: chapterId,
+    },
+    data:{
+      position:lesson.position,
+    },
+   }));
+   await prisma.$transaction(updates);
+   revalidatePath(`/admin/courses/${courseId}/edit`)
+   return{
+    status:"success",
+    message:"Sắp xếp lại bài học thành công"
+   }
+  }catch{ 
+    return{
+      status:"error",
+      message:"Lỗi khi sắp xếp bài học"
+    }
+  }
+}
+export async function reorderChapter(courseId:string,chapters:{id:string,position:number}[]):
+Promise<ApiResponse>{
+     await requireAdmin();
+  try{
+   if(!chapters||chapters.length ===0){
+    return {
+      status:"error",
+      message:"Không có chương nào để mình sắp xếp lại",
+    };
+  }
+  const updates = chapters.map((chapter)=>prisma.chapter.update({
+    where:{
+       id:chapter.id, courseId:courseId,
+    },
+    data:{
+      position: chapter.position,
+    }
+  }));
+  await prisma.$transaction(updates);
+     revalidatePath(`/admin/courses/${courseId}/edit`);
+     return{
+      status:"success",
+      message:"Sắp xếp lại các chương thành công"
+     }
+  }
+  catch{
+    return {
+        status:"error",
+        message:"Lỗi khi sắp xếp lại chương"
+    }
+  }
 }

@@ -15,13 +15,13 @@ export function RenderEmptyState({ isDragActive }: { isDragActive: boolean }) {
         ></CloudUploadIcon>
       </div>
       <p className="text-base font-semibold text-foreground">
-        Drop your files here or{" "}
+        Kéo thả tệp của bạn vào đây hoặc{" "}
         <span className="text-primary font-bold cursor-pointer">
-          Click to Upload
+          Nhấp để tải lên
         </span>{" "}
       </p>
       <Button className="mt-4" type="button">
-        Select file
+        Chọn tệp
       </Button>
     </div>
   );
@@ -32,10 +32,10 @@ export function RenderErrorState() {
       <div className="flex items-center mx-auto justify-center size-12 rounded-full bg-destructive/30 mb-4">
         <ImageIcon className={cn("size-8 text-destructive")}></ImageIcon>
       </div>
-      <p className="text-base font-semibold">Upload Failed</p>
-      <p className="text-xs text-muted-foreground mt-1">Something went wrong</p>
+      <p className="text-base font-semibold">Tải lên thất bại</p>
+      <p className="text-xs text-muted-foreground mt-1">Đã xảy ra lỗi</p>
       <Button type="button" className="mt-4">
-        Click or drag file to retry
+        Nhấp hoặc kéo thả tệp để thử lại
       </Button>
     </div>
   );
@@ -54,7 +54,7 @@ export function RenderUploadedState({
     <div>
       <Image
         src={previewUrl}
-        alt="Uploaded File"
+        alt="Tệp đã tải lên"
         fill
         className="object-contain p-2"
       ></Image>
@@ -84,8 +84,8 @@ export function RenderUploadingState({
 }) {
   return (
     <div className="text-center flex justify-center items-center flex-col">
-      <p>{progress}</p>
-      <p className="mt-2 text-sm font-medium text-foreground">Uploading...</p>
+      <p>{progress}%</p>
+      <p className="mt-2 text-sm font-medium text-foreground">Đang tải lên...</p>
       <p className="mt-1 text-xs text-muted-foreground truncate max-w-xs">
         {file.name}
       </p>

@@ -20,6 +20,7 @@ export function LoginForm() {
   const [githubPending, startGithubTransition] = useTransition();
   const [emailPending, startEmailTransition] = useTransition();
   const [email, setEmail] = useState("");
+  
   async function signInWithGithub() {
     startGithubTransition(async () => {
       await authClient.signIn.social({
@@ -27,15 +28,16 @@ export function LoginForm() {
         callbackURL: "/",
         fetchOptions: {
           onSuccess: () => {
-            toast.success("Signed in with Github, you will be redirected...");
+            toast.success("Đăng nhập bằng Github thành công, bạn sẽ được chuyển hướng...");
           },
           onError: () => {
-            toast.error("Internal Server Error");
+            toast.error("Lỗi máy chủ nội bộ");
           },
         },
       });
     });
   }
+  
   function signInWithEmail() {
     startEmailTransition(async () => {
       await authClient.emailOtp.sendVerificationOtp({
@@ -43,22 +45,23 @@ export function LoginForm() {
         type: "sign-in",
         fetchOptions: {
           onSuccess: () => {
-            toast.success("Email sent");
+            toast.success("Email đã được gửi");
             router.push(`/verify-request?email=${email}`);
           },
           onError: ()=>{
-            toast.error('Error sending email')
+            toast.error('Lỗi khi gửi email')
           }
         },
       });
     });
   }
+  
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-xl">Welcome Back</CardTitle>
+        <CardTitle className="text-xl">Chào mừng trở lại</CardTitle>
         <CardDescription>
-          Login with your Github or Email Account
+          Đăng nhập bằng tài khoản Github hoặc Email của bạn
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -71,18 +74,18 @@ export function LoginForm() {
           {githubPending ? (
             <>
               <Loader className="size-4 animate-spin"></Loader>
-              <span>Loading...</span>
+              <span>Đang tải...</span>
             </>
           ) : (
             <>
               <GithubIcon className="size-4"></GithubIcon>
-              Sign in with Github
+              Đăng nhập với Github
             </>
           )}
         </Button>
         <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
           <span className="relative z-10 bg-card px-2 text-muted-foreground">
-            Or continue with
+            Hoặc tiếp tục với
           </span>
         </div>
         <div className="grid gap-3">
@@ -93,19 +96,19 @@ export function LoginForm() {
               onChange={(e) => setEmail(e.target.value)}
               required
               type="email"
-              placeholder="t@gmail.com"
+              placeholder="email@example.com"
             ></Input>
           </div>
           <Button onClick={signInWithEmail} disabled={emailPending}>
             {emailPending ?(
               <>
                 <Loader2 className="size-4 animate-spin"></Loader2>
-                <span>Loading...</span>
+                <span>Đang tải...</span>
                </>
             ):(
               <>
                <Send className="size-4"></Send>
-               <span>Continue with Email</span>
+               <span>Tiếp tục với Email</span>
               </>
             )}
           </Button>

@@ -34,74 +34,74 @@ import Image from "next/image"
 const data = {
   navMain: [
     {
-      title: "Dashboard",
+      title: "Bảng điều khiển",
       url: "/admin",
       icon: IconDashboard,
     },
     {
-      title: "Courses",
+      title: "Khóa học",
       url: "admin/courses",
       icon: IconListDetails,
     },
     {
-      title: "Analytics",
+      title: "Phân tích",
       url: "#",
       icon: IconChartBar,
     },
     {
-      title: "Projects",
+      title: "Dự án",
       url: "#",
       icon: IconFolder,
     },
     {
-      title: "Team",
+      title: "Nhóm",
       url: "#",
       icon: IconUsers,
     },
   ],
   navClouds: [
     {
-      title: "Capture",
+      title: "Chụp ảnh",
       icon: IconCamera,
       isActive: true,
       url: "#",
       items: [
         {
-          title: "Active Proposals",
+          title: "Đề xuất đang hoạt động",
           url: "#",
         },
         {
-          title: "Archived",
+          title: "Đã lưu trữ",
           url: "#",
         },
       ],
     },
     {
-      title: "Proposal",
+      title: "Đề xuất",
       icon: IconFileDescription,
       url: "#",
       items: [
         {
-          title: "Active Proposals",
+          title: "Đề xuất đang hoạt động",
           url: "#",
         },
         {
-          title: "Archived",
+          title: "Đã lưu trữ",
           url: "#",
         },
       ],
     },
     {
-      title: "Prompts",
+      title: "Lời nhắc",
       icon: IconFileAi,
       url: "#",
       items: [
         {
-          title: "Active Proposals",
+          title: "Đề xuất đang hoạt động",
           url: "#",
         },
         {
-          title: "Archived",
+          title: "Đã lưu trữ",
           url: "#",
         },
       ],
@@ -109,17 +109,17 @@ const data = {
   ],
   navSecondary: [
     {
-      title: "Settings",
+      title: "Cài đặt",
       url: "#",
       icon: IconSettings,
     },
     {
-      title: "Get Help",
+      title: "Trợ giúp",
       url: "#",
       icon: IconHelp,
     },
     {
-      title: "Search",
+      title: "Tìm kiếm",
       url: "#",
       icon: IconSearch,
     },

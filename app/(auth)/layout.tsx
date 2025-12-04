@@ -13,7 +13,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         className:"absolute top-4 left-4"
       })}>
       <ArrowLeft className="size-4"></ArrowLeft>
-      Back
+      Quay lại
       </Link>
       <div className="flex w-full max-w-sm flex-col gap-6">
         <Link href="/" className="flex items-center gap-2 self-center font-medium">
@@ -22,8 +22,8 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         </Link>
         {children}
         <div className="text-balance text-center text-xs text-muted-foreground">
-         By clicking continue, you agree to our <span className="hover:text-primary hover:underline">Terms of service</span>{" "}
-         and <span className="hover:text-primary hover:underline">Privacy Policy</span>.
+         Bằng cách nhấp tiếp tục, bạn đồng ý với <span className="hover:text-primary hover:underline">Điều khoản dịch vụ</span>{" "}
+         và <span className="hover:text-primary hover:underline">Chính sách bảo mật</span> của chúng tôi.
         </div>
         </div>
     </div>

@@ -32,17 +32,17 @@ interface iAppProps {
   image:string;
 }
 
-export function   UserDropDown({email,name,image}: iAppProps) {
+export function UserDropDown({email,name,image}: iAppProps) {
       const router = useRouter();
       async function signOut() {
         await authClient.signOut({
           fetchOptions: {
             onSuccess: () => {
-              router.push("/"); // redirect to login page
-              toast.success("Singed out Successfully");
+              router.push("/");
+              toast.success("Đăng xuất thành công");
             },
             onError:()=>{
-                toast.error("Failed to sign out");
+                toast.error("Đăng xuất thất bại");
             }
           },
         });
@@ -52,7 +52,7 @@ export function   UserDropDown({email,name,image}: iAppProps) {
       <DropdownMenuTrigger asChild>
         <Button className="h-auto p-0 hover:bg-transparent" variant="ghost">
           <Avatar>
-            <AvatarImage alt="Profile image" src={image} />
+            <AvatarImage alt="Ảnh đại diện" src={image} />
             <AvatarFallback>{name[0].toUpperCase()}</AvatarFallback>
           </Avatar>
           <ChevronDownIcon
@@ -76,26 +76,26 @@ export function   UserDropDown({email,name,image}: iAppProps) {
           <DropdownMenuItem asChild>
             <Link href="/">
              <Home aria-hidden="true" className="opacity-60" size={16} />
-            <span>Home</span>
+            <span>Trang chủ</span>
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href="/course">
             <BookOpen  aria-hidden="true" className="opacity-60" size={16} />
-            <span>Courses</span>
+            <span>Khóa học</span>
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href="/dashboard">
             <LayoutDashboardIcon aria-hidden="true" className="opacity-60" size={16} />
-            <span>Dashboard</span>
+            <span>Bảng điều khiển</span>
             </Link>
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={signOut}>
           <LogOutIcon aria-hidden="true" className="opacity-60" size={16} />
-          <span>Logout</span>
+          <span>Đăng xuất</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import {
   IconDashboard,
@@ -86,26 +86,26 @@ export function NavUser() {
               <DropdownMenuItem asChild>
               <Link href="/">
                  <HomeIcon />
-                Homepage
+                Trang chủ
               </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
               <Link href="/admin">
                 <IconDashboard />
-                Dashboard
+                Bảng điều khiển
               </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                <Link href="/admin/courses">
                 <Tv2/>
-                Courses
+                Khóa học
                </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut}>
               <IconLogout />
-              Log out
+              Đăng xuất
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

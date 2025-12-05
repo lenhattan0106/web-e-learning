@@ -17,7 +17,7 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useState, useTransition, useEffect } from "react"; // 👈 Thêm useEffect
 import { CSS } from "@dnd-kit/utilities";
 import { AdminCourseSingularType } from "@/app/data/admin/edit-course";
 import { cn } from "@/lib/utils";
@@ -29,7 +29,6 @@ import {
 import {
   ChevronDown,
   ChevronRight,
-  DeleteIcon,
   FileText,
   GripVertical,
   Trash2,
@@ -39,6 +38,11 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { toast } from "sonner";
 import { reorderChapter, reorderLessons } from "../action";
+import { NewChapterModal } from "./NewChapterModel";
+import { useRouter } from "next/navigation";
+import { NewLessonModal } from "./NewLessonModal";
+import { DeleteLesson } from "./DeleteLesson";
+import { DeleteChapter } from "./DeleteChapter";
 
 interface iAppProps {
   data: AdminCourseSingularType;
@@ -49,41 +53,40 @@ interface SortableItemProps {
   className?: string;
   data?: {
     type: "chapter" | "lesson";
-    chapterId?: string; //only relevant for lessons
+    chapterId?: string;
   };
 }
+
 export function CourseStructure({ data }: iAppProps) {
-  const initialItems =
-    data.chapter.map((chapter) => ({
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  
+  // 👇 Helper function để format data
+  const formatChapters = (chapters: typeof data.chapter) => {
+    const sortedChapters = [...chapters].sort((a, b) => a.position - b.position);
+    
+    return sortedChapters.map((chapter) => ({
       id: chapter.id,
       title: chapter.title,
       order: chapter.position,
-      isOpen: true, //default chapter
-      lessons: chapter.lessons.map((lesson) => ({
-        id: lesson.id,
-        title: lesson.title,
-        order: lesson.position,
-      })),
-    })) || [];
-  const [items, setItems] = useState(initialItems);
+      isOpen: true,
+      lessons: [...chapter.lessons]
+        .sort((a, b) => a.position - b.position)
+        .map((lesson) => ({
+          id: lesson.id,
+          title: lesson.title,
+          order: lesson.position,
+        })),
+    }));
+  };
+  
+  const [items, setItems] = useState(() => formatChapters(data.chapter));
+  
+  // 👇 Thêm useEffect để sync khi data thay đổi
   useEffect(() => {
-    setItems((prevItem) => {
-      const updateItems =
-        data.chapter.map((chapter) => ({
-          id: chapter.id,
-          title: chapter.title,
-          order: chapter.position,
-          isOpen:
-            prevItem.find((item) => item.id === chapter.id)?.isOpen ?? true, //default chapter
-          lessons: chapter.lessons.map((lesson) => ({
-            id: lesson.id,
-            title: lesson.title,
-            order: lesson.position,
-          })),
-        })) || [];
-      return updateItems;
-    });
-  }, [data]);
+    setItems(formatChapters(data.chapter));
+  }, [data.chapter]);
+
   function SortableItem({ children, id, className, data }: SortableItemProps) {
     const {
       attributes,
@@ -110,6 +113,7 @@ export function CourseStructure({ data }: iAppProps) {
       </div>
     );
   }
+  
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) {
@@ -120,6 +124,7 @@ export function CourseStructure({ data }: iAppProps) {
     const activeType = active.data.current?.type as "chapter" | "lesson";
     const overType = over.data.current?.type as "chapter" | "lesson";
     const courseId = data.id;
+    
     if (activeType === "chapter") {
       let targetChapterId = null;
       if (overType === "chapter") {
@@ -134,7 +139,7 @@ export function CourseStructure({ data }: iAppProps) {
       const oldIndex = items.findIndex((item) => item.id === activeId);
       const newIndex = items.findIndex((item) => item.id === targetChapterId);
       if (oldIndex === -1 || newIndex === -1) {
-        toast.error("Could not find chapter old/new index for reordering");
+        toast.error("Không thể tìm thấy vị trí cũ/mới của chương để sắp xếp lại");
         return;
       }
       const reordedLocalChapter = arrayMove(items, oldIndex, newIndex);
@@ -145,41 +150,47 @@ export function CourseStructure({ data }: iAppProps) {
         })
       );
       const previousItems = [...items];
+      
       setItems(updatedChapterForState);
+      
       if (courseId) {
         const chaptersToUpdate = updatedChapterForState.map((chapter) => ({
           id: chapter.id,
           position: chapter.order,
         }));
-        const reorderPromise = () => reorderChapter(courseId, chaptersToUpdate);
-        toast.promise(reorderPromise(), {
-          loading: "Đang sắp xếp lại các chương...",
-          success: (result) => {
-            if (result.status === "success") return result.message;
-            throw new Error(result.message);
-          },
-          error: () => {
+        
+        startTransition(async () => {
+          try {
+            const result = await reorderChapter(courseId, chaptersToUpdate);
+            
+            if (result.status === "success") {
+              toast.success(result.message);
+              router.refresh();
+            } else {
+              toast.error(result.message);
+              setItems(previousItems);
+            }
+          } catch (error) {
+            toast.error("Lỗi khi sắp xếp lại các chương");
             setItems(previousItems);
-            return "Lỗi khi sắp xếp lại các chương";
-          },
+          }
         });
       }
       return;
     }
+    
     if (activeType === "lesson" && overType === "lesson") {
       const chapterId = active.data.current?.chapterId;
       const overChapterId = over.data.current?.chapterId;
       if (!chapterId || chapterId !== overChapterId) {
-        toast.error(
-          "Lesson move between different chapters or invalid chapter ID is not allow."
-        );
+        toast.error("Không thể di chuyển bài học giữa các chương khác nhau");
         return;
       }
       const chapterIndex = items.findIndex(
         (chapter) => chapter.id === chapterId
       );
       if (chapterIndex === -1) {
-        toast.error("Could not find chapter for lesson");
+        toast.error("Không thể tìm thấy chương cho bài học");
         return;
       }
       const chapterToUpdate = items[chapterIndex];
@@ -190,7 +201,7 @@ export function CourseStructure({ data }: iAppProps) {
         (lesson) => lesson.id === overId
       );
       if (oldLessonIndex === -1 || newLessonIndex === -1) {
-        toast.error("Could not find lesson for reordering");
+        toast.error("Không thể tìm thấy bài học để sắp xếp lại");
         return;
       }
       const reordedLessons = arrayMove(
@@ -208,29 +219,40 @@ export function CourseStructure({ data }: iAppProps) {
         lessons: updatedLessonForState,
       };
       const previousItems = [...items];
+      
       setItems(newItems);
+      
       if (courseId) {
         const lessonsToUpdate = updatedLessonForState.map((lesson) => ({
           id: lesson.id,
           position: lesson.order,
         }));
-        const reorderLessonPromise = () =>
-          reorderLessons(chapterId, lessonsToUpdate, courseId);
-        toast.promise(reorderLessonPromise(), {
-          loading: "Đang tiến hành sắp xếp bài học",
-          success: (result) => {
-            if (result.status === "success") return result.message;
-            throw new Error(result.message);
-          },
-          error: () => {
+        
+        startTransition(async () => {
+          try {
+            const result = await reorderLessons(
+              chapterId,
+              lessonsToUpdate,
+              courseId
+            );
+            
+            if (result.status === "success") {
+              toast.success(result.message);
+              router.refresh();
+            } else {
+              toast.error(result.message);
+              setItems(previousItems);
+            }
+          } catch (error) {
+            toast.error("Sắp xếp bài học thất bại");
             setItems(previousItems);
-            return "Sắp xếp bài học thất bại";
-          },
+          }
         });
       }
       return;
     }
   }
+  
   function toogleChapter(chapterId: string) {
     setItems(
       items.map((chapter) =>
@@ -240,12 +262,14 @@ export function CourseStructure({ data }: iAppProps) {
       )
     );
   }
+  
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+  
   return (
     <DndContext
       collisionDetection={rectIntersection}
@@ -255,9 +279,18 @@ export function CourseStructure({ data }: iAppProps) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between border-b border-border">
           <CardTitle>Chương</CardTitle>
+          <NewChapterModal courseId={data.id}></NewChapterModal>
         </CardHeader>
         <CardContent className="space-y-8">
-          <SortableContext items={items} strategy={verticalListSortingStrategy}>
+          {isPending && (
+            <div className="text-sm text-muted-foreground">
+              Đang cập nhật dữ liệu
+            </div>
+          )}
+          <SortableContext
+            items={items.map((item) => item.id)}
+            strategy={verticalListSortingStrategy}
+          >
             {items.map((item) => (
               <SortableItem
                 id={item.id}
@@ -272,7 +305,12 @@ export function CourseStructure({ data }: iAppProps) {
                     >
                       <div className="flex items-center justify-between p-3 border-b border-border">
                         <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="icon" {...listeners}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            {...listeners}
+                            disabled={isPending}
+                          >
                             <GripVertical className="size-4"></GripVertical>
                           </Button>
                           <CollapsibleTrigger asChild>
@@ -292,9 +330,7 @@ export function CourseStructure({ data }: iAppProps) {
                             {item.title}
                           </p>
                         </div>
-                        <Button size="icon" variant="outline">
-                          <Trash2 className="size-4"></Trash2>
-                        </Button>
+                        <DeleteChapter chapterId={item.id} courseId={data.id}></DeleteChapter>
                       </div>
                       <CollapsibleContent>
                         <div className="p-1">
@@ -315,6 +351,7 @@ export function CourseStructure({ data }: iAppProps) {
                                         variant="ghost"
                                         size="icon"
                                         {...lessonListeners}
+                                        disabled={isPending}
                                       >
                                         <GripVertical className="size-4"></GripVertical>
                                       </Button>
@@ -325,18 +362,14 @@ export function CourseStructure({ data }: iAppProps) {
                                         {lesson.title}
                                       </Link>
                                     </div>
-                                    <Button variant="outline" size="icon">
-                                      <TrashIcon className="size-4"></TrashIcon>
-                                    </Button>
+                                    <DeleteLesson chapterId={item.id} courseId={data.id} lessonId={lesson.id}></DeleteLesson>
                                   </div>
                                 )}
                               </SortableItem>
                             ))}
                           </SortableContext>
                           <div className="p-2">
-                            <Button variant="outline" className="w-full">
-                              Tạo bài học mới
-                            </Button>
+                              <NewLessonModal chapterId={item.id} courseId={data.id}></NewLessonModal>
                           </div>
                         </div>
                       </CollapsibleContent>

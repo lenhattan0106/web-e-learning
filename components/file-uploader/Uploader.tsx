@@ -29,9 +29,10 @@ interface UpLoaderState {
 interface iAppProps {
   value?: string;
   onChange?: (value: string) => void;
+  fileTypeAccepted:"image"|"video"; 
 }
 
-export function Uploader({ onChange, value }: iAppProps) {
+export function Uploader({ onChange, value, fileTypeAccepted }: iAppProps) {
   const fileUrl = useConstructUrl(value || '')
   const [fileState, setFileState] = useState<UpLoaderState>({
     error: false,
@@ -40,9 +41,9 @@ export function Uploader({ onChange, value }: iAppProps) {
     uploading: false,
     progress: 0,
     isDeleting: false,
-    fileType: "image",
+    fileType: fileTypeAccepted,
     key: value,
-    objectUrl:fileUrl
+    objectUrl:value ? fileUrl:undefined,
   });
   const upLoadFile = useCallback(
     async (file: File) => {
@@ -60,7 +61,7 @@ export function Uploader({ onChange, value }: iAppProps) {
             fileName: file.name,
             contentType: file.type,
             size: file.size,
-            isImage: true,
+            isImage: fileTypeAccepted ==="image"? true: false,
           }),
         });
         if (!presignedResponse.ok) {
@@ -117,7 +118,7 @@ export function Uploader({ onChange, value }: iAppProps) {
         }));
       }
     },
-    [onChange]
+    [onChange,fileTypeAccepted]
   );
 
   const onDrop = useCallback(
@@ -139,14 +140,14 @@ export function Uploader({ onChange, value }: iAppProps) {
             error: false,
             id: uuidv4(),
             isDeleting: false,
-            fileType: "image",
+            fileType: fileTypeAccepted,
           };
         });
 
         upLoadFile(file);
       }
     },
-    [upLoadFile]
+    [upLoadFile,fileTypeAccepted]
   );
 
   async function handleRemoveFile() {
@@ -182,7 +183,7 @@ export function Uploader({ onChange, value }: iAppProps) {
         progress: 0,
         objectUrl: undefined,
         error: false,
-        fileType: "image",
+        fileType: fileTypeAccepted,
         id: null,
         isDeleting: false,
       }));
@@ -228,10 +229,11 @@ export function Uploader({ onChange, value }: iAppProps) {
     }
     if (fileState.objectUrl) {
       return (
-        <RenderUploadedState
+        <RenderUploadedState  
           isDeleting={fileState.isDeleting}
           handleRemoveFile={handleRemoveFile}
           previewUrl={fileState.objectUrl}
+          fileType={fileState.fileType}
         ></RenderUploadedState>
       );
     }
@@ -246,10 +248,10 @@ export function Uploader({ onChange, value }: iAppProps) {
   }, [fileState.objectUrl]);
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { "image/*": [] },
+    accept: fileTypeAccepted ==="video"?{'video/*':[]}:{"image/*":[]},
     maxFiles: 1,
     multiple: false,
-    maxSize: 5 * 1024 * 1024, // 5mb calculation,
+    maxSize: fileTypeAccepted === "video" ? 4000 * 1024 * 1024 : 5 * 1024 * 1024, // Video: 100MB, Image: 5MB
     onDropRejected: rejectedFiles,
     disabled: fileState.uploading || !!fileState.objectUrl,
   });

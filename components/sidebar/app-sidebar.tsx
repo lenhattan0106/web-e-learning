@@ -40,7 +40,7 @@ const data = {
     },
     {
       title: "Khóa học",
-      url: "admin/courses",
+      url: "/admin/courses",
       icon: IconListDetails,
     },
     {

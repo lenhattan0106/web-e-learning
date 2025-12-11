@@ -1,7 +1,9 @@
+
 import { getIndivialCourse } from "@/app/data/course/get-course";
+import { checkIfCourseBought } from "@/app/data/user/user-is-enrolled";
 import { RenderDescription } from "@/components/rich-text-editor/RenderDescription";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Collapsible,
@@ -9,35 +11,37 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
-import { useConstructUrl } from "@/hooks/use-contruct-url";
 import { env } from "@/lib/env";
 import {
-  IconBook,
-  IconCategory,
-  IconChartBar,
-  IconChevronDown,
-  IconClock,
-  IconPlayerPlay,
-} from "@tabler/icons-react";
-import { CheckIcon } from "lucide-react";
+  BookOpen,
+  FolderOpen,
+  BarChart3,
+  ChevronDown,
+  Clock,
+  Play,
+  Check,
+} from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
+import { EnrollmentButton } from "./_components/EnrollmentButton";
 
 type Params = Promise<{ slug: string }>;
 
 export default async function SlugPage({ params }: { params: Params }) {
   const { slug } = await params;
   const course = await getIndivialCourse(slug);
+  const isEnrolled = await checkIfCourseBought(course.id);
   return (
     <div className="grid grid-cols-1  gap-8 lg:grid-cols-3 mt-5">
       <div className="order-1 lg:col-span-2">
-        <div className=" relative aspect-video w-full overflow-hidden rounded-xl shadow-lg">
+        <div className="relative aspect-video w-full overflow-hidden rounded-xl shadow-lg">
           <Image
             src={`https://${env.NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES}.t3.storage.dev/${course.fileKey}`}
-            alt="/"
+            alt={course.title}
             fill
             className="object-cover"
             priority
-          ></Image>
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
         </div>
         <div className="mt-4 space-y-6">
@@ -51,15 +55,15 @@ export default async function SlugPage({ params }: { params: Params }) {
           </div>
           <div className="flex flex-wrap gap-3">
             <Badge className="flex items-center gap-1 px-3 py-1 rounded">
-              <IconChartBar className="size-6"></IconChartBar>
+              <BarChart3 className="size-6" />
               <span>{course.level}</span>
             </Badge>
             <Badge className="flex items-center gap-1 px-3 py-1 rounded">
-              <IconCategory className="size-6"></IconCategory>
+              <FolderOpen className="size-6" />
               <span>{course.category}</span>
             </Badge>
             <Badge className="flex items-center gap-1 px-3 py-1 rounded">
-              <IconClock className="size-6"></IconClock>
+              <Clock className="size-6" />
               <span>{course.duration} giờ</span>
             </Badge>
           </div>
@@ -83,7 +87,7 @@ export default async function SlugPage({ params }: { params: Params }) {
               {course.chapter.reduce(
                 (total, chapter) => total + chapter.lessons.length,
                 0
-              ) || 0}{" "}
+              )}{" "}
               bài học
             </div>
           </div>
@@ -112,7 +116,7 @@ export default async function SlugPage({ params }: { params: Params }) {
                             <Badge variant="outline" className="text-sm">
                               {chapter.lessons.length} bài học
                             </Badge>
-                            <IconChevronDown className="size-5 text-muted-foreground"></IconChevronDown>
+                            <ChevronDown className="size-5 text-muted-foreground" />
                           </div>
                         </div>
                       </CardContent>
@@ -124,10 +128,10 @@ export default async function SlugPage({ params }: { params: Params }) {
                         {chapter.lessons.map((lesson, lessonIndex) => (
                           <div
                             key={lesson.id}
-                            className="flex items-center gap-4 rounded-lg p-3 hover:bg-accent transition-colors group-[]:"
+                            className="flex items-center gap-4 rounded-lg p-3 hover:bg-accent transition-colors group"
                           >
                             <div className="flex size-8 items-center justify-center rounded-full bg-background border-2 border-primary/30">
-                              <IconPlayerPlay className="size-4 text-muted-foreground group-hover:text-primary transition-colors"></IconPlayerPlay>
+                              <Play className="size-4 text-muted-foreground group-hover:text-primary transition-colors" />
                             </div>
                             <div className="flex-1">
                               <p className="font-medium text-sm">
@@ -149,7 +153,7 @@ export default async function SlugPage({ params }: { params: Params }) {
         </div>
       </div>
       {/* Design khu vực mua khóa học */}
-      <div className="order-2 lg:col-span1">
+      <div className="order-2 lg:col-span-1">
         <div className="sticky top-20">
           <Card className="py-0">
             <CardContent className="p-6">
@@ -169,7 +173,7 @@ export default async function SlugPage({ params }: { params: Params }) {
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-3">
                     <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-                      <IconClock className="size-4"></IconClock>
+                      <Clock className="size-4" />
                     </div>
                     <div>
                       <p className="text-sm font-medium">Thời lượng</p>
@@ -180,7 +184,7 @@ export default async function SlugPage({ params }: { params: Params }) {
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-                      <IconChartBar className="size-4"></IconChartBar>
+                      <BarChart3 className="size-4" />
                     </div>
                     <div>
                       <p className="text-sm font-medium">Cấp độ</p>
@@ -191,7 +195,7 @@ export default async function SlugPage({ params }: { params: Params }) {
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-                      <IconCategory className="size-4"></IconCategory>
+                      <FolderOpen className="size-4" />
                     </div>
                     <div>
                       <p className="text-sm font-medium">Danh mục</p>
@@ -202,7 +206,7 @@ export default async function SlugPage({ params }: { params: Params }) {
                   </div>
                     <div className="flex items-center gap-3">
                       <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-                        <IconBook className="size-4"></IconBook>
+                        <BookOpen className="size-4" />
                       </div>
                       <div>
                         <p className="text-sm font-medium">Số lượng bài học</p>
@@ -210,7 +214,7 @@ export default async function SlugPage({ params }: { params: Params }) {
                           {course.chapter.reduce(
                             (total, chapter) => total + chapter.lessons.length,
                             0
-                          ) || 0}{" "}
+                          )}{" "}
                           bài học
                         </p>
                       </div>
@@ -219,31 +223,38 @@ export default async function SlugPage({ params }: { params: Params }) {
                 </div>
 
                 <div className="mb-6 space-y-3">
-                    <h2>Khóa học bao gồm:</h2>
-                    <ul className="space-y-6">
+                    <h2 className="font-semibold">Khóa học bao gồm:</h2>
+                    <ul className="space-y-3">
                        <li className="flex items-center gap-2 text-sm">
                           <div className="rounded-full p-1 bg-green-500/10 text-green-500">
-                             <CheckIcon className="size-3"></CheckIcon>
+                             <Check className="size-3" />
                           </div>
                           <span>Quyền truy cập trọn đời</span>
                        </li>
                         <li className="flex items-center gap-2 text-sm">
                           <div className="rounded-full p-1 bg-green-500/10 text-green-500">
-                             <CheckIcon className="size-3"></CheckIcon>
+                             <Check className="size-3" />
                           </div>
                           <span>Cập nhật nội dung mới nhất</span>
                        </li>
                        <li className="flex items-center gap-2 text-sm">
                           <div className="rounded-full p-1 bg-green-500/10 text-green-500">
-                             <CheckIcon className="size-3"></CheckIcon>
+                             <Check className="size-3" />
                           </div>
                           <span>Cộng đồng học viên hỗ trợ lẫn nhau</span>
                        </li>
                     </ul>
                 </div>
-                <Button className="w-full">
-                  Mua ngay
-                </Button>
+                {isEnrolled ? (
+                  <Link href="/dashboard" className={buttonVariants({
+                    className:"w-full"
+                  })}>
+                  Xem khóa học
+                  </Link>
+                ):(
+                  <EnrollmentButton courseId={course.id}></EnrollmentButton>
+                )}
+          
             </CardContent>
           </Card>
         </div>

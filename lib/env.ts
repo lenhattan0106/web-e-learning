@@ -14,7 +14,10 @@ export const env = createEnv({
     AWS_SECRET_ACCESS_KEY:z.string().min(1),
     AWS_ENDPOINT_URL_S3:z.string().min(1),
     AWS_ENDPOINT_URL_IAM:z.string().min(1),
-    AWS_REGION:z.string().min(1)
+    AWS_REGION:z.string().min(1),
+    VNPAY_TMN_CODE: z.string().min(1),
+    VNPAY_SECURE_SECRET:z.string().min(1),
+    VNPAY_RETURN_URL:z.string().min(1)
   },
  
   client:{

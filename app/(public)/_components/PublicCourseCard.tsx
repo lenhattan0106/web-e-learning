@@ -45,13 +45,24 @@ export function PublicCourseCard({ data }: iAppProps) {
             <p className="text-sm text-muted-foreground">{data.category}</p>
           </div>
         </div>
+        <div className=" flex items-center mt-8 gap-2">
+                <span className="text-lg font-medium">Giá:</span>
+                <span className="text-2xl font-bold text-primary">
+                  {new Intl.NumberFormat("vi-VN", {
+                    style: "currency",
+                    currency: "VND",
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  }).format(data.price)}
+                </span>
+        </div>
         <Link
           href={`/courses/${data.slug}`}
           className={buttonVariants({
             className: "w-full mt-4",
           })}
         >
-          Học khóa học này
+          Xem chi tiết
         </Link>
       </CardContent>
     </Card>

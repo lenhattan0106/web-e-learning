@@ -5,7 +5,7 @@ import { env } from '@/lib/env';
 import { v4 as uuidv4 } from 'uuid';
 import {getSignedUrl} from "@aws-sdk/s3-request-presigner"
 import { S3 } from '@/lib/S3Client';
-import aj, { detectBot, fixedWindow } from '@/lib/arcjet';
+import aj, {fixedWindow } from '@/lib/arcjet';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { requireAdmin } from '@/app/data/admin/required-admin';
@@ -17,12 +17,8 @@ export const fileUploadSchema = z.object({
     isImage:z.boolean(),
 
 })
-const arcjet = aj.withRule(
-  detectBot({
-    mode:"LIVE",
-    allow:[],
-  })
-).withRule(
+const arcjet = aj
+.withRule(
   fixedWindow({
     mode:"LIVE",
     window:"1m",

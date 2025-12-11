@@ -7,7 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-//Model User - Bảng "nguoiDung"
 model User {
   id            String    @id @map("idND")
   name          String    @map("hoTen")
@@ -19,8 +18,7 @@ model User {
   courses       Course[]
   sessions      Session[]
   accounts      Account[]
-
-  // Admin plugin fields - mapped sang tiếng Việt
+  enrollment  Enrollment[]
   role       String?   @map("vaiTro")
   banned     Boolean?  @default(false) @map("biCam")
   banReason  String?   @map("lyDoCam")
@@ -29,7 +27,6 @@ model User {
   @@map("nguoiDung")
 }
 
-//Model Session - Bảng "phienDangNhap"
 model Session {
   id        String   @id @map("idPhien")
   expiresAt DateTime @map("hetHan")
@@ -48,7 +45,7 @@ model Session {
   @@index([userId])
 }
 
-//Model Account - Bảng "taiKhoan"
+
 model Account {
   id         String @id @map("idTK")
   accountId  String @map("maTaiKhoan")
@@ -72,7 +69,6 @@ model Account {
   @@index([userId])
 }
 
-//Model Verification - Bảng "xacMinh"
 model Verification {
   id         String   @id @map("idXM")
   identifier String   @map("maDinhDanh")
@@ -85,7 +81,6 @@ model Verification {
   @@index([identifier])
 }
 
-//Model Course - Bảng "khoaHoc"
 model Course {
   id               String       @id @default(uuid()) @map("idKH")
   title            String       @map("tieuDe")
@@ -100,7 +95,7 @@ model Course {
   status           CourseStatus @default(BanNhap) @map("trangThai")
   createdAt        DateTime     @default(now()) @map("ngayTao")
   updatedAt        DateTime     @updatedAt @map("ngayCapNhat")
-
+  enrollment       Enrollment[]
   userId String @map("idNguoiDung")
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   chapter Chapter[]
@@ -150,4 +145,29 @@ model Lesson{
 
   @@map("baiHoc")
   @@index([chapterId])
+}
+
+model Enrollment{
+  id        String             @id @default(uuid()) @map("idDK")
+  amount    Int                @map("soTien")
+  status    EnrollmentStatus   @default(DangXuLy) @map("trangThai")
+  createdAt DateTime           @default(now()) @map("ngayTao")
+  updatedAt DateTime           @updatedAt @map("ngayCapNhat")
+  
+  courseId  String             @map("idKH")
+  course    Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  userId    String             @map("idND")
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("dangKyHoc")  
+  @@unique([userId, courseId])
+  @@index([courseId])
+  @@index([userId])
+}
+
+enum EnrollmentStatus {
+  DangXuLy     
+  DaThanhToan
+  DaHuy  
 }

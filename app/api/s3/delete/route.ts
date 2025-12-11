@@ -2,18 +2,12 @@ import { NextResponse } from "next/server";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { env } from "@/lib/env";
 import { S3 } from "@/lib/S3Client";
-import aj, { detectBot, fixedWindow } from "@/lib/arcjet";
+import aj, { fixedWindow } from "@/lib/arcjet";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { requireAdmin } from "@/app/data/admin/required-admin";
 
 const arcjet = aj
-  .withRule(
-    detectBot({
-      mode: "LIVE",
-      allow: [],
-    })
-  )
   .withRule(
     fixedWindow({
       mode: "LIVE",

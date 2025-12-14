@@ -1,3 +1,4 @@
+import "server-only";
 import { VNPay, HashAlgorithm } from "vnpay";
 import { env } from "./env";
 

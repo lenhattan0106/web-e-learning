@@ -1,14 +1,29 @@
 import { Suspense } from "react";
-import { CheckCircle, XCircle, Clock, ArrowRight, Home } from "lucide-react";
+import { CheckCircle, XCircle, Clock, ArrowRight, Home, AlertCircle } from "lucide-react";
 import { vnpay } from "@/lib/vnpay";
 import { type VerifyReturnUrl, parseDate } from "vnpay";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 interface PaymentReturnProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+// ✅ Helper function để chuyển status sang tiếng Việt
+function getStatusDisplay(status: string | null): { text: string; color: string } {
+  switch (status) {
+    case "DaThanhToan":
+      return { text: "Đã thanh toán", color: "bg-green-100 text-green-700" };
+    case "DaHuy":
+      return { text: "Đã hủy", color: "bg-red-100 text-red-700" };
+    case "DangXuLy":
+      return { text: "Đang xử lý", color: "bg-yellow-100 text-yellow-700" };
+    default:
+      return { text: "Không xác định", color: "bg-gray-100 text-gray-700" };
+  }
 }
 
 function PaymentResultSkeleton() {
@@ -35,39 +50,63 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
   let isSuccess = false;
   let hasError = false;
   let errorMessage = "";
+  let displayStatus: string | null = null;
 
   try {
     const params = await searchParams;
     verify = vnpay.verifyReturnUrl(params as unknown as VerifyReturnUrl);
     isSuccess = verify.isVerified && verify.isSuccess;
 
-    // Cập nhật enrollment nếu thành công
-    if (isSuccess && verify.vnp_TxnRef) {
+    // ✅ CẬP NHẬT DATABASE NGAY TẠI ĐÂY
+    if (verify?.vnp_TxnRef) {
       try {
-        await prisma.enrollment.update({
+        const enrollment = await prisma.enrollment.findUnique({
           where: { id: verify.vnp_TxnRef },
-          data: {
-            status: "DaThanhToan",
-            updatedAt: new Date(),
+          select: {
+            id: true,
+            status: true,
           },
         });
-        console.log("✅ Đã cập nhật enrollment từ return page");
+
+        if (enrollment) {
+          if (isSuccess) {
+            // ✅ THANH TOÁN THÀNH CÔNG → CẬP NHẬT NGAY
+            if (enrollment.status !== "DaThanhToan") {
+              await prisma.enrollment.update({
+                where: { id: enrollment.id },
+                data: {
+                  status: "DaThanhToan",
+                  updatedAt: new Date(),
+                },
+              });
+              displayStatus = "DaThanhToan";
+              console.log("✅ Đã cập nhật enrollment thành công tại Return URL:", enrollment.id);
+            } else {
+              displayStatus = "DaThanhToan";
+            }
+          } else {
+            // ❌ THANH TOÁN THẤT BẠI → CẬP NHẬT THÀNH DaHuy
+            if (enrollment.status !== "DaHuy") {
+              await prisma.enrollment.update({
+                where: { id: enrollment.id },
+                data: {
+                  status: "DaHuy",
+                  updatedAt: new Date(),
+                },
+              });
+              displayStatus = "DaHuy";
+              console.log("❌ Đã cập nhật enrollment thất bại tại Return URL:", enrollment.id);
+            } else {
+              displayStatus = "DaHuy";
+            }
+          }
+        } else {
+          displayStatus = null;
+        }
       } catch (updateError) {
-        console.warn("Không thể cập nhật enrollment:", updateError);
-      }
-    } else if (!isSuccess && verify && verify.vnp_TxnRef) {
-      // XỬ LÝ TRƯỜNG HỢP THẤT BẠI
-      try {
-        await prisma.enrollment.update({
-          where: { id: verify.vnp_TxnRef },
-          data: {
-            status: "DaHuy",
-            updatedAt: new Date(),
-          },
-        });
-        console.log("Đã cập nhật enrollment thành DaHuy từ return page");
-      } catch (updateError) {
-        console.warn("Không thể cập nhật enrollment:", updateError);
+        console.error("Lỗi cập nhật enrollment:", updateError);
+        // Fallback: Hiển thị dựa vào VNPay
+        displayStatus = isSuccess ? "DaThanhToan" : "DaHuy";
       }
     }
   } catch (error) {
@@ -125,6 +164,9 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
         minute: "2-digit",
       })
     : "N/A";
+
+  // ✅ Lấy text và màu hiển thị
+  const statusDisplay = getStatusDisplay(displayStatus);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
@@ -230,12 +272,24 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
                 )}
 
                 {verify?.vnp_TransactionNo && (
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center pb-3 border-b border-gray-200">
                     <span className="text-sm font-medium text-gray-600">
                       Mã GD VNPay
                     </span>
                     <span className="text-sm text-gray-900 font-mono bg-white px-3 py-1 rounded-lg">
                       {verify.vnp_TransactionNo}
+                    </span>
+                  </div>
+                )}
+
+                {/* ✅ Hiển thị trạng thái bằng tiếng Việt */}
+                {displayStatus && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-600">
+                      Trạng thái
+                    </span>
+                    <span className={`text-sm font-semibold px-3 py-1 rounded-lg ${statusDisplay.color}`}>
+                      {statusDisplay.text}
                     </span>
                   </div>
                 )}
@@ -246,7 +300,7 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
             {verify && !verify.isVerified && (
               <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-xl p-4">
                 <div className="flex items-start gap-3">
-                  <Clock className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" />
+                  <AlertCircle className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" />
                   <p className="text-sm text-yellow-800 leading-relaxed">
                     <strong>Cảnh báo:</strong> Không thể xác minh tính toàn vẹn
                     dữ liệu. Vui lòng liên hệ bộ phận hỗ trợ.
@@ -282,14 +336,14 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
           {isSuccess ? (
             <>
               Cần hỗ trợ?{" "}
-              <Link href="/contact" className="text-blue-600 hover:underline">
+              <Link href="/" className="text-blue-600 hover:underline">
                 Liên hệ với chúng tôi
               </Link>
             </>
           ) : (
             <>
               Gặp vấn đề?{" "}
-              <Link href="/support" className="text-blue-600 hover:underline">
+              <Link href="/" className="text-blue-600 hover:underline">
                 Trung tâm hỗ trợ
               </Link>
             </>

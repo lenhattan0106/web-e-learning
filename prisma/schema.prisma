@@ -19,6 +19,7 @@ model User {
   sessions      Session[]
   accounts      Account[]
   enrollment  Enrollment[]
+  lessonProgress LessonProgress[]
   role       String?   @map("vaiTro")
   banned     Boolean?  @default(false) @map("biCam")
   banReason  String?   @map("lyDoCam")
@@ -142,7 +143,7 @@ model Lesson{
   updatedAt    DateTime @updatedAt @map("ngayCapNhat")
   chapterId String  @map("idC")
   chapter   Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
-
+  lessonProgress LessonProgress[]
   @@map("baiHoc")
   @@index([chapterId])
 }
@@ -170,4 +171,20 @@ enum EnrollmentStatus {
   DangXuLy     
   DaThanhToan
   DaHuy  
+}
+
+model LessonProgress {
+  id        String   @id @default(uuid()) @map("idTienTrinh")
+  completed Boolean  @default(false) @map("hoanthanh")
+  createdAt DateTime @default(now()) @map("ngayTao")
+  updatedAt DateTime @updatedAt @map("ngayCapNhat")
+
+  userId   String @map("idNguoiDung")
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  lessonId String @map("idBaiHoc")
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+  @@map("tienTrinhHoc")
 }

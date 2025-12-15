@@ -3,16 +3,12 @@
 import * as React from "react"
 import {
   IconCamera,
-  IconChartBar,
   IconDashboard,
   IconFileAi,
   IconFileDescription,
-  IconFolder,
   IconHelp,
-  IconListDetails, 
   IconSearch,
   IconSettings,
-  IconUsers,
 } from "@tabler/icons-react"
 
 import Logo from "@/public/logo e-learning.png"
@@ -35,28 +31,8 @@ const data = {
   navMain: [
     {
       title: "Bảng điều khiển",
-      url: "/admin",
+      url: "/dashboard",
       icon: IconDashboard,
-    },
-    {
-      title: "Khóa học",
-      url: "/admin/courses",
-      icon: IconListDetails,
-    },
-    {
-      title: "Phân tích",
-      url: "#",
-      icon: IconChartBar,
-    },
-    {
-      title: "Dự án",
-      url: "#",
-      icon: IconFolder,
-    },
-    {
-      title: "Nhóm",
-      url: "#",
-      icon: IconUsers,
     },
   ],
   navClouds: [

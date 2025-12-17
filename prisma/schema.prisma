@@ -15,11 +15,11 @@ model User {
   image         String?   @map("anhDaiDien")
   createdAt     DateTime  @default(now()) @map("ngayTao")
   updatedAt     DateTime  @updatedAt @map("ngayCapNhat")
-  courses       Course[]
+  khoaHocs      KhoaHoc[]
   sessions      Session[]
   accounts      Account[]
-  enrollment  Enrollment[]
-  lessonProgress LessonProgress[]
+  dangKyHocs    DangKyHoc[]
+  tienTrinhHocs TienTrinhHoc[]
   role       String?   @map("vaiTro")
   banned     Boolean?  @default(false) @map("biCam")
   banReason  String?   @map("lyDoCam")
@@ -82,109 +82,111 @@ model Verification {
   @@index([identifier])
 }
 
-model Course {
-  id               String       @id @default(uuid()) @map("idKH")
-  title            String       @map("tieuDe")
-  description      String       @map("moTa")
-  fileKey          String       @map("tepKH")
-  price            Int          @map("gia")
-  duration         Int          @map("thoiLuong")
-  level            CourseLevel  @default(NguoiMoi) @map("capDo")
-  category         String       @map("danhMuc")
-  smallDescription String       @map("moTaNgan")
-  slug             String       @unique @map("duongDan")
-  status           CourseStatus @default(BanNhap) @map("trangThai")
-  createdAt        DateTime     @default(now()) @map("ngayTao")
-  updatedAt        DateTime     @updatedAt @map("ngayCapNhat")
-  enrollment       Enrollment[]
-  userId String @map("idNguoiDung")
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  chapter Chapter[]
+model KhoaHoc {
+  id          String         @id @default(uuid())
+  tenKhoaHoc      String
+  moTa        String
+  tepKH      String
+  gia         Int
+  thoiLuong   Int
+  capDo       CapDoKhoaHoc   @default(NguoiMoi)
+  danhMuc     String
+  moTaNgan    String
+  duongDan    String         @unique
+  trangThai   TrangThaiKhoaHoc @default(BanNhap)
+  ngayTao     DateTime       @default(now())
+  ngayCapNhat DateTime       @updatedAt
+  dangKyHocs  DangKyHoc[]
+  idNguoiDung String
+  nguoiDung   User           @relation(fields: [idNguoiDung], references: [id], onDelete: Cascade)
+  chuongs     Chuong[]
+  
   @@map("khoaHoc")
 }
 
-enum CourseLevel {
+enum CapDoKhoaHoc {
   NguoiMoi     
   TrungCap 
   NangCao   
 }
 
-enum CourseStatus {
+enum TrangThaiKhoaHoc {
   BanNhap     
   BanChinhThuc
   BanLuuTru  
 }
 
-model Chapter{
-  id        String   @id @default(uuid()) @map("idC")
-  title     String   @map("tenChuong")
-  position  Int      @map("thuTu")
-  createdAt DateTime @default(now()) @map("ngayTao")
-  updatedAt DateTime @updatedAt @map("ngayCapNhat")
+model Chuong {
+  id          String   @id @default(uuid())
+  tenChuong   String
+  thuTu       Int
+  ngayTao     DateTime @default(now())
+  ngayCapNhat DateTime @updatedAt
   
-  lessons   Lesson[]
-  courseId  String   @map("idKH")
-  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  baiHocs     BaiHoc[]
+  idKhoaHoc   String
+  khoaHoc     KhoaHoc  @relation(fields: [idKhoaHoc], references: [id], onDelete: Cascade)
 
   @@map("chuong")
-  @@index([courseId])
+  @@index([idKhoaHoc])
 }
 
-model Lesson{
-  id           String   @id @default(uuid()) @map("idBH")
-  title        String   @map("tenBaiHoc")
-  description  String?  @map("moTa") 
-  thumbnailKey String?  @map("anhBaiHoc")
-  videoKey     String?  @map("maVideo")
-  position     Int      @map("thuTu")
-  duration     Int?     @map("thoiLuong")
-  isFree       Boolean  @default(false) @map("mienPhi")
-  createdAt    DateTime @default(now()) @map("ngayTao")
-  updatedAt    DateTime @updatedAt @map("ngayCapNhat")
-  chapterId String  @map("idC")
-  chapter   Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
-  lessonProgress LessonProgress[]
+model BaiHoc {
+  id             String   @id @default(uuid())
+  tenBaiHoc      String
+  moTa           String?
+  anhBaiHoc      String?
+  maVideo        String?
+  thuTu          Int
+  thoiLuong      Int?
+  mienPhi        Boolean?  @default(false)
+  ngayTao        DateTime @default(now())
+  ngayCapNhat    DateTime @updatedAt
+  idChuong       String
+  chuong         Chuong   @relation(fields: [idChuong], references: [id], onDelete: Cascade)
+  tienTrinhHocs  TienTrinhHoc[]
+  
   @@map("baiHoc")
-  @@index([chapterId])
+  @@index([idChuong])
 }
 
-model Enrollment{
-  id        String             @id @default(uuid()) @map("idDK")
-  amount    Int                @map("soTien")
-  status    EnrollmentStatus   @default(DangXuLy) @map("trangThai")
-  createdAt DateTime           @default(now()) @map("ngayTao")
-  updatedAt DateTime           @updatedAt @map("ngayCapNhat")
+model DangKyHoc {
+  id          String             @id @default(uuid())
+  soTien      Int
+  trangThai   TrangThaiDangKy    @default(DangXuLy)
+  ngayTao     DateTime           @default(now())
+  ngayCapNhat DateTime           @updatedAt
   
-  courseId  String             @map("idKH")
-  course    Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  idKhoaHoc   String
+  khoaHoc     KhoaHoc            @relation(fields: [idKhoaHoc], references: [id], onDelete: Cascade)
   
-  userId    String             @map("idND")
-  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  idNguoiDung String
+  nguoiDung   User               @relation(fields: [idNguoiDung], references: [id], onDelete: Cascade)
 
   @@map("dangKyHoc")  
-  @@unique([userId, courseId])
-  @@index([courseId])
-  @@index([userId])
+  @@unique([idNguoiDung, idKhoaHoc])
+  @@index([idKhoaHoc])
+  @@index([idNguoiDung])
 }
 
-enum EnrollmentStatus {
+enum TrangThaiDangKy {
   DangXuLy     
   DaThanhToan
   DaHuy  
 }
 
-model LessonProgress {
-  id        String   @id @default(uuid()) @map("idTienTrinh")
-  completed Boolean  @default(false) @map("hoanthanh")
-  createdAt DateTime @default(now()) @map("ngayTao")
-  updatedAt DateTime @updatedAt @map("ngayCapNhat")
+model TienTrinhHoc {
+  id          String   @id @default(uuid())
+  hoanThanh   Boolean  @default(false)
+  ngayTao     DateTime @default(now())
+  ngayCapNhat DateTime @updatedAt
 
-  userId   String @map("idNguoiDung")
-  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  idNguoiDung String
+  nguoiDung   User     @relation(fields: [idNguoiDung], references: [id], onDelete: Cascade)
 
-  lessonId String @map("idBaiHoc")
-  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  idBaiHoc    String
+  baiHoc      BaiHoc   @relation(fields: [idBaiHoc], references: [id], onDelete: Cascade)
 
-  @@unique([userId, lessonId])
+  @@unique([idNguoiDung, idBaiHoc])
   @@map("tienTrinhHoc")
 }

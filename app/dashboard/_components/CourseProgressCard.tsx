@@ -16,13 +16,13 @@ interface iAppProps {
   data: EnrolledCourseType;
 }
 export function CourseProgressCard({ data }: iAppProps) {
-  const thumbnailUrl = useConstructUrl(data.course.fileKey);
-  const {totalLessons,completedLessons,progressPercentage} =useCourseProgress({courseData:data.course as any})
+  const thumbnailUrl = useConstructUrl(data.khoaHoc.tepKH);
+  const { totalLessons, completedLessons, progressPercentage } = useCourseProgress({
+    courseData: data.khoaHoc as any,
+  });
   return (
     <Card className="group relative py-0 gap-0">
-      <Badge className="absolute top-2 right-2 z-10 rounded">
-        {data.course.level}
-      </Badge>
+      <Badge className="absolute top-2 right-2 z-10 rounded">{data.khoaHoc.capDo}</Badge>
       <Image
         width={600}
         height={400}
@@ -33,23 +33,25 @@ export function CourseProgressCard({ data }: iAppProps) {
       <CardContent className="p-4">
         <Link
           className="font-medium text-lg line-clamp-2 hover:underline group-hover:text-primary transition-colors"
-          href={`/dashboard/${data.course.slug}`}
+          href={`/dashboard/${data.khoaHoc.duongDan}`}
         >
-          {data.course.title}
+          {data.khoaHoc.tenKhoaHoc}
         </Link>
         <p className="line-clamp-2 text-sm text-muted-foreground leading-tight mt-2">
-          {data.course.smallDescription}
+          {data.khoaHoc.moTaNgan}
         </p>
-         <div className="space-y-4 mt-5">
-            <div className="flex justify-between mb-1 text-sm">
-                 <p>Tiến trình học:</p>
-                 <p className="font-medium">{progressPercentage}%</p>
-            </div>
-            <Progress value={progressPercentage} className="h-1.5"></Progress>
-            <p className="text-xs text-muted-foreground mt-1">{completedLessons}/{totalLessons} bài học</p>
-         </div>
+        <div className="space-y-4 mt-5">
+          <div className="flex justify-between mb-1 text-sm">
+            <p>Tiến trình học:</p>
+            <p className="font-medium">{progressPercentage}%</p>
+          </div>
+          <Progress value={progressPercentage} className="h-1.5"></Progress>
+          <p className="text-xs text-muted-foreground mt-1">
+            {completedLessons}/{totalLessons} bài học
+          </p>
+        </div>
         <Link
-          href={`/dashboard/${data.course.slug}`}
+          href={`/dashboard/${data.khoaHoc.duongDan}`}
           className={buttonVariants({
             className: "w-full mt-4",
           })}
@@ -80,7 +82,7 @@ export function PublicCourseCardSkeleton() {
             <Skeleton className="size-6 rounded-md"></Skeleton>
             <Skeleton className="h-4 w-8"></Skeleton>
           </div>
-           <div className="flex items-center gap-x-2">
+          <div className="flex items-center gap-x-2">
             <Skeleton className="size-6 rounded-md"></Skeleton>
             <Skeleton className="h-4 w-8"></Skeleton>
           </div>

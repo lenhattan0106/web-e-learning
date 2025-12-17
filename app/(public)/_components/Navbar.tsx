@@ -10,8 +10,8 @@ import { UserDropDown } from "./UserDropdown";
 
 const navigationItems = [
   { name: "Trang chủ", href: "/" },
-  { name: "Khóa học", href: "/admin/courses" },
-  { name: "Bảng điều khiển", href: "/admin" },
+  { name: "Khóa học", href: "/teacher/courses" },
+  { name: "Bảng điều khiển", href: "/teacher" },
 ];
 export function Navbar() {
   const { data: session, isPending } = authClient.useSession();

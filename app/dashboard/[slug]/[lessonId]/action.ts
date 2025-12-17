@@ -4,35 +4,34 @@ import { requireUser } from "@/app/data/user/require-user";
 import { prisma } from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { revalidatePath } from "next/cache";
-import { tr } from "zod/v4/locales";
 
 export async function markLessonComplete(
-  lessonId: string,
-  slug:string
+  idBaiHoc: string,
+  duongDan: string
 ): Promise<ApiResponse> {
   const session = await requireUser();
   try {
-    await prisma.lessonProgress.upsert({
+    await prisma.tienTrinhHoc.upsert({
       where: {
-        userId_lessonId: {
-          userId: session.id,
-          lessonId: lessonId,
+        idNguoiDung_idBaiHoc: {
+          idNguoiDung: session.id,
+          idBaiHoc: idBaiHoc,
         },
       },
-      update:{
-        completed:true,
+      update: {
+        hoanThanh: true,
       },
-      create:{
-        lessonId: lessonId,
-        userId: session.id,
-        completed:true
-      }
+      create: {
+        idBaiHoc: idBaiHoc,
+        idNguoiDung: session.id,
+        hoanThanh: true,
+      },
     });
-    revalidatePath(`/dashboard/${slug}`);
+    revalidatePath(`/dashboard/${duongDan}`);
     return {
-        status:"success",
-        message:"Tiến trình đã được cập nhật"
-    }
+      status: "success",
+      message: "Tiến trình đã được cập nhật",
+    };
   } catch {
     return {
       status: "error",

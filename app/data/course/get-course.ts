@@ -4,42 +4,42 @@ import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 
 export async function getIndivialCourse(slug: string) {
-  const course = await prisma.course.findUnique({
+  const khoaHoc = await prisma.khoaHoc.findUnique({
     where: {
-      slug: slug,
+      duongDan: slug,
     },
     select: {
       id: true,
-      title: true,
-      description: true,
-      fileKey: true,
-      price: true,
-      duration: true,
-      level: true,
-      category: true,
-      smallDescription: true,
-      chapter: {
+      tenKhoaHoc: true,
+      moTa: true,
+      tepKH: true,
+      gia: true,
+      thoiLuong: true,
+      capDo: true,
+      danhMuc: true,
+      moTaNgan: true,
+      chuongs: {
         select: {
           id: true,
-          title: true,
-          lessons: {
+          tenChuong: true,
+          baiHocs: {
             select: {
               id: true,
-              title: true,
+              tenBaiHoc: true,
             },
             orderBy: {
-              position: "asc",
+              thuTu: "asc",
             },
           },
         },
         orderBy: {
-          position: "asc",
+          thuTu: "asc",
         },
       },
     },
   });
-  if(!course){
+  if(!khoaHoc){
     return notFound();
   }
-  return course; 
+  return khoaHoc; 
 }

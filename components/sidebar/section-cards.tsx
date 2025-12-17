@@ -6,7 +6,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { teacherGetDashBoardStatus } from "@/app/data/admin/get-dashboard-stats";
+import { teacherGetDashBoardStatus } from "@/app/data/teacher/get-dashboard-stats";
+
 
 export  async function SectionCards() {
   const {totalCourses,totalLessons,totalRevenue,totalUsers} = await teacherGetDashBoardStatus()

@@ -90,13 +90,13 @@ export function NavUser() {
               </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-              <Link href="/admin">
+              <Link href="/teacher">
                 <IconDashboard />
                 Bảng điều khiển
               </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-               <Link href="/admin/courses">
+               <Link href="/teacher/courses">
                 <Tv2/>
                 Khóa học
                </Link>

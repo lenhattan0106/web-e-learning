@@ -18,15 +18,15 @@ export function CourseContent({ data }: iAppProps) {
   const [pending, startTransition] = useTransition();
   const {triggerConfetti} = useConfetti()
   function VideoPlayer({
-    thumbnailKey,
-    videoKey,
+    anhBaiHoc,
+    maVideo,
   }: {
-    thumbnailKey: string;
-    videoKey: string;
+    anhBaiHoc: string;
+    maVideo: string;
   }) {
-    const videoUrl = useConstructUrl(videoKey);
-    const thumbnailUrl = useConstructUrl(thumbnailKey);
-    if (!videoKey) {
+    const videoUrl = useConstructUrl(maVideo);
+    const thumbnailUrl = useConstructUrl(anhBaiHoc);
+    if (!maVideo) {
       return (
         <div className="aspect-video bg-muted rounded-lg flex flex-col items-center justify-center">
           <BookIcon className="size-16 text-primary mx-auto mb-4"></BookIcon>
@@ -54,7 +54,7 @@ export function CourseContent({ data }: iAppProps) {
 
     function onSubmit() {
     startTransition(async () => {
-      const { data: result, error } = await tryCatch(markLessonComplete(data.id,data.chapter.course.slug));
+      const { data: result, error } = await tryCatch(markLessonComplete(data.id,data.chuong.khoaHoc.duongDan));
       if (error) {
         toast.error("Đã xảy ra lỗi không mong muốn. Vui lòng thử lại");
         return;
@@ -71,12 +71,12 @@ export function CourseContent({ data }: iAppProps) {
   return (
     <div className="flex flex-col h-full bg-background pl-6">
       <VideoPlayer
-        thumbnailKey={data.thumbnailKey ?? ""}
-        videoKey={data.videoKey ?? ""}
+        anhBaiHoc={data.anhBaiHoc ?? ""}
+        maVideo={data.maVideo ?? ""}
       ></VideoPlayer>
    
       <div className="py-4 border-b">
-        {data.lessonProgress.length >0 ?(
+        {data.tienTrinhHocs.length >0 ?(
           <Button variant="outline" className="bg-green-500/10 text-green-500">
              <CheckCircle className="size-4 mr-2 text-green-500"></CheckCircle>
              Đã hoàn thành
@@ -89,10 +89,10 @@ export function CourseContent({ data }: iAppProps) {
         )}
       </div>
       <div className="space-y-2 pt-3">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">{data.title}</h1>
-        {data.description && (
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">{data.tenBaiHoc}</h1>
+        {data.moTa && (
           <RenderDescription
-            json={JSON.parse(data.description)}
+            json={JSON.parse(data.moTa)}
           ></RenderDescription>
         )}
       </div>

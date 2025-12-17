@@ -2,7 +2,6 @@ import { EmptyState } from "@/components/general/EmtyState";
 import { getAllCourses } from "../data/course/get-all-courses";
 import { getEnrolledCourses } from "../data/user/get-enrolled-courses";
 import { PublicCourseCard } from "../(public)/_components/PublicCourseCard";
-import Link from "next/link";
 import { CourseProgressCard } from "./_components/CourseProgressCard";
 
 export default async function DashboardPage() {
@@ -14,7 +13,7 @@ export default async function DashboardPage() {
   // Lọc các khóa học chưa mua
   const availableCourses = courses.filter(
     (course) =>
-      !enrolledCourses.some((enrollment) => enrollment.course.id === course.id)
+      !enrolledCourses.some((enrollment) => enrollment.khoaHoc.id === course.id)
   );
 
   return (
@@ -35,7 +34,7 @@ export default async function DashboardPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {enrolledCourses.map((enrollment) => (
-             <CourseProgressCard key={enrollment.course.id} data={enrollment}></CourseProgressCard>
+             <CourseProgressCard key={enrollment.khoaHoc.id} data={enrollment}></CourseProgressCard>
           ))}
         </div>
       )}

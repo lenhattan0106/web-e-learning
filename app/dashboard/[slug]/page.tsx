@@ -7,12 +7,12 @@ interface iAppProps {
 
 export default async function CourseSlugRoute({params}:iAppProps){
     const  {slug} = await params;
-    const course  = await  getCourseSideBarData(slug);
+    const {khoaHoc}  = await  getCourseSideBarData(slug);
     
-    const firstChapter = course.course.chapter[0];
-    const firstLesson = firstChapter.lessons[0];
-    if(firstLesson){
-        redirect(`/dashboard/${slug}/${firstLesson.id}`);
+    const firstChuong = khoaHoc.chuongs[0];
+    const firstBaiHoc = firstChuong.baiHocs[0];
+    if(firstBaiHoc){
+        redirect(`/dashboard/${slug}/${firstBaiHoc.id}`);
     }
     return(
         <div className="flex items-center justify-center h-full text-center">

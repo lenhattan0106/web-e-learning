@@ -44,6 +44,7 @@ import { CreateCourse } from "./action";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useConfetti } from "@/hooks/use-confetti";
+import { CourseTitleInput } from "@/components/teacher/CourseTitleInput";
 
 export default function CourseCreationPage() {
   const [isPending, startTransition] = useTransition();
@@ -114,7 +115,11 @@ export default function CourseCreationPage() {
                   <FormItem>
                     <FormLabel>Tiêu Đề</FormLabel>
                     <FormControl>
-                      <Input placeholder="Tiêu đề khóa học" {...field}></Input>
+                      <CourseTitleInput
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Tiêu đề khóa học"
+                      />
                     </FormControl>
                     <FormMessage></FormMessage>
                   </FormItem>

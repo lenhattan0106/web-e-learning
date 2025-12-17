@@ -46,6 +46,23 @@ export async function CreateCourse(values: KhoaHocSchemaType): Promise<ApiRespon
         message: "Dữ liệu biểu mẫu không hợp lệ",
       };
     }
+
+    // Kiểm tra trùng tiêu đề khóa học
+    const existed = await prisma.khoaHoc.findFirst({
+      where: {
+        tenKhoaHoc: validation.data.tenKhoaHoc,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (existed) {
+      return {
+        status: "error",
+        message: "Tiêu đề khóa học này đã tồn tại. Vui lòng chọn tiêu đề khác.",
+      };
+    }
     
     await prisma.khoaHoc.create({
       data: {

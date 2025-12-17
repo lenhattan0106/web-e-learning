@@ -8,7 +8,7 @@ import {
   KhoaHocSchemaType,
   trangThaiKhoaHoc,
 } from "@/lib/zodSchemas";
-import { Loader, PlusIcon, SparkleIcon } from "lucide-react";
+import { Loader, SparkleIcon } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -37,6 +37,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { editCourse } from "../action";
 import { TeacherEditCourseType } from "@/app/data/teacher/edit-course";
+import { CourseTitleInput } from "@/components/teacher/CourseTitleInput";
 
 interface iAppProps {
   data: TeacherEditCourseType;
@@ -87,7 +88,11 @@ export function EditCourseForm({ data }: iAppProps) {
             <FormItem>
               <FormLabel>Tiêu Đề</FormLabel>
               <FormControl>
-                <Input placeholder="Tiêu đề khóa học" {...field} />
+                <CourseTitleInput
+                  value={field.value}
+                  onChange={field.onChange}
+                  placeholder="Tiêu đề khóa học"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

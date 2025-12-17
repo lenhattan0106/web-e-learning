@@ -27,7 +27,7 @@ export function NavMain({
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
         <SidebarMenu>
-         {pathname.startsWith("/admin/courses/create") && (
+         {pathname.startsWith("/teacher/courses/create") && (
               <SidebarMenuItem className="flex items-center gap-2">
             <SidebarMenuButton asChild
               tooltip="Tạo nhanh"
@@ -48,10 +48,8 @@ export function NavMain({
                 <Link href={item.url} className={cn(
                   pathname===item.url &&'bg-accent text-accent-foreground'
                 )}>
-                   {item.icon && <item.icon className={cn(
-                     pathname===item.url && "text-primary"
-                   )}/>}
-                <span>{item.title}</span>
+                  {item.icon && <item.icon />}
+                  <span>{item.title}</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

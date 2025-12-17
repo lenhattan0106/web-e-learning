@@ -35,12 +35,12 @@ const data = {
   navMain: [
     {
       title: "Bảng điều khiển",
-      url: "/admin",
+      url: "/teacher",
       icon: IconDashboard,
     },
     {
       title: "Khóa học",
-      url: "/admin/courses",
+      url: "/teacher/courses",
       icon: IconListDetails,
     },
     {
@@ -49,97 +49,40 @@ const data = {
       icon: IconChartBar,
     },
     {
-      title: "Dự án",
-      url: "#",
-      icon: IconFolder,
-    },
-    {
-      title: "Nhóm",
-      url: "#",
+      title: "Học viên",
+      url: "/teacher/students",
       icon: IconUsers,
     },
   ],
-  navClouds: [
-    {
-      title: "Chụp ảnh",
-      icon: IconCamera,
-      isActive: true,
-      url: "#",
-      items: [
-        {
-          title: "Đề xuất đang hoạt động",
-          url: "#",
-        },
-        {
-          title: "Đã lưu trữ",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Đề xuất",
-      icon: IconFileDescription,
-      url: "#",
-      items: [
-        {
-          title: "Đề xuất đang hoạt động",
-          url: "#",
-        },
-        {
-          title: "Đã lưu trữ",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Lời nhắc",
-      icon: IconFileAi,
-      url: "#",
-      items: [
-        {
-          title: "Đề xuất đang hoạt động",
-          url: "#",
-        },
-        {
-          title: "Đã lưu trữ",
-          url: "#",
-        },
-      ],
-    },
-  ],
   navSecondary: [
+    {
+      title: "Hỗ trợ",
+      url: "#",
+      icon: IconHelp,
+    },
     {
       title: "Cài đặt",
       url: "#",
       icon: IconSettings,
     },
-    {
-      title: "Trợ giúp",
-      url: "#",
-      icon: IconHelp,
-    },
-    {
-      title: "Tìm kiếm",
-      url: "#",
-      icon: IconSearch,
-    },
   ],
-
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
-    <Sidebar collapsible="offcanvas" {...props}>
+    <Sidebar variant="inset" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              className="data-[slot=sidebar-menu-button]:!p-1.5"
-            >
-              <Link href="/">
-                <Image src={Logo} alt="Logo" className="size-8"></Image>
-                <span className="text-base font-semibold">NT E-Learning.</span>
+            <SidebarMenuButton size="lg" asChild>
+              <Link href="/teacher">
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg">
+                  <Image src={Logo} alt="Logo" width={32} height={32} />
+                </div>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold">NT E-Learning</span>
+                  <span className="truncate text-xs">Teacher Dashboard</span>
+                </div>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -150,7 +93,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser/>
+        <NavUser />
       </SidebarFooter>
     </Sidebar>
   )

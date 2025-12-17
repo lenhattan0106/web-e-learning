@@ -6,9 +6,9 @@ import Link from "next/link";
 interface iAppProps {
   lesson: {
     id: string;
-    title: string;
-    position: number;
-    description: string | null;
+    tenBaiHoc: string;
+    thuTu: number;
+    moTa: string | null;
   };
   slug:string;
   isActive?:boolean;
@@ -46,7 +46,7 @@ export function LessonItem({lesson,slug,isActive, completed =true}:iAppProps) {
                       ? 'text-emerald-700 dark:text-emerald-300' 
                       : isActive ?"text-primary font-semibold":"text-foreground"
                 )}>
-                  {lesson.position}. {lesson.title}
+                  {lesson.thuTu}. {lesson.tenBaiHoc}
                 </p>
                 {completed && (
                     <p className="text-xs text-emerald-600/80 dark:text-emerald-400 font-medium flex items-center gap-1.5">

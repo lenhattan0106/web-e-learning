@@ -3,59 +3,59 @@ import { requireUser } from "../user/require-user";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 
-export async function getLessonContent(lessonId: string) {
+export async function getLessonContent(idBaiHoc: string) {
   const session = await requireUser();
 
-  const lesson = await prisma.lesson.findUnique({
+  const baiHoc = await prisma.baiHoc.findUnique({
     where: {
-      id: lessonId,
+      id: idBaiHoc,
     },
     select: {
       id: true,
-      title: true,
-      description: true,
-      thumbnailKey: true,
-      videoKey: true,
-      position: true,
-      lessonProgress:{
+      tenBaiHoc: true,
+      moTa: true,
+      anhBaiHoc: true,
+      maVideo: true,
+      thuTu: true,
+      tienTrinhHocs:{
         where:{
-          userId:session.id,
+          idNguoiDung:session.id,
         },
         select:{
-          completed:true,
-          lessonId:true
+          hoanThanh:true,
+          idBaiHoc:true
         }
       },
-      chapter: {
+      chuong: {
         select: {
-          courseId: true,
-          course:{
+          idKhoaHoc: true,
+          khoaHoc:{
             select:{
-              slug:true
+              duongDan:true
             }
           }
         },
       },
     },
   });
-  if (!lesson) {
+  if (!baiHoc) {
     return notFound();
   }
-  const enrollment = await prisma.enrollment.findUnique({
+  const dangKyHoc = await prisma.dangKyHoc.findUnique({
     where: {
-      userId_courseId: {
-        userId: session.id,
-        courseId: lesson.chapter.courseId,
+      idNguoiDung_idKhoaHoc: {
+        idNguoiDung: session.id,
+        idKhoaHoc: baiHoc.chuong.idKhoaHoc,
       },
     },
     select:{
-        status:true
+        trangThai:true
     }
   });
-  if(!enrollment || enrollment.status !=="DaThanhToan"){
+  if(!dangKyHoc || dangKyHoc.trangThai !=="DaThanhToan"){
      return notFound();
   }
-  return lesson;
+  return baiHoc;
 }
 
 export type LessonContentType = Awaited<ReturnType<typeof getLessonContent>>

@@ -29,16 +29,16 @@ export async function GET(request: NextRequest) {
 
     // Tìm enrollment trong database
     const enrollmentId = verify.vnp_TxnRef;
-    const foundEnrollment = await prisma.enrollment.findUnique({
+    const foundDangKy = await prisma.dangKyHoc.findUnique({
       where: { id: enrollmentId },
       include: {
-        course: {
+        khoaHoc: {
           select: {
-            price: true,
-            title: true,
+            gia: true,
+            tenKhoaHoc: true,
           },
         },
-        user: {
+        nguoiDung: {
           select: {
             name: true,
             email: true,
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Kiểm tra enrollment có tồn tại không
-    if (!foundEnrollment) {
+    if (!foundDangKy) {
       console.log("IPN thất bại: Không tìm thấy enrollment");
       return NextResponse.json(IpnOrderNotFound);
     }
@@ -58,11 +58,11 @@ export async function GET(request: NextRequest) {
       console.log("IPN: Thanh toán thất bại hoặc bị hủy");
 
       // Cập nhật enrollment thành "DaHuy"
-      await prisma.enrollment.update({
+      await prisma.dangKyHoc.update({
         where: { id: enrollmentId },
         data: {
-          status: "DaHuy",
-          updatedAt: new Date(),
+          trangThai: "DaHuy",
+          ngayCapNhat: new Date(),
         },
       });
 
@@ -71,34 +71,34 @@ export async function GET(request: NextRequest) {
     }
 
     // Kiểm tra số tiền có khớp không
-    if (verify.vnp_Amount !== foundEnrollment.amount) {
+    if (verify.vnp_Amount !== foundDangKy.soTien) {
       console.log("IPN thất bại: Số tiền không khớp", {
         vnpayAmount: verify.vnp_Amount,
-        enrollmentAmount: foundEnrollment.amount,
+        enrollmentAmount: foundDangKy.soTien,
       });
       return NextResponse.json(IpnInvalidAmount);
     }
 
     // Kiểm tra enrollment đã được xác nhận chưa
-    if (foundEnrollment.status === "DaThanhToan") {
+    if (foundDangKy.trangThai === "DaThanhToan") {
       console.log("IPN: Enrollment đã được xác nhận trước đó");
       return NextResponse.json(InpOrderAlreadyConfirmed);
     }
 
     // Cập nhật enrollment status thành "DaThanhToan"
-    await prisma.enrollment.update({
+    await prisma.dangKyHoc.update({
       where: { id: enrollmentId },
       data: {
-        status: "DaThanhToan",
-        updatedAt: new Date(),
+        trangThai: "DaThanhToan",
+        ngayCapNhat: new Date(),
       },
     });
 
     console.log("IPN thành công: Đã cập nhật enrollment", {
-      enrollmentId: foundEnrollment.id,
-      userId: foundEnrollment.user.email,
-      courseTitle: foundEnrollment.course.title,
-      amount: foundEnrollment.amount,
+      enrollmentId: foundDangKy.id,
+      userId: foundDangKy.nguoiDung.email,
+      courseTitle: foundDangKy.khoaHoc.tenKhoaHoc,
+      amount: foundDangKy.soTien,
       transactionNo: verify.vnp_TransactionNo,
       bankCode: verify.vnp_BankCode,
     });

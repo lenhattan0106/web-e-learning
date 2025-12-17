@@ -60,42 +60,42 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
     // ✅ CẬP NHẬT DATABASE NGAY TẠI ĐÂY
     if (verify?.vnp_TxnRef) {
       try {
-        const enrollment = await prisma.enrollment.findUnique({
+        const dangKyHoc = await prisma.dangKyHoc.findUnique({
           where: { id: verify.vnp_TxnRef },
           select: {
             id: true,
-            status: true,
+            trangThai: true,
           },
         });
 
-        if (enrollment) {
+        if (dangKyHoc) {
           if (isSuccess) {
             // ✅ THANH TOÁN THÀNH CÔNG → CẬP NHẬT NGAY
-            if (enrollment.status !== "DaThanhToan") {
-              await prisma.enrollment.update({
-                where: { id: enrollment.id },
+            if (dangKyHoc.trangThai !== "DaThanhToan") {
+              await prisma.dangKyHoc.update({
+                where: { id: dangKyHoc.id },
                 data: {
-                  status: "DaThanhToan",
-                  updatedAt: new Date(),
+                  trangThai: "DaThanhToan",
+                  ngayCapNhat: new Date(),
                 },
               });
               displayStatus = "DaThanhToan";
-              console.log("✅ Đã cập nhật enrollment thành công tại Return URL:", enrollment.id);
+              console.log("✅ Đã cập nhật đăng ký thành công tại Return URL:", dangKyHoc.id);
             } else {
               displayStatus = "DaThanhToan";
             }
           } else {
             // ❌ THANH TOÁN THẤT BẠI → CẬP NHẬT THÀNH DaHuy
-            if (enrollment.status !== "DaHuy") {
-              await prisma.enrollment.update({
-                where: { id: enrollment.id },
+            if (dangKyHoc.trangThai !== "DaHuy") {
+              await prisma.dangKyHoc.update({
+                where: { id: dangKyHoc.id },
                 data: {
-                  status: "DaHuy",
-                  updatedAt: new Date(),
+                  trangThai: "DaHuy",
+                  ngayCapNhat: new Date(),
                 },
               });
               displayStatus = "DaHuy";
-              console.log("❌ Đã cập nhật enrollment thất bại tại Return URL:", enrollment.id);
+              console.log("❌ Đã cập nhật đăng ký thất bại tại Return URL:", dangKyHoc.id);
             } else {
               displayStatus = "DaHuy";
             }
@@ -104,7 +104,7 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
           displayStatus = null;
         }
       } catch (updateError) {
-        console.error("Lỗi cập nhật enrollment:", updateError);
+        console.error("Lỗi cập nhật đăng ký:", updateError);
         // Fallback: Hiển thị dựa vào VNPay
         displayStatus = isSuccess ? "DaThanhToan" : "DaHuy";
       }

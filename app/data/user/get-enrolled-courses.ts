@@ -4,35 +4,35 @@ import { prisma } from "@/lib/db";
 
 export async function getEnrolledCourses() {
   const user = await requireUser();
-  const data = await prisma.enrollment.findMany({
+  const data = await prisma.dangKyHoc.findMany({
     where: {
-      userId: user.id,
-      status: "DaThanhToan",
+      idNguoiDung: user.id,
+      trangThai: "DaThanhToan",
     },
     select: {
-      course: {
+      khoaHoc: {
         select: {
           id: true,
-          smallDescription: true,
-          title: true,
-          fileKey: true,
-          level: true,
-          slug: true,
-          duration: true,
-          chapter: {
+          moTaNgan: true,
+          tenKhoaHoc: true,
+          tepKH: true,
+          capDo: true,
+          duongDan: true,
+          thoiLuong: true,
+          chuongs: {
             select: {
               id: true,
-              lessons: {
+              baiHocs: {
                   select:{
                     id:true,
-                    lessonProgress:{
+                    tienTrinhHocs:{
                       where:{
-                        userId:user.id
+                        idNguoiDung:user.id
                       },
                       select:{
                         id:true,
-                        completed:true,
-                        lessonId:true
+                        hoanThanh:true,
+                        idBaiHoc:true
                       }
                     }
                   }
@@ -46,4 +46,4 @@ export async function getEnrolledCourses() {
   return data;
 }
 
-export type EnrolledCourseType = Awaited<ReturnType<typeof getEnrolledCourses>>[0]; 
+export type EnrolledCourseType = Awaited<ReturnType<typeof getEnrolledCourses>>[0];

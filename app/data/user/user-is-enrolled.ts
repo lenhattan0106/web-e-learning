@@ -1,26 +1,25 @@
 import "server-only";
-
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 
-export async function checkIfCourseBought(courseId: string) {
+export async function checkIfCourseBought(idKhoaHoc: string) {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
   
   if (!session?.user) return false;
 
-  const enrollment = await prisma.enrollment.findUnique({
+  const dangKyHoc = await prisma.dangKyHoc.findUnique({
     where: {
-      userId_courseId: {
-        userId: session.user.id,
-        courseId: courseId,
+      idNguoiDung_idKhoaHoc: {
+        idNguoiDung: session.user.id,
+        idKhoaHoc: idKhoaHoc,
       },
     },
   });
 
-  if (!enrollment) return false;
+  if (!dangKyHoc) return false;
 
-  return enrollment.status === "DaThanhToan";
+  return dangKyHoc.trangThai === "DaThanhToan";
 }

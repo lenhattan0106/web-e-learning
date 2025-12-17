@@ -4,7 +4,7 @@ import { CourseSideBarDataType } from "@/app/data/course/get-course-sidebar-data
 import { useMemo } from "react";
 
 interface iAppProps {
-  courseData: CourseSideBarDataType["course"];
+  courseData: CourseSideBarDataType["khoaHoc"];
 }
 interface CourseProgressResult{
     totalLessons: number;
@@ -17,12 +17,12 @@ export function useCourseProgress({ courseData }: iAppProps) : CourseProgressRes
     let totalLessons = 0;
     let completedLessons = 0;
 
-    courseData.chapter.forEach((chapter) => {
-      chapter.lessons.forEach((lesson) => {
+    courseData.chuongs.forEach((chuong) => {
+      chuong.baiHocs.forEach((baiHoc) => {
         totalLessons++;
         // kiểm tra khóa học đã hoàn thành
-        const isCompleted = lesson.lessonProgress.some(
-          (progress) => progress.lessonId === lesson.id && progress.completed
+        const isCompleted = baiHoc.tienTrinhHocs.some(
+          (tienTrinh) => tienTrinh.idBaiHoc === baiHoc.id && tienTrinh.hoanThanh
         );
         if (isCompleted) {
           completedLessons++;

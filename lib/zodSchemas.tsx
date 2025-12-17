@@ -1,10 +1,10 @@
 import { z } from "zod";
 
-export const courseLevels = ["NguoiMoi", "TrungCap", "NangCao"] as const;
+export const capDoKhoaHoc = ["NguoiMoi", "TrungCap", "NangCao"] as const;
 
-export const courseStatus = ["BanNhap", "BanChinhThuc", "BanLuuTru"] as const;
+export const trangThaiKhoaHoc = ["BanNhap", "BanChinhThuc", "BanLuuTru"] as const;
 
-export const courseCategories = [
+export const danhMucKhoaHoc = [
   "Lập Trình",
   "Kinh Doanh",
   "Tài Chính",
@@ -13,64 +13,74 @@ export const courseCategories = [
   "Giáo Dục",
 ] as const;
 
-export const courseSchema = z.object({
-  title: z
+export const khoaHocSchema = z.object({
+  tenKhoaHoc: z
     .string()
     .min(3, { message: "Tiêu đề phải có ít nhất 3 ký tự" })
     .max(100, { message: "Tiêu đề không được vượt quá 100 ký tự" }),
-  description: z.string().min(3, { message: "Mô tả phải có ít nhất 3 ký tự" }),
-  fileKey: z.string().min(1, { message: "Tệp tin là bắt buộc" }),
-  price: z.number().min(1, { message: "Giá phải là số dương" }),
-  duration: z
+  moTa: z.string().min(3, { message: "Mô tả phải có ít nhất 3 ký tự" }),
+  tepKH: z.string().min(1, { message: "Tệp tin là bắt buộc" }),
+  gia: z.number().min(1, { message: "Giá phải là số dương" }),
+  thoiLuong: z
     .number()
     .min(1, { message: "Thời lượng phải ít nhất 1 giờ" })
     .max(500, {
       message: "Thời lượng không được vượt quá 500 giờ",
     }),
-  level: z.enum(courseLevels, {
+  capDo: z.enum(capDoKhoaHoc, {
     message: "Cấp độ là bắt buộc",
   }),
-  category: z.enum(courseCategories, {
+  danhMuc: z.enum(danhMucKhoaHoc, {
     message: "Danh mục là bắt buộc",
   }),
-  smallDescription: z
+  moTaNgan: z
     .string()
     .min(3, { message: "Mô tả ngắn phải có ít nhất 3 ký tự" })
     .max(200, { message: "Mô tả ngắn không được vượt quá 200 ký tự" }),
-  slug: z.string().min(3, { message: "Đường dẫn phải có ít nhất 3 ký tự" }),
-  status: z.enum(courseStatus, {
+  duongDan: z.string().min(3, { message: "Đường dẫn phải có ít nhất 3 ký tự" }),
+  trangThai: z.enum(trangThaiKhoaHoc, {
     message: "Trạng thái là bắt buộc",
   }),
 });
-export const chapterSchema = z.object({
-  name: z
+
+export const chuongSchema = z.object({
+  ten: z
     .string()
     .min(3, { message: "Tiêu đề của chương phải ít nhất 3 ký tự" }),
-  courseId: z
+  idKhoaHoc: z
     .string()
     .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, {
       message: "Id khóa học phải là UUID hợp lệ",
     }),
 });
-export const lessonSchema = z.object({
-  name: z
+
+export const baiHocSchema = z.object({
+  ten: z
     .string()
-    .min(3, { message: "Tiêu đề của chương phải ít nhất 3 ký tự" }),
-  courseId: z
+    .min(3, { message: "Tiêu đề của bài học phải ít nhất 3 ký tự" }),
+  idKhoaHoc: z
     .string()
     .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, {
       message: "Id khóa học phải là UUID hợp lệ",
     }),
-  chapterId: z
+  idChuong: z
     .string()
     .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, {
       message: "Id chương phải là UUID hợp lệ",
     }),
-    description: z.string().min(3,{ message: "Mô tả của bài học phải ít nhất 3 ký tự" }).optional(),
-    thumbnailKey:z.string().optional(),
-    videoKey: z.string().optional(),
-
+  moTa: z.string().min(3,{ message: "Mô tả của bài học phải ít nhất 3 ký tự" }).optional(),
+  anhBaiHoc: z.string().optional(),
+  maVideo: z.string().optional(),
 });
-export type CourseSchemaType = z.infer<typeof courseSchema>;
-export type ChapterSchemaType = z.infer<typeof chapterSchema>;
-export type LessonSchemaType = z.infer<typeof lessonSchema>;
+
+export const updateLessonFormSchema = z.object({
+  ten: baiHocSchema.shape.ten,
+  moTa: baiHocSchema.shape.moTa.optional(),
+  anhBaiHoc: baiHocSchema.shape.anhBaiHoc.optional(),
+  maVideo: baiHocSchema.shape.maVideo.optional(),
+});
+
+export type KhoaHocSchemaType = z.infer<typeof khoaHocSchema>;
+export type ChuongSchemaType = z.infer<typeof chuongSchema>;
+export type BaiHocSchemaType = z.infer<typeof baiHocSchema>;
+export type CapNhatBaiHocType = z.infer<typeof updateLessonFormSchema>;

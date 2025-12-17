@@ -4,23 +4,23 @@ import { prisma } from "@/lib/db";
 
 export async function getAllCourses(){
   await new Promise((resolve)=>setTimeout(resolve,2000)) ;
-  const data = await prisma.course.findMany({
+  const data = await prisma.khoaHoc.findMany({
     where:{
-        status:"BanChinhThuc",
+        trangThai:"BanChinhThuc",
     },
     orderBy:{
-      createdAt:"desc"
+      ngayTao:"desc"
     },
     select:{
-      title:true,
-      price:true,
-      smallDescription:true,
-      slug:true,
+      tenKhoaHoc:true,
+      gia:true,
+      moTaNgan:true,
+      duongDan:true,
       id:true,
-      level:true,
-      duration:true,
-      category:true,
-      fileKey:true,
+      capDo:true,
+      thoiLuong:true,
+      danhMuc:true,
+      tepKH:true,
     }
   });
   return data;

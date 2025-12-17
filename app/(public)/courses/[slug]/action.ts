@@ -6,7 +6,6 @@ import { ProductCode, VnpLocale } from "vnpay";
 import { requireUser } from "@/app/data/user/require-user";
 import aj, { fixedWindow } from "@/lib/arcjet";
 import { prisma } from "@/lib/db";
-import { ApiResponse } from "@/lib/types";
 import { request } from "@arcjet/next";
 import { env } from "@/lib/env";
 
@@ -18,7 +17,7 @@ const arcjet = aj.withRule(
   })
 );
 
-export async function enrollInCourseAction(courseId: string) {
+export async function enrollInCourseAction(idKhoaHoc: string) {
   const user = await requireUser();
   let paymentUrl = ""; 
 
@@ -37,17 +36,17 @@ export async function enrollInCourseAction(courseId: string) {
     }
 
     // Tìm thông tin khóa học
-    const course = await prisma.course.findUnique({
-      where: { id: courseId },
+    const khoaHoc = await prisma.khoaHoc.findUnique({
+      where: { id: idKhoaHoc },
       select: {
         id: true,
-        title: true,
-        price: true,
-        slug: true,
+        tenKhoaHoc: true,
+        gia: true,
+        duongDan: true,
       },
     });
 
-    if (!course) {
+    if (!khoaHoc) {
       return {
         status: "error",
         message: "Không tìm thấy khóa học",
@@ -55,21 +54,21 @@ export async function enrollInCourseAction(courseId: string) {
     }
 
     // Kiểm tra enrollment hiện tại
-    const existingEnrollment = await prisma.enrollment.findUnique({
+    const existingDangKy = await prisma.dangKyHoc.findUnique({
       where: {
-        userId_courseId: {
-          userId: user.id,
-          courseId: course.id,
+        idNguoiDung_idKhoaHoc: {
+          idNguoiDung: user.id,
+          idKhoaHoc: khoaHoc.id,
         },
       },
       select: {
-        status: true,
+        trangThai: true,
         id: true,
       },
     });
 
     // Nếu đã thanh toán rồi
-    if (existingEnrollment?.status === "DaThanhToan") {
+    if (existingDangKy?.trangThai === "DaThanhToan") {
       return {
         status: "success",
         message: "Bạn đã đăng ký khóa học này rồi.",
@@ -77,24 +76,24 @@ export async function enrollInCourseAction(courseId: string) {
     }
 
     // ✅ XÓA ENROLLMENT CŨ NẾU CÓ (DangXuLy hoặc DaHuy)
-    if (existingEnrollment) {
-      await prisma.enrollment.delete({
-        where: { id: existingEnrollment.id },
+    if (existingDangKy) {
+      await prisma.dangKyHoc.delete({
+        where: { id: existingDangKy.id },
       });
-      console.log("🗑️ Đã xóa enrollment cũ:", existingEnrollment.id);
+      console.log("🗑️ Đã xóa enrollment cũ:", existingDangKy.id);
     }
 
     // ✅ LUÔN TẠO ENROLLMENT MỚI
-    const enrollment = await prisma.enrollment.create({
+    const dangKyHoc = await prisma.dangKyHoc.create({
       data: {
-        userId: user.id,
-        courseId: course.id,
-        amount: course.price,
-        status: "DangXuLy",
+        idNguoiDung: user.id,
+        idKhoaHoc: khoaHoc.id,
+        soTien: khoaHoc.gia,
+        trangThai: "DangXuLy",
       },
     });
 
-    console.log("✨ Đã tạo enrollment mới:", enrollment.id);
+    console.log("✨ Đã tạo enrollment mới:", dangKyHoc.id);
 
     // Lấy IP address
     const headersList = await headers();
@@ -104,11 +103,11 @@ export async function enrollInCourseAction(courseId: string) {
       "127.0.0.1";
 
     // Tạo payment URL với enrollment ID mới
-    const enrollmentId = enrollment.id;
+    const enrollmentId = dangKyHoc.id;
     paymentUrl = vnpay.buildPaymentUrl({
-      vnp_Amount: course.price,
+      vnp_Amount: khoaHoc.gia,
       vnp_TxnRef: enrollmentId, // ID mới, unique
-      vnp_OrderInfo: `Thanh toán khoá học: ${course.title}`,
+      vnp_OrderInfo: `Thanh toán khoá học: ${khoaHoc.tenKhoaHoc}`,
       vnp_OrderType: ProductCode.Other,
       vnp_IpAddr: clientIP,
       vnp_Locale: VnpLocale.VN,

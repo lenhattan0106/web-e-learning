@@ -1,4 +1,3 @@
-
 import { getIndivialCourse } from "@/app/data/course/get-course";
 import { checkIfCourseBought } from "@/app/data/user/user-is-enrolled";
 import { RenderDescription } from "@/components/rich-text-editor/RenderDescription";
@@ -29,15 +28,15 @@ type Params = Promise<{ slug: string }>;
 
 export default async function SlugPage({ params }: { params: Params }) {
   const { slug } = await params;
-  const course = await getIndivialCourse(slug);
-  const isEnrolled = await checkIfCourseBought(course.id);
+  const khoaHoc = await getIndivialCourse(slug);
+  const isEnrolled = await checkIfCourseBought(khoaHoc.id);
   return (
     <div className="grid grid-cols-1  gap-8 lg:grid-cols-3 mt-5">
       <div className="order-1 lg:col-span-2">
         <div className="relative aspect-video w-full overflow-hidden rounded-xl shadow-lg">
           <Image
-            src={`https://${env.NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES}.t3.storage.dev/${course.fileKey}`}
-            alt={course.title}
+            src={`https://${env.NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES}.t3.storage.dev/${khoaHoc.tepKH}`}
+            alt={khoaHoc.tenKhoaHoc}
             fill
             className="object-cover"
             priority
@@ -47,24 +46,24 @@ export default async function SlugPage({ params }: { params: Params }) {
         <div className="mt-4 space-y-6">
           <div className="space-y-4">
             <h1 className="text-3xl font-bold tracking-tight">
-              {course.title}
+              {khoaHoc.tenKhoaHoc}
             </h1>
             <p className="text-lg text-muted-foreground leading-relaxed line-clamp-2">
-              {course.smallDescription}
+              {khoaHoc.moTaNgan}
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
             <Badge className="flex items-center gap-1 px-3 py-1 rounded">
               <BarChart3 className="size-6" />
-              <span>{course.level}</span>
+              <span>{khoaHoc.capDo}</span>
             </Badge>
             <Badge className="flex items-center gap-1 px-3 py-1 rounded">
               <FolderOpen className="size-6" />
-              <span>{course.category}</span>
+              <span>{khoaHoc.danhMuc}</span>
             </Badge>
             <Badge className="flex items-center gap-1 px-3 py-1 rounded">
               <Clock className="size-6" />
-              <span>{course.duration} giờ</span>
+              <span>{khoaHoc.thoiLuong} giờ</span>
             </Badge>
           </div>
           <Separator className="my-8"></Separator>
@@ -73,7 +72,7 @@ export default async function SlugPage({ params }: { params: Params }) {
               Mô tả khóa học
             </h2>
             <RenderDescription
-              json={JSON.parse(course.description)}
+              json={JSON.parse(khoaHoc.moTa)}
             ></RenderDescription>
           </div>
         </div>
@@ -83,17 +82,17 @@ export default async function SlugPage({ params }: { params: Params }) {
               Nội dung khóa học
             </h2>
             <div>
-              {course.chapter.length} chương |{" "}
-              {course.chapter.reduce(
-                (total, chapter) => total + chapter.lessons.length,
+              {khoaHoc.chuongs.length} chương |{" "}
+              {khoaHoc.chuongs.reduce(
+                (total, chuong) => total + chuong.baiHocs.length,
                 0
               )}{" "}
               bài học
             </div>
           </div>
           <div className="space-y-4">
-            {course.chapter.map((chapter, index) => (
-              <Collapsible key={chapter.id} defaultOpen={index === 0}>
+            {khoaHoc.chuongs.map((chuong, index) => (
+              <Collapsible key={chuong.id} defaultOpen={index === 0}>
                 <Card className="p-0 overflow-hidden border-2 transition-all duration-200 hover:shadow-md gap-0">
                   <CollapsibleTrigger>
                     <div>
@@ -105,16 +104,16 @@ export default async function SlugPage({ params }: { params: Params }) {
                             </p>
                             <div>
                               <h3 className="text-xl font-semibold text-left">
-                                {chapter.title}
+                                {chuong.tenChuong}
                               </h3>
                               <p className="text-sm text-muted-foreground mt-1 text-left">
-                                {chapter.lessons.length} bài học
+                                {chuong.baiHocs.length} bài học
                               </p>
                             </div>
                           </div>
                           <div className="flex items-center gap-3">
                             <Badge variant="outline" className="text-sm">
-                              {chapter.lessons.length} bài học
+                              {chuong.baiHocs.length} bài học
                             </Badge>
                             <ChevronDown className="size-5 text-muted-foreground" />
                           </div>
@@ -125,9 +124,9 @@ export default async function SlugPage({ params }: { params: Params }) {
                   <CollapsibleContent>
                     <div className="border-t bg-muted/20">
                       <div className="p-6 pt-4 space-y-3">
-                        {chapter.lessons.map((lesson, lessonIndex) => (
+                        {chuong.baiHocs.map((baiHoc, lessonIndex) => (
                           <div
-                            key={lesson.id}
+                            key={baiHoc.id}
                             className="flex items-center gap-4 rounded-lg p-3 hover:bg-accent transition-colors group"
                           >
                             <div className="flex size-8 items-center justify-center rounded-full bg-background border-2 border-primary/30">
@@ -135,7 +134,7 @@ export default async function SlugPage({ params }: { params: Params }) {
                             </div>
                             <div className="flex-1">
                               <p className="font-medium text-sm">
-                                {lesson.title}
+                                {baiHoc.tenBaiHoc}
                               </p>
                               <p className="text-xs text-muted-foreground mt-1">
                                 Bài học {lessonIndex + 1}
@@ -165,7 +164,7 @@ export default async function SlugPage({ params }: { params: Params }) {
                     currency: "VND",
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 0,
-                  }).format(course.price)}
+                  }).format(khoaHoc.gia)}
                 </span>
               </div>
               <div className="mb-6 space-y-3 rounded-lg bg-muted p-4">
@@ -178,7 +177,7 @@ export default async function SlugPage({ params }: { params: Params }) {
                     <div>
                       <p className="text-sm font-medium">Thời lượng</p>
                       <p className="text-sm text-muted-foreground">
-                        {course.duration} giờ
+                        {khoaHoc.thoiLuong} giờ
                       </p>
                     </div>
                   </div>
@@ -189,7 +188,7 @@ export default async function SlugPage({ params }: { params: Params }) {
                     <div>
                       <p className="text-sm font-medium">Cấp độ</p>
                       <p className="text-sm text-muted-foreground">
-                        {course.level}
+                        {khoaHoc.capDo}
                       </p>
                     </div>
                   </div>
@@ -200,7 +199,7 @@ export default async function SlugPage({ params }: { params: Params }) {
                     <div>
                       <p className="text-sm font-medium">Danh mục</p>
                       <p className="text-sm text-muted-foreground">
-                        {course.category}
+                        {khoaHoc.danhMuc}
                       </p>
                     </div>
                   </div>
@@ -211,8 +210,8 @@ export default async function SlugPage({ params }: { params: Params }) {
                       <div>
                         <p className="text-sm font-medium">Số lượng bài học</p>
                         <p className="text-sm text-muted-foreground">
-                          {course.chapter.reduce(
-                            (total, chapter) => total + chapter.lessons.length,
+                          {khoaHoc.chuongs.reduce(
+                            (total, chuong) => total + chuong.baiHocs.length,
                             0
                           )}{" "}
                           bài học
@@ -252,7 +251,7 @@ export default async function SlugPage({ params }: { params: Params }) {
                   Xem khóa học
                   </Link>
                 ):(
-                  <EnrollmentButton courseId={course.id}></EnrollmentButton>
+                  <EnrollmentButton courseId={khoaHoc.id}></EnrollmentButton>
                 )}
           
             </CardContent>

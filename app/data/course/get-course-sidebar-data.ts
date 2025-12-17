@@ -6,41 +6,41 @@ import { notFound } from "next/navigation";
 export async function getCourseSideBarData(slug: string) {
   const session = await requireUser();
 
-  const course = await prisma.course.findUnique({
+  const khoaHoc = await prisma.khoaHoc.findUnique({
     where: {
-      slug: slug,
+      duongDan: slug,
     },
     select: {
       id: true,
-      title: true,
-      fileKey: true,
-      duration: true,
-      category: true,
-      slug: true,
-      chapter: {
+      tenKhoaHoc: true,
+      tepKH: true,
+      thoiLuong: true,
+      danhMuc: true,
+      duongDan: true,
+      chuongs: {
         orderBy: {
-          position: "asc",
+          thuTu: "asc",
         },
         select: {
           id: true,
-          title: true,
-          position: true,
-          lessons: {
+          tenChuong: true,
+          thuTu: true,
+          baiHocs: {
             orderBy: {
-              position: "asc",
+              thuTu: "asc",
             },
             select: {
               id: true,
-              title: true,
-              position: true,
-              description: true,
-              lessonProgress:{
+              tenBaiHoc: true,
+              thuTu: true,
+              moTa: true,
+              tienTrinhHocs:{
                 where:{
-                  userId: session.id,
+                  idNguoiDung: session.id,
                 },
                 select:{
-                  completed:true,
-                  lessonId:true,
+                  hoanThanh:true,
+                  idBaiHoc:true,
                   id:true
                 }
               }
@@ -50,22 +50,22 @@ export async function getCourseSideBarData(slug: string) {
       },
     },
   });
-  if (!course) {
+  if (!khoaHoc) {
     return notFound();
   }
-  const enrollment = await prisma.enrollment.findUnique({
+  const dangKyHoc = await prisma.dangKyHoc.findUnique({
     where: {
-      userId_courseId: {
-        userId: session.id,
-        courseId: course.id,
+      idNguoiDung_idKhoaHoc: {
+        idNguoiDung: session.id,
+        idKhoaHoc: khoaHoc.id,
       },
     },
   });
-  if (!enrollment || enrollment.status !== "DaThanhToan") {
+  if (!dangKyHoc || dangKyHoc.trangThai !== "DaThanhToan") {
     return notFound();
   }
   return {
-    course,
+    khoaHoc,
   };
 }
 

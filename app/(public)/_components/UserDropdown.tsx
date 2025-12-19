@@ -26,13 +26,16 @@ import { authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+type Role = "user" | "teacher" | "admin";
+
 interface iAppProps {
-  name:string;
-  email:string;
-  image:string;
+  name: string;
+  email: string;
+  image: string;
+  role: Role;
 }
 
-export function UserDropDown({email,name,image}: iAppProps) {
+export function UserDropDown({ email, name, image, role }: iAppProps) {
       const router = useRouter();
       async function signOut() {
         await authClient.signOut({
@@ -47,6 +50,8 @@ export function UserDropDown({email,name,image}: iAppProps) {
           },
         });
       }
+
+      const isTeacher = role === "teacher" || role === "admin";
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -72,26 +77,38 @@ export function UserDropDown({email,name,image}: iAppProps) {
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuItem asChild>
-            <Link href="/">
-             <Home aria-hidden="true" className="opacity-60" size={16} />
-            <span>Trang chủ</span>
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/course">
-            <BookOpen  aria-hidden="true" className="opacity-60" size={16} />
-            <span>Khóa học</span>
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/dashboard">
-            <LayoutDashboardIcon aria-hidden="true" className="opacity-60" size={16} />
-            <span>Bảng điều khiển</span>
-            </Link>
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
+          <DropdownMenuGroup>
+            <DropdownMenuItem asChild>
+              <Link href="/">
+                <Home aria-hidden="true" className="opacity-60" size={16} />
+                <span>Trang chủ</span>
+              </Link>
+            </DropdownMenuItem>
+
+            {/* Khóa học: public cho user, khu vực quản lý cho teacher */}
+            <DropdownMenuItem asChild>
+              <Link href={isTeacher ? "/teacher/courses" : "/courses"}>
+                <BookOpen
+                  aria-hidden="true"
+                  className="opacity-60"
+                  size={16}
+                />
+                <span>Khóa học</span>
+              </Link>
+            </DropdownMenuItem>
+
+            {/* Bảng điều khiển: học tập cho user, quản lý cho teacher */}
+            <DropdownMenuItem asChild>
+              <Link href={isTeacher ? "/teacher" : "/dashboard"}>
+                <LayoutDashboardIcon
+                  aria-hidden="true"
+                  className="opacity-60"
+                  size={16}
+                />
+                <span>Bảng điều khiển</span>
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={signOut}>
           <LogOutIcon aria-hidden="true" className="opacity-60" size={16} />

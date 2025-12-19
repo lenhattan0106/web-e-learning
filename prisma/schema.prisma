@@ -15,6 +15,7 @@ model User {
   image         String?   @map("anhDaiDien")
   createdAt     DateTime  @default(now()) @map("ngayTao")
   updatedAt     DateTime  @updatedAt @map("ngayCapNhat")
+  password      String?    @map("matKhau")
   khoaHocs      KhoaHoc[]
   sessions      Session[]
   accounts      Account[]

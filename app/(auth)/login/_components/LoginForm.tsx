@@ -1,5 +1,5 @@
 "use client";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -10,17 +10,33 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
-import { GithubIcon, Loader, Loader2, Send } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { IconPassword } from "@tabler/icons-react";
+import { ArrowLeft, GithubIcon, Loader, Loader2, LogInIcon, Send } from "lucide-react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useTransition, useEffect } from "react";
 import { toast } from "sonner";
 
 export function LoginForm() {
   const router = useRouter();
+  const params = useSearchParams();
   const [githubPending, startGithubTransition] = useTransition();
-  const [emailPending, startEmailTransition] = useTransition();
+  const [passwordPending, startPassWordTransition] = useTransition();
   const [email, setEmail] = useState("");
-  
+  const [password, setPassWord] = useState("");
+
+  // Kiểm tra nếu user vừa verify email và được redirect đến đây
+  useEffect(() => {
+    const verified = params.get("verified");
+    const emailParam = params.get("email");
+    if (verified === "true") {
+      toast.success("Email đã được xác minh thành công! Bạn có thể đăng nhập ngay.");
+      if (emailParam) {
+        setEmail(emailParam);
+      }
+    }
+  }, [params]);
+
   async function signInWithGithub() {
     startGithubTransition(async () => {
       await authClient.signIn.social({
@@ -28,7 +44,9 @@ export function LoginForm() {
         callbackURL: "/",
         fetchOptions: {
           onSuccess: () => {
-            toast.success("Đăng nhập bằng Github thành công, bạn sẽ được chuyển hướng...");
+            toast.success(
+              "Đăng nhập bằng Github thành công, bạn sẽ được chuyển hướng..."
+            );
           },
           onError: () => {
             toast.error("Lỗi máy chủ nội bộ");
@@ -37,26 +55,58 @@ export function LoginForm() {
       });
     });
   }
-  
-  function signInWithEmail() {
-    startEmailTransition(async () => {
-      await authClient.emailOtp.sendVerificationOtp({
-        email: email,
-        type: "sign-in",
+  async function signInWithPassWord() {
+    startPassWordTransition(async () => {
+      await authClient.signIn.email({
+        email: email, // required
+        password: password, // required
+        rememberMe: true,
         fetchOptions: {
           onSuccess: () => {
-            toast.success("Email đã được gửi");
-            router.push(`/verify-request?email=${email}`);
+            toast.success("Đăng nhập thành công, bạn sẽ được chuyển hướng...");
+            // Đợi một chút để session được set, sau đó redirect
+            setTimeout(() => {
+              router.push("/");
+              router.refresh();
+            }, 500);
           },
-          onError: ()=>{
-            toast.error('Lỗi khi gửi email')
-          }
+          onError: (ctx) => {
+            // Xử lý lỗi khi email chưa được verify
+            // Better-auth trả về status 403 với message cụ thể khi email chưa verify
+            const errorMessage = ctx.error?.message?.toLowerCase() || "";
+            const isEmailNotVerified = 
+              ctx.error?.status === 403 && 
+              ((errorMessage.includes("email") && errorMessage.includes("verify")) ||
+              errorMessage.includes("email not verified") ||
+              errorMessage.includes("email chưa được xác minh"));
+            
+            if (isEmailNotVerified) {
+              toast.error("Email chưa được xác minh. Vui lòng kiểm tra email và click vào link xác minh.");
+              router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+            } else if (ctx.error?.status === 403) {
+              // Lỗi 403 khác (có thể là banned, invalid credentials, etc.)
+              toast.error(ctx.error?.message || "Tài khoản của bạn không có quyền truy cập. Vui lòng liên hệ hỗ trợ.");
+            } else {
+              toast.error(ctx.error?.message || "Vui lòng kiểm tra lại mật khẩu và tài khoản của bạn");
+            }
+          },
         },
       });
     });
   }
-  
+
   return (
+    <div>
+      <Link
+              href="/"
+              className={buttonVariants({
+                variant: "outline",
+                className: "absolute top-4 left-4",
+              })}
+            >
+              <ArrowLeft className="size-4"></ArrowLeft>
+              Quay lại
+            </Link>
     <Card>
       <CardHeader>
         <CardTitle className="text-xl">Chào mừng trở lại</CardTitle>
@@ -99,21 +149,44 @@ export function LoginForm() {
               placeholder="email@example.com"
             ></Input>
           </div>
-          <Button onClick={signInWithEmail} disabled={emailPending}>
-            {emailPending ?(
+          <div className="grid gap-2">
+            <Label htmlFor="email">Mật khẩu</Label>
+            <Input
+              value={password}
+              onChange={(e) => setPassWord(e.target.value)}
+              required
+              type="password"
+              placeholder="Vui lòng nhập mật khẩu của bạn"
+            ></Input>
+          </div>
+          <Button
+            disabled={passwordPending}
+            onClick={signInWithPassWord}
+            className="w-full"
+            variant={"default"}
+          >
+            {passwordPending ? (
               <>
-                <Loader2 className="size-4 animate-spin"></Loader2>
+                <Loader className="size-4 animate-spin"></Loader>
                 <span>Đang tải...</span>
-               </>
-            ):(
+              </>
+            ) : (
               <>
-               <Send className="size-4"></Send>
-               <span>Tiếp tục với Email</span>
+                <LogInIcon className="size-4"></LogInIcon>
+                Đăng nhập
               </>
             )}
           </Button>
         </div>
+        <div className="flex items-center justify-center gap-2">
+          <p>Bạn chưa có tài khoản?</p>
+          <Link href="/signup" className="text-primary underline">
+            Đăng ký
+          </Link>
+        </div>
+        <div className="mx-auto"><Link href="/" className="text-primary underline mt-2">Quên mật khẩu</Link></div>
       </CardContent>
     </Card>
+  </div>
   );
 }

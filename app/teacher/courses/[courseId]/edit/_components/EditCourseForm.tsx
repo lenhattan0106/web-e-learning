@@ -92,6 +92,7 @@ export function EditCourseForm({ data }: iAppProps) {
                   value={field.value}
                   onChange={field.onChange}
                   placeholder="Tiêu đề khóa học"
+                  excludeTitle={data.tenKhoaHoc} 
                 />
               </FormControl>
               <FormMessage />

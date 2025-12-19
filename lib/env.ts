@@ -17,7 +17,9 @@ export const env = createEnv({
     AWS_REGION:z.string().min(1),
     VNPAY_TMN_CODE: z.string().min(1),
     VNPAY_SECURE_SECRET:z.string().min(1),
-    VNPAY_RETURN_URL:z.string().min(1)
+    VNPAY_RETURN_URL:z.string().min(1),
+    GMAIL_APP_PASSWORD: z.string().min(1),
+    GMAIL_USER:z.string().min(1)
   },
  
   client:{

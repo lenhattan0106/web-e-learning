@@ -66,6 +66,26 @@ export async function editCourse(
       };
     }
 
+    // Kiểm tra trùng tiêu đề với các khóa học khác
+    const existed = await prisma.khoaHoc.findFirst({
+      where: {
+        tenKhoaHoc: result.data.tenKhoaHoc,
+        NOT: {
+          id: idKhoaHoc,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (existed) {
+      return {
+        status: "error",
+        message: "Tiêu đề khóa học này đã tồn tại. Vui lòng chọn tiêu đề khác.",
+      };
+    }
+
     // Verify ownership
     const isOwner = await verifyCourseOwnership(idKhoaHoc, user.user.id);
     if (!isOwner) {

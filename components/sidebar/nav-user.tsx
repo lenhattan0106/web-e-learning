@@ -84,22 +84,24 @@ export function NavUser() {
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem asChild>
-              <Link href="/">
-                 <HomeIcon />
-                Trang chủ
-              </Link>
+                <Link href="/">
+                  <HomeIcon />
+                  Trang chủ
+                </Link>
+              </DropdownMenuItem>
+
+              {/* Sidebar này chỉ dùng trong khu vực /teacher, nên mặc định hướng về các trang giáo viên */}
+              <DropdownMenuItem asChild>
+                <Link href="/teacher">
+                  <IconDashboard />
+                  Bảng điều khiển
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-              <Link href="/teacher">
-                <IconDashboard />
-                Bảng điều khiển
-              </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-               <Link href="/teacher/courses">
-                <Tv2/>
-                Khóa học
-               </Link>
+                <Link href="/teacher/courses">
+                  <Tv2 />
+                  Khóa học
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

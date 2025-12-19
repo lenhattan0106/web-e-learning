@@ -1,45 +1,40 @@
 import aj from "@/lib/arcjet";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 import ip from "@arcjet/ip";
-import arcjet, {
+import {
   type ArcjetDecision,
   type BotOptions,
   type EmailOptions,
   type ProtectSignupOptions,
   type SlidingWindowRateLimitOptions,
   detectBot,
-  protectSignup, 
-  shield,
+  protectSignup,
   slidingWindow,
 } from "@arcjet/next";
 import { toNextJsHandler } from "better-auth/next-js";
 import { NextRequest } from "next/server";
+import { randomBytes } from "crypto";
 
 const emailOptions = {
-  mode: "LIVE", // sẽ chặn yêu cầu. Sử dụng "DRY_RUN" để chỉ ghi log
-  // Chặn email dùng tạm, không hợp lệ, hoặc không có bản ghi MX
+  mode: "LIVE", 
   block: ["DISPOSABLE", "INVALID", "NO_MX_RECORDS"],
 } satisfies EmailOptions;
 
 const botOptions = {
   mode: "LIVE",
-  // cấu hình danh sách bot được phép từ
-  // https://arcjet.com/bot-list
   allow: [], // ngăn bot gửi form
 } satisfies BotOptions;
 
 const rateLimitOptions = {
   mode: "LIVE",
-  interval: "2m", // đếm yêu cầu trong khung thời gian 2 phút
-  max: 5, // cho phép 5 lần gửi trong khung thời gian
+  interval: "2m", 
+  max: 5,
 } satisfies SlidingWindowRateLimitOptions<[]>;
 
 const signupOptions = {
   email: emailOptions,
-  // sử dụng giới hạn tốc độ theo khung thời gian trượt
   bots: botOptions,
-  // Sẽ bất thường nếu form được gửi hơn 5 lần trong 10 phút
-  // từ cùng một địa chỉ IP
   rateLimit: rateLimitOptions,
 } satisfies ProtectSignupOptions<[]>;
 
@@ -47,10 +42,6 @@ async function protect(req: NextRequest): Promise<ArcjetDecision> {
   const session = await auth.api.getSession({
     headers: req.headers,
   });
-
-  // Nếu người dùng đã đăng nhập, chúng ta sẽ sử dụng ID của họ làm định danh.
-  // Điều này cho phép áp dụng giới hạn trên tất cả thiết bị và phiên (bạn cũng
-  // có thể sử dụng session ID). Nếu không, sẽ dùng địa chỉ IP.
   let userId: string;
   if (session?.user.id) {
     userId = session.user.id;
@@ -58,28 +49,19 @@ async function protect(req: NextRequest): Promise<ArcjetDecision> {
     userId = ip(req) || "127.0.0.1"; // Dự phòng IP local nếu không có
   }
 
-  // Nếu đây là đăng ký thì sử dụng quy tắc protectSignup đặc biệt
-  // Xem https://docs.arcjet.com/signup-protection/quick-start
   if (req.nextUrl.pathname.startsWith("/api/auth/sign-up")) {
-    // Better-Auth đọc body, nên chúng ta cần clone request trước
     const body = await req.clone().json();
-
-    // Nếu email có trong body của request thì chúng ta có thể chạy
-    // các kiểm tra xác thực email. Xem
-    // https://www.better-auth.com/docs/concepts/hooks#example-enforce-email-domain-restriction
     if (typeof body.email === "string") {
       return aj 
         .withRule(protectSignup(signupOptions))
         .protect(req, { email: body.email, fingerprint: userId });
     } else {
-      // Nếu không thì sử dụng rate limit và phát hiện bot
       return aj
         .withRule(detectBot(botOptions))
         .withRule(slidingWindow(rateLimitOptions))
         .protect(req, { fingerprint:userId });
     }
   } else {
-    // Cho tất cả các yêu cầu auth khác
     return aj.withRule(detectBot(botOptions)).protect(req, { fingerprint:userId });
   }
 }
@@ -116,6 +98,92 @@ export const POST = async (req: NextRequest) => {
       return Response.json({ message }, { status: 400 });
     } else {
       return new Response(null, { status: 403 });
+    }
+  }
+
+  // Xử lý signup: Tạo Account record sau khi better-auth tạo User
+  const isSignup = req.nextUrl.pathname === "/api/auth/sign-up";
+  
+  if (isSignup) {
+    try {
+      // Đọc body trước khi gọi better-auth (body chỉ đọc được 1 lần)
+      const body = await req.json().catch(() => null);
+      const email = body?.email;
+      
+      // Tạo lại request với body để gửi cho better-auth
+      const newReq = new NextRequest(req.url, {
+        method: req.method,
+        headers: req.headers,
+        body: JSON.stringify(body),
+      });
+      
+      // Gọi better-auth handler
+      const response = await authHandlers.POST(newReq);
+      
+      // Nếu signup thành công (status 200/201), kiểm tra và tạo Account record nếu cần
+      // Better-auth với email/password có thể không tự động tạo Account record
+      // Nên cần kiểm tra và tạo thủ công nếu chưa có
+      if ((response.status === 200 || response.status === 201) && email) {
+        // Đợi một chút để đảm bảo User đã được tạo trong DB bởi better-auth
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        
+        try {
+          const user = await prisma.user.findUnique({
+            where: { email: email },
+            select: { id: true, email: true },
+          });
+
+          if (user) {
+            // Kiểm tra xem đã có Account record với providerId = "credential" chưa
+            const existingAccount = await prisma.account.findFirst({
+              where: {
+                userId: user.id,
+                providerId: "credential",
+              },
+            });
+
+            // Nếu chưa có Account record với providerId = "credential", tạo một Account record
+            // Better-auth sẽ lưu password trong Account table khi login
+            // Nhưng khi signup, có thể chưa tạo Account record
+            if (!existingAccount) {
+              // Tìm xem có Account record nào khác không (có thể better-auth đã tạo với password)
+              const anyAccount = await prisma.account.findFirst({
+                where: {
+                  userId: user.id,
+                },
+                select: { password: true },
+              });
+
+              await prisma.account.create({
+                data: {
+                  id: randomBytes(16).toString("hex"),
+                  accountId: user.email,
+                  providerId: "credential",
+                  userId: user.id,
+                  // Copy password từ Account khác nếu có, nếu không để null
+                  // Better-auth sẽ tự động set password khi user login lần đầu
+                  password: anyAccount?.password || null,
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                },
+              });
+              console.log(`✅ [API Route] Đã tạo Account record cho user: ${user.email}`);
+            } else {
+              console.log(`ℹ️ [API Route] Account record đã tồn tại cho user: ${user.email}`);
+            }
+          }
+        } catch (error) {
+          console.error("❌ [API Route] Lỗi khi kiểm tra/tạo Account record:", error);
+          // Không throw error để không làm gián đoạn flow signup
+          // Better-auth đã xử lý signup thành công rồi
+        }
+      }
+      
+      return response;
+    } catch (error) {
+      console.error("❌ [API Route] Lỗi trong POST handler:", error);
+      // Fallback: thử gọi better-auth với request gốc
+      return authHandlers.POST(req);
     }
   }
 

@@ -10,8 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
-import { IconPassword } from "@tabler/icons-react";
-import { ArrowLeft, GithubIcon, Loader, Loader2, LogInIcon, Send } from "lucide-react";
+import { ArrowLeft, GithubIcon, Loader, LogInIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition, useEffect } from "react";
@@ -22,18 +21,17 @@ export function LoginForm() {
   const params = useSearchParams();
   const [githubPending, startGithubTransition] = useTransition();
   const [passwordPending, startPassWordTransition] = useTransition();
-  const [email, setEmail] = useState("");
+  
+  // Khởi tạo email từ URL params nếu có (khi user vừa verify email)
+  const emailFromParams = params.get("email") || "";
+  const [email, setEmail] = useState(emailFromParams);
   const [password, setPassWord] = useState("");
 
   // Kiểm tra nếu user vừa verify email và được redirect đến đây
   useEffect(() => {
     const verified = params.get("verified");
-    const emailParam = params.get("email");
     if (verified === "true") {
       toast.success("Email đã được xác minh thành công! Bạn có thể đăng nhập ngay.");
-      if (emailParam) {
-        setEmail(emailParam);
-      }
     }
   }, [params]);
 
@@ -184,7 +182,7 @@ export function LoginForm() {
             Đăng ký
           </Link>
         </div>
-        <div className="mx-auto"><Link href="/" className="text-primary underline mt-2">Quên mật khẩu</Link></div>
+        <div className="mx-auto"><Link href="/forget-password" className="text-primary underline mt-2">Quên mật khẩu</Link></div>
       </CardContent>
     </Card>
   </div>

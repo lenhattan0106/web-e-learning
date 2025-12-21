@@ -24,20 +24,44 @@ export default function VerifyRequest() {
   const [emailPending, startTransition] = useTransition();
   const params = useSearchParams();
   const email = params.get('email') as string;
-  const isOtpCompleted = otp.length ===6;
+  const type = params.get('type'); // Kiểm tra type để biết đây là forget-password hay không
+  const isOtpCompleted = otp.length === 6;
 
   function verifyOtp(){
+    if (!email) {
+      toast.error("Không tìm thấy email. Vui lòng thử lại từ đầu.");
+      router.push("/forget-password");
+      return;
+    }
+
     startTransition(async ()=>{
-        await authClient.signIn.emailOtp({
-            email:email,
+        await authClient.emailOtp.checkVerificationOtp({
+            email: email,
             otp: otp,
+            type: type === "forget-password" ? "forget-password" : "email-verification",
             fetchOptions:{
                 onSuccess:()=>{
-                    toast.success('Email đã được xác minh');
-                    router.push("/");
+                    if (type === "forget-password") {
+                      // Lưu OTP đã verify vào sessionStorage (an toàn, chỉ tồn tại trong tab hiện tại)
+                      const storageKey = `reset-password-otp-${email}`;
+                      sessionStorage.setItem(storageKey, otp);
+                      
+                      toast.success('OTP đã được xác minh. Vui lòng nhập mật khẩu mới.');
+                      // Redirect đến reset-password chỉ với email (KHÔNG có OTP trong URL)
+                      router.push(`/reset-password?email=${encodeURIComponent(email)}`);
+                    } else {
+                      // Nếu không phải forget-password, giữ nguyên flow cũ (redirect về trang chủ)
+                      toast.success('Email đã được xác minh');
+                      router.push("/");
+                    }
                 },
-                onError:()=>{
-                    toast.error('Lỗi khi xác minh Email/OTP')
+                onError:(ctx) => {
+                    const errorMessage = ctx.error?.message?.toLowerCase() || "";
+                    if (errorMessage.includes("invalid") || errorMessage.includes("không hợp lệ") || errorMessage.includes("expired")) {
+                      toast.error('Mã OTP không hợp lệ hoặc đã hết hạn. Vui lòng thử lại.');
+                    } else {
+                      toast.error('Lỗi khi xác minh Email/OTP. Vui lòng thử lại.');
+                    }
                 }
             }
         })

@@ -7,7 +7,11 @@ export async function GET() {
   await requireTeacher();
 
   const courses = await prisma.khoaHoc.findMany({
+    where: {
+      idNguoiDung: (await requireTeacher()).user.id,
+    },
     select: {
+      id: true,
       tenKhoaHoc: true,
     },
     orderBy: {
@@ -15,11 +19,12 @@ export async function GET() {
     },
   });
 
-  const titles = courses
-    .map((c) => c.tenKhoaHoc)
-    .filter(Boolean);
+  const data = courses.map((c) => ({
+    id: c.id,
+    title: c.tenKhoaHoc,
+  }));
 
-  return NextResponse.json(titles);
+  return NextResponse.json(data);
 }
 
 

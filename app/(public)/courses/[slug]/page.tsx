@@ -23,6 +23,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { EnrollmentButton } from "./_components/EnrollmentButton";
+import { CourseSidebar } from "./_components/CourseSidebar";
 
 type Params = Promise<{ slug: string }>;
 
@@ -153,110 +154,90 @@ export default async function SlugPage({ params }: { params: Params }) {
       </div>
       {/* Design khu vực mua khóa học */}
       <div className="order-2 lg:col-span-1">
-        <div className="sticky top-20">
-          <Card className="py-0">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <span className="text-lg font-medium">Giá:</span>
-                <span className="text-2xl font-bold text-primary">
-                  {new Intl.NumberFormat("vi-VN", {
-                    style: "currency",
-                    currency: "VND",
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0,
-                  }).format(khoaHoc.gia)}
-                </span>
+        <CourseSidebar
+          courseId={khoaHoc.id}
+          price={khoaHoc.gia}
+          isEnrolled={isEnrolled}
+        >
+          {/* Children passed to Sidebar */}
+          <div className="mb-6 space-y-3 rounded-lg bg-muted p-4">
+            <h4 className="font-medium">Thông tin khóa học</h4>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Clock className="size-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Thời lượng</p>
+                  <p className="text-sm text-muted-foreground">
+                    {khoaHoc.thoiLuong} giờ
+                  </p>
+                </div>
               </div>
-              <div className="mb-6 space-y-3 rounded-lg bg-muted p-4">
-                <h4 className="font-medium">Thông tin khóa học</h4>
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-                      <Clock className="size-4" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Thời lượng</p>
-                      <p className="text-sm text-muted-foreground">
-                        {khoaHoc.thoiLuong} giờ
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-                      <BarChart3 className="size-4" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Cấp độ</p>
-                      <p className="text-sm text-muted-foreground">
-                        {khoaHoc.capDo}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-                      <FolderOpen className="size-4" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Danh mục</p>
-                      <p className="text-sm text-muted-foreground">
-                        {khoaHoc.danhMuc}
-                      </p>
-                    </div>
-                  </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-                        <BookOpen className="size-4" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">Số lượng bài học</p>
-                        <p className="text-sm text-muted-foreground">
-                          {khoaHoc.chuongs.reduce(
-                            (total, chuong) => total + chuong.baiHocs.length,
-                            0
-                          )}{" "}
-                          bài học
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+              <div className="flex items-center gap-3">
+                <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <BarChart3 className="size-4" />
                 </div>
+                <div>
+                  <p className="text-sm font-medium">Cấp độ</p>
+                  <p className="text-sm text-muted-foreground">
+                    {khoaHoc.capDo}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <FolderOpen className="size-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Danh mục</p>
+                  <p className="text-sm text-muted-foreground">
+                    {khoaHoc.danhMuc}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <BookOpen className="size-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Số lượng bài học</p>
+                  <p className="text-sm text-muted-foreground">
+                    {khoaHoc.chuongs.reduce(
+                      (total, chuong) => total + chuong.baiHocs.length,
+                      0
+                    )}{" "}
+                    bài học
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
 
-                <div className="mb-6 space-y-3">
-                    <h2 className="font-semibold">Khóa học bao gồm:</h2>
-                    <ul className="space-y-3">
-                       <li className="flex items-center gap-2 text-sm">
-                          <div className="rounded-full p-1 bg-green-500/10 text-green-500">
-                             <Check className="size-3" />
-                          </div>
-                          <span>Quyền truy cập trọn đời</span>
-                       </li>
-                        <li className="flex items-center gap-2 text-sm">
-                          <div className="rounded-full p-1 bg-green-500/10 text-green-500">
-                             <Check className="size-3" />
-                          </div>
-                          <span>Cập nhật nội dung mới nhất</span>
-                       </li>
-                       <li className="flex items-center gap-2 text-sm">
-                          <div className="rounded-full p-1 bg-green-500/10 text-green-500">
-                             <Check className="size-3" />
-                          </div>
-                          <span>Cộng đồng học viên hỗ trợ lẫn nhau</span>
-                       </li>
-                    </ul>
+          <div className="mb-6 space-y-3">
+            <h2 className="font-semibold">Khóa học bao gồm:</h2>
+            <ul className="space-y-3">
+              <li className="flex items-center gap-2 text-sm">
+                <div className="rounded-full p-1 bg-green-500/10 text-green-500">
+                  <Check className="size-3" />
                 </div>
-                {isEnrolled ? (
-                  <Link href="/dashboard" className={buttonVariants({
-                    className:"w-full"
-                  })}>
-                  Xem khóa học
-                  </Link>
-                ):(
-                  <EnrollmentButton courseId={khoaHoc.id}></EnrollmentButton>
-                )}
-          
-            </CardContent>
-          </Card>
-        </div>
+                <span>Quyền truy cập trọn đời</span>
+              </li>
+              <li className="flex items-center gap-2 text-sm">
+                <div className="rounded-full p-1 bg-green-500/10 text-green-500">
+                  <Check className="size-3" />
+                </div>
+                <span>Cập nhật nội dung mới nhất</span>
+              </li>
+              <li className="flex items-center gap-2 text-sm">
+                <div className="rounded-full p-1 bg-green-500/10 text-green-500">
+                  <Check className="size-3" />
+                </div>
+                <span>Cộng đồng học viên hỗ trợ lẫn nhau</span>
+              </li>
+            </ul>
+          </div>
+        </CourseSidebar>
       </div>
     </div>
   );

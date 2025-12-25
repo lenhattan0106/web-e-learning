@@ -74,22 +74,22 @@ export default function ForgetPassword() {
             <CardTitle className="text-2xl">Quên mật khẩu?</CardTitle>
             <CardDescription className="text-base">
               Đừng lo lắng! Chúng tôi sẽ gửi mã xác minh OTP đến địa chỉ email của bạn để bạn có thể đặt lại mật khẩu.
-            </CardDescription>
+        </CardDescription>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
+      </CardHeader>
+      <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="email" className="text-sm font-medium">
               Địa chỉ email
             </Label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
+          <Input
                 id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            type="email"
                 placeholder="email@example.com"
                 className="pl-10"
                 disabled={emailPending}
@@ -103,26 +103,26 @@ export default function ForgetPassword() {
             <p className="text-xs text-muted-foreground">
               Nhập địa chỉ email đã đăng ký tài khoản của bạn
             </p>
-          </div>
+        </div>
 
-          <Button
-            onClick={forgetPassword}
+        <Button
+          onClick={forgetPassword}
             disabled={emailPending || !email}
-            className="w-full"
+          className="w-full"
             size="lg"
-          >
-            {emailPending ? (
-              <>
+        >
+          {emailPending ? (
+            <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 <span>Đang gửi mã OTP...</span>
-              </>
-            ) : (
+            </>
+          ) : (
               <>
                 <Mail className="mr-2 h-4 w-4" />
                 Gửi mã OTP
               </>
-            )}
-          </Button>
+          )}
+        </Button>
 
           <div className="rounded-lg bg-muted/50 p-4 text-sm">
             <p className="font-medium mb-2">Lưu ý:</p>
@@ -139,8 +139,8 @@ export default function ForgetPassword() {
               Đăng nhập ngay
             </Link>
           </div>
-        </CardContent>
-      </Card>
+      </CardContent>
+    </Card>
     </div>
   );
 }

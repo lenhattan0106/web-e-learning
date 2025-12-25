@@ -1,18 +1,31 @@
-"use client";
-
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { useTransition } from "react";
 import { enrollInCourseAction } from "../action";
 import { toast } from "sonner";
 import { Loader } from "lucide-react";
+import Link from "next/link";
 
-export function EnrollmentButton({ courseId }: { courseId: string }) {
+interface EnrollmentButtonProps {
+  courseId: string;
+  couponCode?: string;
+  isEnrolled?: boolean;
+}
+
+export function EnrollmentButton({ courseId, couponCode, isEnrolled }: EnrollmentButtonProps) {
   const [pending, startTransition] = useTransition();
+
+  if (isEnrolled) {
+     return (
+        <Link href="/dashboard" className={buttonVariants({ className:"w-full" })}>
+            Khu vực học tập
+        </Link>
+     )
+  }
 
   function onSubmit() {
     startTransition(async () => {
       try {
-        const result = await enrollInCourseAction(courseId);
+        const result = await enrollInCourseAction(courseId, couponCode);
 
         // Nếu có message (lỗi hoặc đã mua rồi)
         if (result) {

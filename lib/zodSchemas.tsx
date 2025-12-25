@@ -80,7 +80,28 @@ export const updateLessonFormSchema = z.object({
   maVideo: baiHocSchema.shape.maVideo.optional(),
 });
 
+export const couponFormSchema = z.object({
+  tieuDe: z.string().min(1, "Tiêu đề không được để trống"),
+  maGiamGia: z.string().min(1, "Mã giảm giá không được để trống"),
+  ngayBatDau: z.string().nullable().optional(),
+  ngayKetThuc: z.string().nullable().optional(),
+  hoatDong: z.boolean().optional(),
+  giaTri: z.number().min(0, "Giá trị phải lớn hơn hoặc bằng 0"),
+  loai: z.enum(["PhanTram", "GiamTien"]),
+  idKhoaHoc: z.array(z.string()).nullable().optional(),
+  soLuong: z.number().nullable().optional(),
+}).refine((data) => {
+    if (!data.ngayBatDau || !data.ngayKetThuc) return true;
+    const start = new Date(data.ngayBatDau);
+    const end = new Date(data.ngayKetThuc);
+    return end >= start;
+}, {
+    message: "Ngày kết thúc phải sau ngày bắt đầu",
+    path: ["ngayKetThuc"],
+});
+
 export type KhoaHocSchemaType = z.infer<typeof khoaHocSchema>;
 export type ChuongSchemaType = z.infer<typeof chuongSchema>;
 export type BaiHocSchemaType = z.infer<typeof baiHocSchema>;
 export type CapNhatBaiHocType = z.infer<typeof updateLessonFormSchema>;
+export type CouponFormType = z.infer<typeof couponFormSchema>;

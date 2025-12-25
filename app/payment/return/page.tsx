@@ -65,6 +65,7 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
           select: {
             id: true,
             trangThai: true,
+            maGiamGiaId: true, // Lấy thêm maGiamGiaId
           },
         });
 
@@ -72,13 +73,31 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
           if (isSuccess) {
             // ✅ THANH TOÁN THÀNH CÔNG → CẬP NHẬT NGAY
             if (dangKyHoc.trangThai !== "DaThanhToan") {
-              await prisma.dangKyHoc.update({
-                where: { id: dangKyHoc.id },
-                data: {
-                  trangThai: "DaThanhToan",
-                  ngayCapNhat: new Date(),
-                },
+              // Dùng transaction để đảm bảo cả 2 update đều chạy hoặc rollback
+              await prisma.$transaction(async (tx) => {
+                // 1. Update trạng thái Đăng ký
+                await tx.dangKyHoc.update({
+                  where: { id: dangKyHoc.id },
+                  data: {
+                    trangThai: "DaThanhToan",
+                    ngayCapNhat: new Date(),
+                  },
+                });
+
+                // 2. Update số lượng sử dụng Coupon nếu có
+                if (dangKyHoc.maGiamGiaId) {
+                   await tx.maGiamGia.update({
+                       where: { id: dangKyHoc.maGiamGiaId },
+                       data: {
+                           daSuDung: {
+                               increment: 1
+                           }
+                       }
+                   });
+                   console.log("🎟️ Đã tăng số lượng sử dụng cho coupon:", dangKyHoc.maGiamGiaId);
+                }
               });
+
               displayStatus = "DaThanhToan";
               console.log("✅ Đã cập nhật đăng ký thành công tại Return URL:", dangKyHoc.id);
             } else {

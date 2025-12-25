@@ -85,13 +85,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(InpOrderAlreadyConfirmed);
     }
 
-    // Cập nhật enrollment status thành "DaThanhToan"
-    await prisma.dangKyHoc.update({
-      where: { id: enrollmentId },
-      data: {
-        trangThai: "DaThanhToan",
-        ngayCapNhat: new Date(),
-      },
+    // Cập nhật enrollment status thành "DaThanhToan" và tăng số lượng coupon (nếu có)
+    await prisma.$transaction(async (tx) => {
+        // 1. Update trạng thái
+        await tx.dangKyHoc.update({
+            where: { id: enrollmentId },
+            data: {
+                trangThai: "DaThanhToan",
+                ngayCapNhat: new Date(),
+            },
+        });
+
+        // 2. Tăng số lượng coupon (nếu có)
+        // Cần truy vấn lại để chắc chắn có maGiamGiaId (dù ở trên đã check foundDangKy nhưng để an toàn trong transaction)
+        if (foundDangKy.maGiamGiaId) {
+             await tx.maGiamGia.update({
+                 where: { id: foundDangKy.maGiamGiaId },
+                 data: { daSuDung: { increment: 1 } }
+             });
+             console.log("IPN: Đã tăng số lượng coupon:", foundDangKy.maGiamGiaId);
+        }
     });
 
     console.log("IPN thành công: Đã cập nhật enrollment", {

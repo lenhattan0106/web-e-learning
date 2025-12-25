@@ -70,7 +70,8 @@ const authHandlers = toNextJsHandler(auth.handler);
 
 export const { GET } = authHandlers;
 
-// Bọc POST handler với các bảo vệ của Arcjet
+// Bọc POST handler với các bảo vệ của Arcjet,
+// sau đó giao hoàn toàn cho better-auth xử lý (không tự tạo Account thủ công)
 export const POST = async (req: NextRequest) => {
   const decision = await protect(req);
 
@@ -90,8 +91,6 @@ export const POST = async (req: NextRequest) => {
         message =
           "Tên miền email của bạn không có bản ghi MX. Có lỗi chính tả không?";
       } else {
-        // Đây là trường hợp bắt tất cả, nhưng các điều kiện trên nên đầy đủ
-        // dựa trên các quy tắc đã cấu hình.
         message = "Email không hợp lệ.";
       }
 
@@ -101,91 +100,8 @@ export const POST = async (req: NextRequest) => {
     }
   }
 
-  // Xử lý signup: Tạo Account record sau khi better-auth tạo User
-  const isSignup = req.nextUrl.pathname === "/api/auth/sign-up";
-  
-  if (isSignup) {
-    try {
-      // Đọc body trước khi gọi better-auth (body chỉ đọc được 1 lần)
-      const body = await req.json().catch(() => null);
-      const email = body?.email;
-      
-      // Tạo lại request với body để gửi cho better-auth
-      const newReq = new NextRequest(req.url, {
-        method: req.method,
-        headers: req.headers,
-        body: JSON.stringify(body),
-      });
-      
-      // Gọi better-auth handler
-      const response = await authHandlers.POST(newReq);
-      
-      // Nếu signup thành công (status 200/201), kiểm tra và tạo Account record nếu cần
-      // Better-auth với email/password có thể không tự động tạo Account record
-      // Nên cần kiểm tra và tạo thủ công nếu chưa có
-      if ((response.status === 200 || response.status === 201) && email) {
-        // Đợi một chút để đảm bảo User đã được tạo trong DB bởi better-auth
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        
-        try {
-          const user = await prisma.user.findUnique({
-            where: { email: email },
-            select: { id: true, email: true },
-          });
-
-          if (user) {
-            // Kiểm tra xem đã có Account record với providerId = "credential" chưa
-            const existingAccount = await prisma.account.findFirst({
-              where: {
-                userId: user.id,
-                providerId: "credential",
-              },
-            });
-
-            // Nếu chưa có Account record với providerId = "credential", tạo một Account record
-            // Better-auth sẽ lưu password trong Account table khi login
-            // Nhưng khi signup, có thể chưa tạo Account record
-            if (!existingAccount) {
-              // Tìm xem có Account record nào khác không (có thể better-auth đã tạo với password)
-              const anyAccount = await prisma.account.findFirst({
-                where: {
-                  userId: user.id,
-                },
-                select: { password: true },
-              });
-
-              await prisma.account.create({
-                data: {
-                  id: randomBytes(16).toString("hex"),
-                  accountId: user.email,
-                  providerId: "credential",
-                  userId: user.id,
-                  // Copy password từ Account khác nếu có, nếu không để null
-                  // Better-auth sẽ tự động set password khi user login lần đầu
-                  password: anyAccount?.password || null,
-                  createdAt: new Date(),
-                  updatedAt: new Date(),
-                },
-              });
-              console.log(`✅ [API Route] Đã tạo Account record cho user: ${user.email}`);
-            } else {
-              console.log(`ℹ️ [API Route] Account record đã tồn tại cho user: ${user.email}`);
-            }
-          }
-        } catch (error) {
-          console.error("❌ [API Route] Lỗi khi kiểm tra/tạo Account record:", error);
-          // Không throw error để không làm gián đoạn flow signup
-          // Better-auth đã xử lý signup thành công rồi
-        }
-      }
-      
-      return response;
-    } catch (error) {
-      console.error("❌ [API Route] Lỗi trong POST handler:", error);
-      // Fallback: thử gọi better-auth với request gốc
-      return authHandlers.POST(req);
-    }
-  }
-
+  // Không làm thêm bất cứ xử lý signup thủ công nào:
+  // - Better-Auth + Prisma Adapter sẽ tự động tạo User + Account (providerId: "credential")
+  // - Mật khẩu được lưu trong Account theo đúng thiết kế của Better-Auth
   return authHandlers.POST(req);
 };

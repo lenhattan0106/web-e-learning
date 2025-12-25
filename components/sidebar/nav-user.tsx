@@ -4,6 +4,7 @@ import {
   IconDashboard,
   IconDotsVertical,
   IconLogout,
+  IconSettings,
 } from "@tabler/icons-react"
 
 import {
@@ -31,7 +32,7 @@ import Link from "next/link"
 import { HomeIcon, Tv2 } from "lucide-react"
 import { useSignOut } from "@/hooks/use-signout"
 
-export function NavUser() {
+export function   NavUser() {
   const { isMobile } = useSidebar()
   const {data:session, isPending} = authClient.useSession();
   const handleSignOut = useSignOut();
@@ -84,26 +85,33 @@ export function NavUser() {
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem asChild>
-                <Link href="/">
-                  <HomeIcon />
-                  Trang chủ
-                </Link>
+              <Link href="/">
+                 <HomeIcon />
+                Trang chủ
+              </Link>
               </DropdownMenuItem>
 
               {/* Sidebar này chỉ dùng trong khu vực /teacher, nên mặc định hướng về các trang giáo viên */}
               <DropdownMenuItem asChild>
-                <Link href="/teacher">
-                  <IconDashboard />
-                  Bảng điều khiển
-                </Link>
+              <Link href="/teacher">
+                <IconDashboard />
+                Bảng điều khiển
+              </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/teacher/courses">
+               <Link href="/teacher/courses">
                   <Tv2 />
-                  Khóa học
-                </Link>
+                Khóa học
+               </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/settings">
+                <IconSettings />
+                Cài đặt
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut}>
               <IconLogout />

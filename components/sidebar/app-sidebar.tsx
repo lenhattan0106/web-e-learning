@@ -2,15 +2,11 @@
 
 import * as React from "react"
 import {
-  IconCamera,
   IconChartBar,
   IconDashboard,
-  IconFileAi,
-  IconFileDescription,
-  IconFolder,
+  IconDiscount,
   IconHelp,
   IconListDetails, 
-  IconSearch,
   IconSettings,
   IconUsers,
 } from "@tabler/icons-react"
@@ -53,6 +49,11 @@ const data = {
       url: "/teacher/students",
       icon: IconUsers,
     },
+     {
+      title: "Mã giảm giá",
+      url: "/teacher/coupon",
+      icon: IconDiscount,
+    },
   ],
   navSecondary: [
     {
@@ -62,7 +63,7 @@ const data = {
     },
     {
       title: "Cài đặt",
-      url: "#",
+      url: "/profile",
       icon: IconSettings,
     },
   ],

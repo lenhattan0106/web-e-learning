@@ -21,102 +21,47 @@ export default function VerifyEmailPage() {
   const [isVerifying, startVerifying] = useTransition();
   const [verificationStatus, setVerificationStatus] = useState<"pending" | "success" | "error">("pending");
   const [errorMessage, setErrorMessage] = useState<string>("");
-  const [hasRedirected, setHasRedirected] = useState(false);
-  const [isChecking, setIsChecking] = useState(false);
+  const { data: session, isPending: sessionPending } = authClient.useSession();
 
-  // Hàm check verification status từ database (KHÔNG phụ thuộc session)
-  const checkVerificationFromDB = async (email: string): Promise<boolean> => {
-    try {
-      const response = await fetch(`/api/auth/check-verification?email=${encodeURIComponent(email)}`);
-      if (response.ok) {
-        const data = await response.json();
-        return data.emailVerified === true;
-      }
-      return false;
-    } catch (error) {
-      console.error("Error checking verification from DB:", error);
-      return false;
-    }
-  };
-
-  // Kiểm tra trạng thái verification dựa trên URL params và DATABASE (không phụ thuộc session)
+  // Kiểm tra trạng thái verification dựa trên URL params và session
   useEffect(() => {
     const checkVerificationStatus = async () => {
-      // Ngăn check nhiều lần đồng thời
-      if (isChecking || hasRedirected) return;
-      
-      setIsChecking(true);
-
       // Kiểm tra error trong URL params
       const error = params.get("error");
       if (error === "invalid_token") {
         setVerificationStatus("error");
         setErrorMessage("Link xác minh không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu gửi lại email xác minh.");
-        setIsChecking(false);
         return;
       } else if (error) {
         setVerificationStatus("error");
         setErrorMessage("Đã xảy ra lỗi khi xác minh email. Vui lòng thử lại.");
-        setIsChecking(false);
         return;
       }
 
-      const email = params.get("email");
-      if (!email) {
-        setVerificationStatus("pending");
-        setIsChecking(false);
-        return;
+      // Kiểm tra session để xem email đã được verify chưa
+      if (!sessionPending && session?.user) {
+        // Nếu có session và email đã verified → verification thành công
+        if (session.user.emailVerified) {
+          setVerificationStatus("success");
+          toast.success("Email đã được xác minh thành công!");
+          // Tự động redirect về login sau 2 giây
+          setTimeout(() => {
+            router.push("/login");
+          }, 2000);
+          return;
+        } else {
+          // Có session nhưng chưa verify → đang chờ verify
+          setVerificationStatus("pending");
+          return;
+        }
       }
 
-      // CHECK DATABASE TRỰC TIẾP - Đây là cách duy nhất để biết chính xác verification status
-      const isVerified = await checkVerificationFromDB(email);
-      
-      if (isVerified && !hasRedirected) {
-        // Email đã được verify trong database → redirect về trang chủ ngay lập tức
-        setVerificationStatus("success");
-        setHasRedirected(true);
-        toast.success("Email đã được xác minh thành công! Đang chuyển hướng...");
-        setIsChecking(false);
-        
-        // Redirect về trang chủ ngay lập tức
-        setTimeout(() => {
-          router.push("/");
-          router.refresh();
-        }, 800);
-        return;
-      }
-
-      // Chưa verify → đang chờ verify
+      // Không có session → đang chờ verify hoặc chưa click link
       setVerificationStatus("pending");
-      setIsChecking(false);
     };
 
     checkVerificationStatus();
-  }, [params, router, hasRedirected, isChecking]);
-
-  // Polling: Tự động check lại verification status mỗi 2 giây nếu đang pending
-  useEffect(() => {
-    const email = params.get("email");
-    if (!email || verificationStatus !== "pending" || hasRedirected) {
-      return;
-    }
-
-    const interval = setInterval(async () => {
-      const isVerified = await checkVerificationFromDB(email);
-      if (isVerified && !hasRedirected) {
-        clearInterval(interval);
-        setVerificationStatus("success");
-        setHasRedirected(true);
-        toast.success("Email đã được xác minh thành công! Đang chuyển hướng...");
-        setTimeout(() => {
-          router.push("/");
-          router.refresh();
-        }, 800);
-      }
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [params, verificationStatus, hasRedirected, router]);
+  }, [params, session, sessionPending, router]);
 
   async function resendVerificationEmail() {
     const email = params.get("email");
@@ -187,25 +132,16 @@ export default function VerifyEmailPage() {
               <div className="space-y-2">
                 <Button
                   onClick={async () => {
-                    // Kiểm tra lại từ DATABASE sau khi user click link verification
+                    // Kiểm tra lại session sau khi user click link verification
                     startVerifying(async () => {
                       try {
-                        const email = params.get("email");
-                        if (!email) {
-                          toast.error("Không tìm thấy email.");
-                          return;
-                        }
-
-                        // CHECK DATABASE TRỰC TIẾP - không phụ thuộc session
-                        const isVerified = await checkVerificationFromDB(email);
-                        if (isVerified && !hasRedirected) {
+                        const currentSession = await authClient.getSession();
+                        if (currentSession?.data?.user?.emailVerified) {
                           setVerificationStatus("success");
-                          setHasRedirected(true);
-                          toast.success("Email đã được xác minh thành công! Đang chuyển hướng...");
+                          toast.success("Email đã được xác minh thành công!");
                           setTimeout(() => {
-                            router.push("/");
-                            router.refresh();
-                          }, 800);
+                            router.push("/login");
+                          }, 1500);
                         } else {
                           toast.info("Email chưa được xác minh. Vui lòng click vào link trong email.");
                         }
@@ -253,13 +189,10 @@ export default function VerifyEmailPage() {
 
           {verificationStatus === "success" && (
             <Button
-              onClick={() => {
-                router.push("/");
-                router.refresh();
-              }}
+              onClick={() => router.push("/login")}
               className="w-full"
             >
-              Về trang chủ
+              Đăng nhập ngay
             </Button>
           )}
 

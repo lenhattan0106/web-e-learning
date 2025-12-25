@@ -51,8 +51,8 @@ export default function VerifyRequest() {
                       router.push(`/reset-password?email=${encodeURIComponent(email)}`);
                     } else {
                       // Nếu không phải forget-password, giữ nguyên flow cũ (redirect về trang chủ)
-                      toast.success('Email đã được xác minh');
-                      router.push("/");
+                    toast.success('Email đã được xác minh');
+                    router.push("/");
                     }
                 },
                 onError:(ctx) => {

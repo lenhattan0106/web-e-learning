@@ -133,7 +133,7 @@ export const auth = betterAuth({
                             Vui lòng không trả lời email này.
                           </p>
                           <p style="margin: 16px 0 0; text-align: center;">
-                            <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}" 
+                            <a href="${env.BETTER_AUTH_URL || 'http://localhost:3000'}" 
                                style="color: #2563eb; text-decoration: none; font-size: 14px; font-weight: 500;">
                               Truy cập NT E-Learning
                             </a>

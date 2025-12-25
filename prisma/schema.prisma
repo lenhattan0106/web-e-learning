@@ -8,23 +8,23 @@ datasource db {
 }
 
 model User {
-  id            String    @id @map("idND")
-  name          String    @map("hoTen")
-  email         String    @unique @map("email")
-  emailVerified Boolean   @default(false) @map("daXacThucEmail")
-  image         String?   @map("anhDaiDien")
-  createdAt     DateTime  @default(now()) @map("ngayTao")
-  updatedAt     DateTime  @updatedAt @map("ngayCapNhat")
-  password      String?    @map("matKhau")
+  id            String         @id @map("idND")
+  name          String         @map("hoTen")
+  email         String         @unique @map("email")
+  emailVerified Boolean        @default(false) @map("daXacThucEmail")
+  image         String?        @map("anhDaiDien")
+  createdAt     DateTime       @default(now()) @map("ngayTao")
+  updatedAt     DateTime       @updatedAt @map("ngayCapNhat")
+  password      String?        @map("matKhau")
   khoaHocs      KhoaHoc[]
   sessions      Session[]
   accounts      Account[]
   dangKyHocs    DangKyHoc[]
   tienTrinhHocs TienTrinhHoc[]
-  role       String?   @map("vaiTro")
-  banned     Boolean?  @default(false) @map("biCam")
-  banReason  String?   @map("lyDoCam")
-  banExpires DateTime? @map("hetHanCam")
+  role          String?        @map("vaiTro")
+  banned        Boolean?       @default(false) @map("biCam")
+  banReason     String?        @map("lyDoCam")
+  banExpires    DateTime?      @map("hetHanCam")
 
   @@map("nguoiDung")
 }
@@ -43,10 +43,9 @@ model Session {
 
   impersonatedBy String? @map("biMaoDanh")
 
-  @@map("phienDangNhap")
   @@index([userId])
+  @@map("phienDangNhap")
 }
-
 
 model Account {
   id         String @id @map("idTK")
@@ -67,8 +66,8 @@ model Account {
   createdAt DateTime @default(now()) @map("ngayTao")
   updatedAt DateTime @updatedAt @map("ngayCapNhat")
 
-  @@map("taiKhoan")
   @@index([userId])
+  @@map("taiKhoan")
 }
 
 model Verification {
@@ -79,42 +78,43 @@ model Verification {
   createdAt  DateTime @default(now()) @map("ngayTao")
   updatedAt  DateTime @updatedAt @map("ngayCapNhat")
 
-  @@map("xacMinh")
   @@index([identifier])
+  @@map("xacMinh")
 }
 
 model KhoaHoc {
-  id          String         @id @default(uuid())
-  tenKhoaHoc      String
-  moTa        String
-  tepKH      String
-  gia         Int
-  thoiLuong   Int
-  capDo       CapDoKhoaHoc   @default(NguoiMoi)
-  danhMuc     String
-  moTaNgan    String
-  duongDan    String         @unique
-  trangThai   TrangThaiKhoaHoc @default(BanNhap)
-  ngayTao     DateTime       @default(now())
-  ngayCapNhat DateTime       @updatedAt
-  dangKyHocs  DangKyHoc[]
-  idNguoiDung String
-  nguoiDung   User           @relation(fields: [idNguoiDung], references: [id], onDelete: Cascade)
-  chuongs     Chuong[]
-  
+  id                String             @id @default(uuid())
+  tenKhoaHoc        String
+  moTa              String
+  tepKH             String
+  gia               Int
+  thoiLuong         Int
+  capDo             CapDoKhoaHoc       @default(NguoiMoi)
+  danhMuc           String
+  moTaNgan          String
+  duongDan          String             @unique
+  trangThai         TrangThaiKhoaHoc   @default(BanNhap)
+  ngayTao           DateTime           @default(now())
+  ngayCapNhat       DateTime           @updatedAt
+  dangKyHocs        DangKyHoc[]
+  idNguoiDung       String
+  nguoiDung         User               @relation(fields: [idNguoiDung], references: [id], onDelete: Cascade)
+  chuongs           Chuong[]
+  maGiamGiaKhoaHocs MaGiamGiaKhoaHoc[]
+
   @@map("khoaHoc")
 }
 
 enum CapDoKhoaHoc {
-  NguoiMoi     
-  TrungCap 
-  NangCao   
+  NguoiMoi
+  TrungCap
+  NangCao
 }
 
 enum TrangThaiKhoaHoc {
-  BanNhap     
+  BanNhap
   BanChinhThuc
-  BanLuuTru  
+  BanLuuTru
 }
 
 model Chuong {
@@ -123,57 +123,66 @@ model Chuong {
   thuTu       Int
   ngayTao     DateTime @default(now())
   ngayCapNhat DateTime @updatedAt
-  
-  baiHocs     BaiHoc[]
-  idKhoaHoc   String
-  khoaHoc     KhoaHoc  @relation(fields: [idKhoaHoc], references: [id], onDelete: Cascade)
 
-  @@map("chuong")
+  baiHocs   BaiHoc[]
+  idKhoaHoc String
+  khoaHoc   KhoaHoc  @relation(fields: [idKhoaHoc], references: [id], onDelete: Cascade)
+
   @@index([idKhoaHoc])
+  @@map("chuong")
 }
 
 model BaiHoc {
-  id             String   @id @default(uuid())
-  tenBaiHoc      String
-  moTa           String?
-  anhBaiHoc      String?
-  maVideo        String?
-  thuTu          Int
-  thoiLuong      Int?
-  mienPhi        Boolean?  @default(false)
-  ngayTao        DateTime @default(now())
-  ngayCapNhat    DateTime @updatedAt
-  idChuong       String
-  chuong         Chuong   @relation(fields: [idChuong], references: [id], onDelete: Cascade)
-  tienTrinhHocs  TienTrinhHoc[]
-  
-  @@map("baiHoc")
+  id            String         @id @default(uuid())
+  tenBaiHoc     String
+  moTa          String?
+  anhBaiHoc     String?
+  maVideo       String?
+  thuTu         Int
+  thoiLuong     Int?
+  mienPhi       Boolean?       @default(false)
+  ngayTao       DateTime       @default(now())
+  ngayCapNhat   DateTime       @updatedAt
+  idChuong      String
+  chuong        Chuong         @relation(fields: [idChuong], references: [id], onDelete: Cascade)
+  tienTrinhHocs TienTrinhHoc[]
+
   @@index([idChuong])
+  @@map("baiHoc")
 }
 
 model DangKyHoc {
-  id          String             @id @default(uuid())
+  id          String          @id @default(uuid())
   soTien      Int
-  trangThai   TrangThaiDangKy    @default(DangXuLy)
-  ngayTao     DateTime           @default(now())
-  ngayCapNhat DateTime           @updatedAt
-  
-  idKhoaHoc   String
-  khoaHoc     KhoaHoc            @relation(fields: [idKhoaHoc], references: [id], onDelete: Cascade)
-  
-  idNguoiDung String
-  nguoiDung   User               @relation(fields: [idNguoiDung], references: [id], onDelete: Cascade)
+  trangThai   TrangThaiDangKy @default(DangXuLy)
+  ngayTao     DateTime        @default(now())
+  ngayCapNhat DateTime        @updatedAt
 
-  @@map("dangKyHoc")  
+  idKhoaHoc String
+  khoaHoc   KhoaHoc @relation(fields: [idKhoaHoc], references: [id], onDelete: Cascade)
+
+  idNguoiDung String
+  nguoiDung   User   @relation(fields: [idNguoiDung], references: [id], onDelete: Cascade)
+
+  maGiamGiaId String?
+  maGiamGia   maGiamGia? @relation(fields: [maGiamGiaId], references: [id])
+
   @@unique([idNguoiDung, idKhoaHoc])
   @@index([idKhoaHoc])
   @@index([idNguoiDung])
+  @@index([maGiamGiaId])
+  @@map("dangKyHoc")
 }
 
 enum TrangThaiDangKy {
-  DangXuLy     
+  DangXuLy
   DaThanhToan
-  DaHuy  
+  DaHuy
+}
+
+enum LoaiGiamGia {
+  PhanTram
+  GiamTien
 }
 
 model TienTrinhHoc {
@@ -183,11 +192,41 @@ model TienTrinhHoc {
   ngayCapNhat DateTime @updatedAt
 
   idNguoiDung String
-  nguoiDung   User     @relation(fields: [idNguoiDung], references: [id], onDelete: Cascade)
+  nguoiDung   User   @relation(fields: [idNguoiDung], references: [id], onDelete: Cascade)
 
-  idBaiHoc    String
-  baiHoc      BaiHoc   @relation(fields: [idBaiHoc], references: [id], onDelete: Cascade)
+  idBaiHoc String
+  baiHoc   BaiHoc @relation(fields: [idBaiHoc], references: [id], onDelete: Cascade)
 
   @@unique([idNguoiDung, idBaiHoc])
   @@map("tienTrinhHoc")
+}
+
+model maGiamGia {
+  id         String    @id @default(uuid())
+  ngayTao    DateTime  @default(now())
+  ngayBatDau DateTime? 
+  ngayKetThuc DateTime?
+  tieuDe      String
+  soLuong     Int
+  maGiamGia   String      @unique
+  hoatDong    Boolean
+  daSuDung    Int         @default(0)
+  loai        LoaiGiamGia
+  giaTri      Int
+
+  maGiamGiaKhoaHocs MaGiamGiaKhoaHoc[]
+  dangKyHocs        DangKyHoc[]
+}
+
+model MaGiamGiaKhoaHoc {
+  id          String @id @default(uuid())
+  maGiamGiaId String
+  khoaHocId   String
+
+  maGiamGia maGiamGia @relation(fields: [maGiamGiaId], references: [id], onDelete: Cascade)
+  khoaHoc   KhoaHoc   @relation(fields: [khoaHocId], references: [id], onDelete: Cascade)
+
+  @@index([maGiamGiaId])
+  @@index([khoaHocId])
+  @@map("ma_giam_gia_khoa_hoc")
 }

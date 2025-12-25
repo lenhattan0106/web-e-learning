@@ -47,10 +47,11 @@ export async function CreateCourse(values: KhoaHocSchemaType): Promise<ApiRespon
       };
     }
 
-    // Kiểm tra trùng tiêu đề khóa học
+    // Kiểm tra trùng tiêu đề khóa học (trong phạm vi giáo viên hiện tại)
     const existed = await prisma.khoaHoc.findFirst({
       where: {
         tenKhoaHoc: validation.data.tenKhoaHoc,
+        idNguoiDung: session.user.id, // Only check teacher's own courses
       },
       select: {
         id: true,

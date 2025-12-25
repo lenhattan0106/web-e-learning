@@ -25,6 +25,7 @@ import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { IconSettings } from "@tabler/icons-react";
 
 type Role = "user" | "teacher" | "admin";
 
@@ -106,6 +107,16 @@ export function UserDropDown({ email, name, image, role }: iAppProps) {
                   size={16}
                 />
                 <span>Bảng điều khiển</span>
+              </Link>
+            </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+              <Link href={"/settings"}>
+                <IconSettings
+                  aria-hidden="true"
+                  className="opacity-60"
+                  size={16}
+                />
+                <span>Cài đặt</span>
               </Link>
             </DropdownMenuItem>
           </DropdownMenuGroup>

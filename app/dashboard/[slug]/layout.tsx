@@ -2,6 +2,7 @@
 import { ReactNode } from "react";
 import { CourseSidebar } from "../_components/CourseSidebar";
 import { getCourseSideBarData } from "@/app/data/course/get-course-sidebar-data";
+import { TutorWidget } from "@/components/tutor/TutorWidget";
 
 interface iAppProps {
   params: Promise<{ slug: string }>;
@@ -18,7 +19,10 @@ export default async function CourseLayout({ params, children }: iAppProps) {
         <CourseSidebar course={khoaHoc}></CourseSidebar>
       </div>
       {/* Main content-70% */}
-      <div className="flex-1 overflow-hidden">{children}</div>
+      <div className="flex-1 overflow-hidden relative">
+        {children}
+        <TutorWidget />
+      </div>
     </div>
   );
 }

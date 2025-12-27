@@ -1,6 +1,7 @@
 import "server-only";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { requireTeacher } from "@/app/data/teacher/require-teacher";
 import { Table, TableBody, TableHeader, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { buttonVariants } from "@/components/ui/button";
@@ -27,7 +28,7 @@ export default async function CouponPage({
   });
   const myCourseIds = myCourses.map((c) => c.id);
 
-  const whereClause: any = {
+  const whereClause: Prisma.maGiamGiaWhereInput = {
     AND: [
         {
             OR: [

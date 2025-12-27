@@ -23,16 +23,12 @@ export default async function EditRoute({ params }: { params: Params }) {
         >
           <ArrowLeft className="size-4" />
         </Link>
-        <h1 className="text-3xl font-bold">
-          Chỉnh sửa khóa học:{" "}
-          <span className="text-primary underline">{data.tenKhoaHoc}</span>
-        </h1>
       </div>
       <Tabs defaultValue="basic-info" className="w-full">
-        <TabsList className="grid grid-cols-2 w-full">
-          <TabsTrigger value="basic-info">Thông tin khóa học</TabsTrigger>
-          <TabsTrigger value="course-structure">Cấu trúc khóa học</TabsTrigger>
-        </TabsList>
+          <TabsList className="grid grid-cols-2 w-full">
+            <TabsTrigger value="basic-info">Thông tin khóa học</TabsTrigger>
+            <TabsTrigger value="course-structure">Cấu trúc khóa học</TabsTrigger>
+          </TabsList>
         <TabsContent value="basic-info">
             <Card>
                 <CardHeader>

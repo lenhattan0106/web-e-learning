@@ -8,6 +8,8 @@ import {
   IconFileDescription,
   IconHelp,
   IconSearch,
+  IconUsers,
+  IconMessage,
   IconSettings,
 } from "@tabler/icons-react"
 
@@ -33,6 +35,11 @@ const data = {
       title: "Bảng điều khiển",
       url: "/dashboard",
       icon: IconDashboard,
+    },
+    {
+      title: "Tin nhắn",
+      url: "/dashboard/chat",
+      icon: IconMessage,
     },
   ],
   navClouds: [

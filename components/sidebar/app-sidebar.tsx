@@ -6,9 +6,10 @@ import {
   IconDashboard,
   IconDiscount,
   IconHelp,
-  IconListDetails, 
+  IconListDetails,
   IconSettings,
   IconUsers,
+  IconMessage,
 } from "@tabler/icons-react"
 
 import Logo from "@/public/logo e-learning.png"
@@ -53,6 +54,11 @@ const data = {
       title: "Mã giảm giá",
       url: "/teacher/coupon",
       icon: IconDiscount,
+    },
+     {
+      title: "Tin nhắn",
+      url: "/teacher/chat",
+      icon: IconMessage,
     },
   ],
   navSecondary: [

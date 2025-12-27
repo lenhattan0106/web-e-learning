@@ -57,10 +57,10 @@ function TutorPanel() {
               </div>
               <div>
                 <h3 className="font-semibold text-white text-lg">
-                  Learning Assistant
+                  ChatBot Tư Vấn
                 </h3>
                 <p className="text-sm text-cyan-300/70">
-                  Ultra exclusive • AI-powered
+                  *AI-powered
                 </p>
               </div>
             </div>

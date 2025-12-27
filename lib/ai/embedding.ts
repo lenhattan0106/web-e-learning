@@ -5,7 +5,7 @@ export async function generateEmbedding(value: string): Promise<number[]> {
   const input = value.replaceAll("\n", " ");
   
   const { embedding } = await embed({
-    model: google.textEmbeddingModel("text-embedding-004"),
+    model: google.embedding("text-embedding-004"),
     value: input,
   });
 

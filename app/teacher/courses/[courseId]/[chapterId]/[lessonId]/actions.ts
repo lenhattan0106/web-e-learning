@@ -6,6 +6,8 @@ import { ApiResponse } from "@/lib/types";
 import { updateLessonFormSchema } from "@/lib/zodSchemas";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
+import { generateEmbedding } from "@/lib/ai/embedding";
+import { cleanText } from "@/lib/utils/clean";
 
 export async function EditLessonAction(
   values: unknown,
@@ -77,6 +79,29 @@ export async function EditLessonAction(
       where: { id: idBaiHoc },
       data: updateData,
     });
+
+    // FAIL-SAFE: Real-time Embedding Update
+    // Only run if 'moTa' was updated
+    if (updateData.moTa !== undefined) {
+      try {
+        const content = typeof updateData.moTa === 'string' ? updateData.moTa : "";
+        const cleanedContent = cleanText(content);
+        
+        if (cleanedContent.length > 10) {
+           const embedding = await generateEmbedding(cleanedContent);
+           const vectorQuery = `[${embedding.join(",")}]`;
+           
+           await prisma.$executeRaw`
+             UPDATE "baiHoc"
+             SET embedding = ${vectorQuery}::vector
+             WHERE id = ${idBaiHoc}
+           `;
+        }
+      } catch (aiError) {
+        console.error("Failed to update embedding for lesson:", aiError);
+        // Do not throw, keep the success status
+      }
+    }
 
     revalidatePath(`/teacher/courses/${lesson.chuong.idKhoaHoc}/edit`);
 

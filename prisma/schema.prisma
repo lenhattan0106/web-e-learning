@@ -1,10 +1,12 @@
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  extensions = [vector]
 }
 
 model User {
@@ -21,6 +23,7 @@ model User {
   accounts      Account[]
   dangKyHocs    DangKyHoc[]
   tienTrinhHocs TienTrinhHoc[]
+  tinNhans      TinNhan[]
   role          String?        @map("vaiTro")
   banned        Boolean?       @default(false) @map("biCam")
   banReason     String?        @map("lyDoCam")
@@ -101,6 +104,8 @@ model KhoaHoc {
   nguoiDung         User               @relation(fields: [idNguoiDung], references: [id], onDelete: Cascade)
   chuongs           Chuong[]
   maGiamGiaKhoaHocs MaGiamGiaKhoaHoc[]
+  
+  phongChat         PhongChat?
 
   @@map("khoaHoc")
 }
@@ -138,6 +143,7 @@ model BaiHoc {
   moTa          String?
   anhBaiHoc     String?
   maVideo       String?
+  embedding     Unsupported("vector(768)")?
   thuTu         Int
   thoiLuong     Int?
   mienPhi       Boolean?       @default(false)
@@ -229,4 +235,42 @@ model MaGiamGiaKhoaHoc {
   @@index([maGiamGiaId])
   @@index([khoaHocId])
   @@map("ma_giam_gia_khoa_hoc")
+}
+
+model PhongChat {
+  id        String   @id @default(uuid())
+  tenPhong  String?
+  maMoi     String   @unique @default(uuid())
+  
+  khoaHocId String   @unique
+  khoaHoc   KhoaHoc  @relation(fields: [khoaHocId], references: [id], onDelete: Cascade)
+  
+  tinNhans  TinNhan[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("phongChat")
+}
+
+model TinNhan {
+  id        String   @id @default(uuid())
+  noiDung   String   @db.Text
+  fileUrl   String?
+  fileType  String?
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  phongChatId String
+  phongChat   PhongChat @relation(fields: [phongChatId], references: [id], onDelete: Cascade)
+  
+  isDeleted Boolean  @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([phongChatId])
+  @@index([userId])
+  @@map("tinNhan")
 }

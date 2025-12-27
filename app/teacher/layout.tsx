@@ -6,7 +6,7 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar"
 import { ReactNode } from "react";
-
+import { TutorWidget } from "@/components/tutor/TutorWidget";
 
 
 export default function AdminLayout({children}:{children:ReactNode}){
@@ -29,6 +29,7 @@ export default function AdminLayout({children}:{children:ReactNode}){
             </div>
           </div>
         </div>
+        <TutorWidget />
       </SidebarInset>
     </SidebarProvider>
     )

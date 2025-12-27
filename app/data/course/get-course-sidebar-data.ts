@@ -48,6 +48,12 @@ export async function getCourseSideBarData(slug: string) {
           },
         },
       },
+      phongChat: {
+        select: {
+          id: true,
+          maMoi: true,
+        },
+      },
     },
   });
   if (!khoaHoc) {

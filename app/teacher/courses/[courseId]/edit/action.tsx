@@ -14,6 +14,8 @@ import {
 } from "@/lib/zodSchemas";
 import { request } from "@arcjet/next";
 import { revalidatePath } from "next/cache";
+import { generateEmbedding } from "@/lib/ai/embedding";
+import { cleanText } from "@/lib/utils/clean";
 
 const arcjet = aj.withRule(
   fixedWindow({
@@ -316,7 +318,7 @@ export async function createLesson(
           thuTu: "desc",
         },
       });
-      await tx.baiHoc.create({
+      const newLesson = await tx.baiHoc.create({
         data: {
           tenBaiHoc: result.data.ten,
           moTa: result.data.moTa,
@@ -326,6 +328,34 @@ export async function createLesson(
           thuTu: (maxPos?.thuTu ?? 0) + 1,
         },
       });
+
+      // FAIL-SAFE: Generate embedding asynchronously
+      // We don't await this inside the transaction or block the response
+      // But we should await it if we want to ensure it happens before return? 
+      // Plan says: "Save lesson first. Then generate embedding... Log AI errors but do not fail the request."
+      // Since we are inside a transaction, we can't easily wait for non-tx async unless we move it out.
+      // However, updating the embedding requires the lesson to exist.
+      // So we'll do it AFTER the transaction commits OR inside try/catch here.
+
+      // Actually, let's do it after the transaction to be safe and fast.
+      // But we need the ID. `newLesson` has the ID.
+      try {
+        if (result.data.moTa) {
+           const cleanedContent = cleanText(result.data.moTa);
+           if (cleanedContent.length > 10) { // Only embed if enough content
+             const embedding = await generateEmbedding(cleanedContent);
+             const vectorQuery = `[${embedding.join(",")}]`;
+             await tx.$executeRaw`
+                UPDATE "baiHoc"
+                SET embedding = ${vectorQuery}::vector
+                WHERE id = ${newLesson.id}
+             `;
+           }
+        }
+      } catch (aiError) {
+        console.error("Failed to generate embedding for new lesson:", aiError);
+        // Do not throw, allow lesson creation to succeed
+      }
     });
     revalidatePath(`/teacher/courses/${result.data.idKhoaHoc}/edit`);
     return {

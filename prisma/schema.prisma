@@ -161,6 +161,7 @@ model DangKyHoc {
   id          String          @id @default(uuid())
   soTien      Int
   trangThai   TrangThaiDangKy @default(DangXuLy)
+  camChat     Boolean         @default(false)
   ngayTao     DateTime        @default(now())
   ngayCapNhat DateTime        @updatedAt
 
@@ -184,6 +185,11 @@ enum TrangThaiDangKy {
   DangXuLy
   DaThanhToan
   DaHuy
+}
+
+enum LoaiTinNhan {
+  USER
+  SYSTEM
 }
 
 enum LoaiGiamGia {
@@ -258,6 +264,7 @@ model TinNhan {
   noiDung   String   @db.Text
   fileUrl   String?
   fileType  String?
+  fileName  String?
   
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -266,6 +273,7 @@ model TinNhan {
   phongChat   PhongChat @relation(fields: [phongChatId], references: [id], onDelete: Cascade)
   
   isDeleted Boolean  @default(false)
+  loaiTinNhan LoaiTinNhan @default(USER)
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

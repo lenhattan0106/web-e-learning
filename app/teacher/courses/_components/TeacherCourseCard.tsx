@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatDuration } from "@/lib/formatDuration";
 import { useConstructUrl } from "@/hooks/use-contruct-url";
 import {
   ArrowRight,
@@ -84,7 +85,7 @@ export function TeacherCourseCard({ data }: iAppProps) {
           </div>
           <div className="flex items-center gap-x-1.5">
             <TimerIcon className="size-4 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{data.thoiLuong}h</p>
+            <p className="text-sm text-muted-foreground">{formatDuration(data.thoiLuong)}</p>
           </div>
         </div>
         <div className="mt-4 flex items-center justify-between">

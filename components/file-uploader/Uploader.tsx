@@ -29,10 +29,11 @@ interface UpLoaderState {
 interface iAppProps {
   value?: string;
   onChange?: (value: string) => void;
+  onDurationChange?: (duration: number) => void;
   fileTypeAccepted:"image"|"video"; 
 }
 
-export function Uploader({ onChange, value, fileTypeAccepted }: iAppProps) {
+export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted }: iAppProps) {
   const fileUrl = useConstructUrl(value || '')
   const [fileState, setFileState] = useState<UpLoaderState>({
     error: false,
@@ -125,6 +126,18 @@ export function Uploader({ onChange, value, fileTypeAccepted }: iAppProps) {
     (acceptedFiles: File[]) => {
       if (acceptedFiles.length > 0) {
         const file = acceptedFiles[0];
+        const objectUrl = URL.createObjectURL(file);
+
+        // Get video duration if it is a video
+        if (fileTypeAccepted === "video" && onDurationChange) {
+            const video = document.createElement("video");
+            video.preload = "metadata";
+            video.onloadedmetadata = function() {
+              window.URL.revokeObjectURL(video.src);
+              onDurationChange(Math.round(video.duration));
+            }
+            video.src = objectUrl;
+        }
 
         setFileState((prev) => {
           // ✅ Dùng prev.objectUrl thay vì fileState.objectUrl
@@ -136,7 +149,7 @@ export function Uploader({ onChange, value, fileTypeAccepted }: iAppProps) {
             file: file,
             uploading: false,
             progress: 0,
-            objectUrl: URL.createObjectURL(file),
+            objectUrl: objectUrl,
             error: false,
             id: uuidv4(),
             isDeleting: false,
@@ -147,7 +160,7 @@ export function Uploader({ onChange, value, fileTypeAccepted }: iAppProps) {
         upLoadFile(file);
       }
     },
-    [upLoadFile,fileTypeAccepted]
+    [upLoadFile,fileTypeAccepted, onDurationChange]
   );
 
   async function handleRemoveFile() {

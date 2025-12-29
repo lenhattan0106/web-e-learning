@@ -11,43 +11,37 @@ import {
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { tryCatch } from "@/hooks/try-catch";
-import { chuongSchema, ChuongSchemaType } from "@/lib/zodSchemas";
+import {baiHocSchema, BaiHocSchemaType } from "@/lib/zodSchemas";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { useState, useTransition } from "react"
 import { useForm } from "react-hook-form";
-import { createChapter } from "../action";
+import { updateLessonTitle } from "../action";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-export function NewChapterModal({idKhoaHoc, suggestedName}:{idKhoaHoc:string, suggestedName: string}){
-    const router = useRouter()
+
+export function EditLessonModal({idKhoaHoc, idChuong, idBaiHoc, tenBaiHoc}:{idKhoaHoc:string, idChuong:string, idBaiHoc: string, tenBaiHoc: string}){
+    const router = useRouter();
     const [isOpen,setIsOpen]= useState(false);
     const [isPending, startTransition]= useTransition();
-      const form = useForm<ChuongSchemaType>({
-        resolver: zodResolver(chuongSchema),
+      const form = useForm<BaiHocSchemaType>({
+        resolver: zodResolver(baiHocSchema),
         defaultValues: {
-            ten: suggestedName,
+            ten: tenBaiHoc,
             idKhoaHoc:idKhoaHoc,
+            idChuong:idChuong,
         },
       });
 
-      // Update form value when suggestedName changes (e.g. parent re-renders)
-      useEffect(() => {
-          form.setValue("ten", suggestedName);
-      }, [suggestedName, form]);
-
-
-    async function onSubmit(values: ChuongSchemaType){
+    async function onSubmit(values: BaiHocSchemaType){
         startTransition(async() =>{
-          const {data:result, error} = await tryCatch(createChapter(values));
+          const {data:result, error} = await tryCatch(updateLessonTitle(values, idBaiHoc));
           if(error){
             toast.error("Có lỗi xảy ra. Vui lòng hãy thử lại");
             return;
           }
           if(result.status ==="success"){
             toast.success(result.message);
-            form.reset();
             setIsOpen(false);
             router.refresh();
           }else if(result.status==="error"){
@@ -55,24 +49,29 @@ export function NewChapterModal({idKhoaHoc, suggestedName}:{idKhoaHoc:string, su
           }
         })
     }
+
     function handleOpenChange(open:boolean){
-      if(!open){
-        form.reset();
+      if(open){
+         form.reset({
+            ten: tenBaiHoc,
+            idKhoaHoc:idKhoaHoc,
+            idChuong:idChuong,
+        });
       }
       setIsOpen(open);
     }
+
     return(
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
             <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                    <Plus className="size-4" />
-                    Tạo chương mới
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-500 hover:text-neutral-950">
+                    <Pencil className="size-4" />
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                <DialogHeader>
-                  <DialogTitle>Tạo chương mới</DialogTitle>
-                  <DialogDescription>Hãy đặt tên chương mà bạn muốn</DialogDescription>
+                  <DialogTitle>Chỉnh sửa tên bài học</DialogTitle>
+                  <DialogDescription>Thay đổi tên bài học tại đây</DialogDescription>
                </DialogHeader>
                <Form {...form}>
                    <form className="space-y-8" onSubmit={form.handleSubmit(onSubmit)}>
@@ -80,7 +79,7 @@ export function NewChapterModal({idKhoaHoc, suggestedName}:{idKhoaHoc:string, su
                         <FormItem>
                             <FormLabel>Tên</FormLabel>
                             <FormControl>
-                                <Input placeholder="Tên chương" {...field} />
+                                <Input placeholder="Tên bài học" {...field} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>

@@ -19,19 +19,26 @@ import { useForm } from "react-hook-form";
 import { createLesson } from "../action";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-
-export function NewLessonModal({idKhoaHoc,idChuong}:{idKhoaHoc:string,idChuong:string}){
+import { useEffect } from "react";
+export function NewLessonModal({idKhoaHoc,idChuong, suggestedName}:{idKhoaHoc:string,idChuong:string, suggestedName: string}){
     const router = useRouter();
     const [isOpen,setIsOpen]= useState(false);
     const [isPending, startTransition]= useTransition();
       const form = useForm<BaiHocSchemaType>({
         resolver: zodResolver(baiHocSchema),
         defaultValues: {
-            ten:"",
+            ten: suggestedName,
             idKhoaHoc:idKhoaHoc,
             idChuong:idChuong,
         },
       });
+
+      // Update form value when suggestedName changes
+      useEffect(() => {
+          form.setValue("ten", suggestedName);
+      }, [suggestedName, form]);
+
+
     async function onSubmit(values: BaiHocSchemaType){
         startTransition(async() =>{
           const {data:result, error} = await tryCatch(createLesson(values));

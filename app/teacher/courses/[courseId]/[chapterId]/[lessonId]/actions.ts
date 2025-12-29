@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { generateEmbedding } from "@/lib/ai/embedding";
 import { cleanText } from "@/lib/utils/clean";
+import { recalculateCourseDuration } from "@/app/teacher/actions/courses";
 
 export async function EditLessonAction(
   values: unknown,
@@ -66,6 +67,9 @@ export async function EditLessonAction(
     if (data.anhBaiHoc !== undefined && data.anhBaiHoc !== lesson.anhBaiHoc) {
       updateData.anhBaiHoc = data.anhBaiHoc;
     }
+    if (data.thoiLuong !== undefined && data.thoiLuong !== lesson.thoiLuong) {
+      updateData.thoiLuong = data.thoiLuong;
+    }
 
     // nếu không có gì để cập nhật → trả về no-op
     if (Object.keys(updateData).length === 0) {
@@ -80,8 +84,11 @@ export async function EditLessonAction(
       data: updateData,
     });
 
-    // FAIL-SAFE: Real-time Embedding Update
-    // Only run if 'moTa' was updated
+    // Recalculate Course Duration if thoiLuong changed
+    if (updateData.thoiLuong !== undefined) {
+      await recalculateCourseDuration(lesson.chuong.idKhoaHoc);
+    }
+
     if (updateData.moTa !== undefined) {
       try {
         const content = typeof updateData.moTa === 'string' ? updateData.moTa : "";
@@ -98,8 +105,7 @@ export async function EditLessonAction(
            `;
         }
       } catch (aiError) {
-        console.error("Failed to update embedding for lesson:", aiError);
-        // Do not throw, keep the success status
+        console.error("Lỗi khi cập nhật embedding cho bài học:", aiError);
       }
     }
 

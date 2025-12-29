@@ -48,6 +48,7 @@ export function LessonForm({ data, idBaiHoc, idChuong, idKhoaHoc }: iAppProps) {
       moTa: data.moTa ?? undefined,
       maVideo: data.maVideo ?? undefined,
       anhBaiHoc: data.anhBaiHoc ?? undefined,
+      thoiLuong: data.thoiLuong ?? 0,
     },
   });
 
@@ -143,6 +144,9 @@ export function LessonForm({ data, idBaiHoc, idChuong, idKhoaHoc }: iAppProps) {
                       <Uploader
                         fileTypeAccepted="video"
                         onChange={field.onChange}
+                        onDurationChange={(duration) => {
+                          form.setValue("thoiLuong", duration);
+                        }}
                         value={field.value}
                       />
                     </FormControl>

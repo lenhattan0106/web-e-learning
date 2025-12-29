@@ -26,3 +26,15 @@ export const formatMessageTime = (date: Date | string) => {
   // Otherwise (same year, > 7 days)
   return format(d, "dd/MM", { locale: vi });
 };
+
+export const formatDuration = (seconds?: number) => {
+  if (!seconds) return "00:00:00";
+  
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  
+  return [hours, minutes, secs]
+    .map(val => val.toString().padStart(2, "0"))
+    .join(":");
+};

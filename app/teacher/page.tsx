@@ -1,32 +1,40 @@
-import { ChartAreaInteractive } from "@/components/sidebar/chart-area-interactive";
-import { SectionCards } from "@/components/sidebar/section-cards";
 import { teacherGetEnrollmentStats } from "../data/teacher/get-enrollment-stats";
+import { teacherGetDashBoardStatus } from "../data/teacher/get-dashboard-stats";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { teacherGetRecentCourses } from "../data/teacher/get-recent-courses";
 import { EmptyState } from "@/components/general/EmtyState";
 import { TeacherCourseCard, TeacherCourseCardSkeleton } from "./courses/_components/TeacherCourseCard";
 import { Suspense } from "react";
+import { TeacherDashboardClient } from "./_components/TeacherDashboardClient";
 
-export default async function TeacherIndexPage() {
-  const enrollmentData = await teacherGetEnrollmentStats();
+export default async function TeacherIndexPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const { days } = await searchParams;
+  const duration = typeof days === "string" ? parseInt(days) : 30;
+  
+  const enrollmentData = await teacherGetEnrollmentStats(duration);
+  const dashboardStats = await teacherGetDashBoardStatus(duration);
 
   return (
     <>
-      <SectionCards />
-      <div className="px-4 lg:px-6">
-        <ChartAreaInteractive data={enrollmentData} />
-      </div>
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Các khóa học gần đây</h2>
-          <Link className={buttonVariants({ variant: "outline" })} href="/teacher/courses">
-            Xem tất cả khóa học
-          </Link>
+      <div className="px-4 lg:px-6 space-y-6">
+        <TeacherDashboardClient stats={dashboardStats} chartData={enrollmentData} />
+      
+        <div className="space-y-4 pt-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Các khóa học gần đây</h2>
+            <Link className={buttonVariants({ variant: "outline" })} href="/teacher/courses">
+              Xem tất cả khóa học
+            </Link>
+          </div>
+          <Suspense fallback={<RenderRecentCourseSkeleton />}>
+            <RenderRecentCourse />
+          </Suspense>
         </div>
-        <Suspense fallback={<RenderRecentCourseSkeleton />}>
-          <RenderRecentCourse />
-        </Suspense>
       </div>
     </>
   );

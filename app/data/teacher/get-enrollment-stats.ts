@@ -3,11 +3,11 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { requireTeacher } from "./require-teacher";
 
-export async function teacherGetEnrollmentStats() {
+export async function teacherGetEnrollmentStats(duration: number = 30) {
   const session = await requireTeacher();
 
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - duration);
 
   // Chỉ lấy enrollments của courses thuộc teacher này
   const dangKyHocs = await prisma.dangKyHoc.findMany({
@@ -16,34 +16,52 @@ export async function teacherGetEnrollmentStats() {
         idNguoiDung: session.user.id, // Filter courses của teacher
       },
       ngayTao: {
-        gte: thirtyDaysAgo,
+        gte: startDate,
       },
+      trangThai: "DaThanhToan", // Chỉ tính đơn đã thanh toán cho revenue chuẩn
     },
     select: {
       ngayTao: true,
+      soTien: true,
     },
     orderBy: {
       ngayTao: "asc",
     },
   });
 
-  const last30days: { date: string; enrollments: number }[] = [];
-  for (let i = 29; i >= 0; i--) {
+  const dailyStats: { date: string; enrollments: number; revenue: number }[] = [];
+  
+  // Create array of dates for the duration
+  for (let i = duration - 1; i >= 0; i--) {
     const date = new Date();
     date.setDate(date.getDate() - i);
-    last30days.push({
-      date: date.toISOString().split("T")[0],
+    dailyStats.push({
+      date: date.toLocaleDateString("en-CA"), // YYYY-MM-DD format matches simple ISO date part
       enrollments: 0,
+      revenue: 0,
     });
   }
 
   dangKyHocs.forEach((dangKyHoc) => {
-    const enrollmentDate = dangKyHoc.ngayTao.toISOString().split("T")[0];
-    const dayIndex = last30days.findIndex((day) => day.date === enrollmentDate);
-    if (dayIndex !== -1) {
-      last30days[dayIndex].enrollments++;
+    // startOf('day') logic could be more robust with libraries, but this works for basic daily grouping
+    // converting to YYYY-MM-DD
+    const enrollmentDate = new Date(dangKyHoc.ngayTao);
+    // Adjust logic to match local timezone if needed, but keeping it simple UTC/Server time for now consistent with loop
+    // Using local date string part comparison to match the loop generation above
+    // Note: The loop generate local dates. database returns UTC dates usually. 
+    // Ideally we normalize everything to the same timezone. 
+    // For simplicity in this context, we'll try to match by YYYY-MM-DD string.
+    
+    // To be safe regarding timezones, let's just use the string format used in generating the array:
+    // This is a naive date match. 
+    const dateString = enrollmentDate.toLocaleDateString("en-CA");
+
+    const dayStat = dailyStats.find((day) => day.date === dateString);
+    if (dayStat) {
+      dayStat.enrollments++;
+      dayStat.revenue += dangKyHoc.soTien;
     }
   });
 
-  return last30days;
+  return dailyStats;
 }

@@ -18,11 +18,14 @@ export async function TeacherEditCourse(id: string) {
       tepKH: true,
       gia: true,
       thoiLuong: true,
-      capDo: true,
-      trangThai: true,
       duongDan: true,
       moTaNgan: true,
-      danhMuc: true,
+      
+      // Use new relation IDs
+      idDanhMuc: true,
+      idCapDo: true,
+      idTrangThai: true,
+      
       chuongs: {
         orderBy: {
           thuTu: "asc",
@@ -42,6 +45,7 @@ export async function TeacherEditCourse(id: string) {
               anhBaiHoc: true,
               thuTu: true,
               maVideo: true,
+              thoiLuong: true, // Add duration for calculation
             },
           },
         },

@@ -42,70 +42,14 @@ const data = {
       icon: IconMessage,
     },
   ],
-  navClouds: [
-    {
-      title: "Chụp ảnh",
-      icon: IconCamera,
-      isActive: true,
-      url: "#",
-      items: [
-        {
-          title: "Đề xuất đang hoạt động",
-          url: "#",
-        },
-        {
-          title: "Đã lưu trữ",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Đề xuất",
-      icon: IconFileDescription,
-      url: "#",
-      items: [
-        {
-          title: "Đề xuất đang hoạt động",
-          url: "#",
-        },
-        {
-          title: "Đã lưu trữ",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Lời nhắc",
-      icon: IconFileAi,
-      url: "#",
-      items: [
-        {
-          title: "Đề xuất đang hoạt động",
-          url: "#",
-        },
-        {
-          title: "Đã lưu trữ",
-          url: "#",
-        },
-      ],
-    },
-  ],
+
   navSecondary: [
     {
       title: "Cài đặt",
-      url: "/profile",
+      url: "/settings",
       icon: IconSettings,
     },
-    {
-      title: "Trợ giúp",
-      url: "#",
-      icon: IconHelp,
-    },
-    {
-      title: "Tìm kiếm",
-      url: "#",
-      icon: IconSearch,
-    },
+ 
   ],
 
 }

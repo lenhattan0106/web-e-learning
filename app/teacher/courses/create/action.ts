@@ -65,10 +65,40 @@ export async function CreateCourse(values: KhoaHocSchemaType): Promise<ApiRespon
       };
     }
     
+    // Check existence
+    const [existingCategory, existingLevel, existingStatus] = await Promise.all([
+      prisma.danhMuc.findUnique({ where: { id: validation.data.danhMuc } }),
+      prisma.capDo.findUnique({ where: { id: validation.data.capDo } }),
+      prisma.trangThaiKhoaHoc.findUnique({ where: { id: validation.data.trangThai } }),
+    ]);
+
+    if (!existingCategory || !existingLevel || !existingStatus) {
+       return { status: "error", message: "Danh mục, cấp độ hoặc trạng thái không hợp lệ" };
+    }
+
     await prisma.khoaHoc.create({
       data: {
-        ...validation.data,
-        idNguoiDung: session.user.id, // Gán teacher ID
+        tenKhoaHoc: validation.data.tenKhoaHoc,
+        moTa: validation.data.moTa,
+        tepKH: validation.data.tepKH,
+        gia: validation.data.gia,
+        thoiLuong: validation.data.thoiLuong,
+        moTaNgan: validation.data.moTaNgan,
+        duongDan: validation.data.duongDan,
+        
+        // New Relations (Vietnamese)
+        idDanhMuc: existingCategory.id,
+        idCapDo: existingLevel.id,
+        idTrangThai: existingStatus.id,
+
+        // Backward Compatibility (Best Effort - Deprecated fields)
+        danhMuc: existingCategory.tenDanhMuc, 
+        // Map to Enum if codes match known ones
+        capDo: (["NGUOI_MOI", "TRUNG_CAP", "NANG_CAO"].includes(existingLevel.maCapDo) ? existingLevel.maCapDo as any : undefined),
+        trangThai: (["BanNhap", "BanChinhThuc", "BanLuuTru"].includes(existingStatus.maTrangThai) ? 
+            existingStatus.maTrangThai as any : undefined),
+
+        idNguoiDung: session.user.id,
       },
     });
     

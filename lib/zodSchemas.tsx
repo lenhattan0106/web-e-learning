@@ -20,17 +20,17 @@ export const khoaHocSchema = z.object({
     .max(100, { message: "Tiêu đề không được vượt quá 100 ký tự" }),
   moTa: z.string().min(3, { message: "Mô tả phải có ít nhất 3 ký tự" }),
   tepKH: z.string().min(1, { message: "Tệp tin là bắt buộc" }),
-  gia: z.number().min(1, { message: "Giá phải là số dương" }),
+  gia: z.number().min(0, { message: "Giá phải là số không âm" }),
   thoiLuong: z
     .number()
-    .min(1, { message: "Thời lượng phải ít nhất 1 giờ" })
-    .max(500, {
-      message: "Thời lượng không được vượt quá 500 giờ",
+    .min(0, { message: "Thời lượng phải là số không âm" })
+    .max(5000, {
+      message: "Thời lượng không được vượt quá 5000",
     }),
-  capDo: z.enum(capDoKhoaHoc, {
+  capDo: z.string().min(1, {
     message: "Cấp độ là bắt buộc",
   }),
-  danhMuc: z.enum(danhMucKhoaHoc, {
+  danhMuc: z.string().min(1, {
     message: "Danh mục là bắt buộc",
   }),
   moTaNgan: z
@@ -38,7 +38,7 @@ export const khoaHocSchema = z.object({
     .min(3, { message: "Mô tả ngắn phải có ít nhất 3 ký tự" })
     .max(200, { message: "Mô tả ngắn không được vượt quá 200 ký tự" }),
   duongDan: z.string().min(3, { message: "Đường dẫn phải có ít nhất 3 ký tự" }),
-  trangThai: z.enum(trangThaiKhoaHoc, {
+  trangThai: z.string().min(1, {
     message: "Trạng thái là bắt buộc",
   }),
 });
@@ -71,13 +71,15 @@ export const baiHocSchema = z.object({
   moTa: z.string().min(3,{ message: "Mô tả của bài học phải ít nhất 3 ký tự" }).optional(),
   anhBaiHoc: z.string().optional(),
   maVideo: z.string().optional(),
+  thoiLuong: z.number().optional(),
 });
 
 export const updateLessonFormSchema = z.object({
-  ten: baiHocSchema.shape.ten,
-  moTa: baiHocSchema.shape.moTa.optional(),
-  anhBaiHoc: baiHocSchema.shape.anhBaiHoc.optional(),
-  maVideo: baiHocSchema.shape.maVideo.optional(),
+  ten: z.string().min(1).optional(),
+  moTa: z.string().optional(),
+  maVideo: z.string().optional(),
+  anhBaiHoc: z.string().optional(),
+  thoiLuong: z.number().optional(),
 });
 
 export const couponFormSchema = z.object({

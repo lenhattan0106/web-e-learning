@@ -1,4 +1,5 @@
 import { TeacherEditCourse } from "@/app/data/teacher/edit-course";
+import { prisma } from "@/lib/db";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EditCourseForm } from "./_components/EditCourseForm";
@@ -7,10 +8,27 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 type Params = Promise<{ courseId: string }>;
 export default async function EditRoute({ params }: { params: Params }) {
   const { courseId } = await params;
-  const data = await TeacherEditCourse(courseId);
+  
+  const [data, categories, levels, statuses] = await Promise.all([
+    TeacherEditCourse(courseId),
+    prisma.danhMuc.findMany({
+      where: { idDanhMucCha: null },
+      include: { danhMucCon: true },
+      orderBy: { tenDanhMuc: "asc" },
+    }),
+    prisma.capDo.findMany({
+      orderBy: { tenCapDo: "asc" },
+    }),
+    prisma.trangThaiKhoaHoc.findMany({
+      orderBy: { tenTrangThai: "asc" },
+    }),
+  ]);
+  
   return (
     <div>
       <div className="flex items-center gap-4 mb-8">
@@ -36,7 +54,7 @@ export default async function EditRoute({ params }: { params: Params }) {
                     <CardDescription>Cung cấp những thông tin cơ bản về khóa học</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <EditCourseForm data={data}></EditCourseForm>
+                    <EditCourseForm data={data} categories={categories} levels={levels} statuses={statuses}></EditCourseForm>
                 </CardContent>
             </Card>
         </TabsContent>

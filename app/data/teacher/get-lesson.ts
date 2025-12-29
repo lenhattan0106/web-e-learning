@@ -23,6 +23,7 @@ export async function TeacherGetLesson(id: string) {
       moTa: true,
       id: true,
       thuTu: true,
+      thoiLuong: true,
       chuong: {
         select: {
           idKhoaHoc: true,

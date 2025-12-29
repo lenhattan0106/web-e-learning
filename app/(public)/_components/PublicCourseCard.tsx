@@ -1,4 +1,5 @@
 import { PublicCourseType } from "@/app/data/course/get-all-courses";
+import { formatDuration } from "@/lib/formatDuration";
 import { checkIfCourseBought } from "@/app/data/user/user-is-enrolled";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -41,7 +42,7 @@ export async function PublicCourseCard({ data }: iAppProps) {
         <div className="mt-4 flex items-center gap-x-5">
           <div className="flex items-center gap-x-2">
             <TimerIcon className="size-6 p-1 rounded-md text-primary bg-primary/10" />
-            <p className="text-sm text-muted-foreground">{data.thoiLuong}h</p>
+            <p className="text-sm text-muted-foreground">{formatDuration(data.thoiLuong)}</p>
           </div>
           <div className="flex items-center gap-x-2">
             <School2 className="size-6 p-1 rounded-md text-primary bg-primary/10" />

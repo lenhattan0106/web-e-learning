@@ -97,20 +97,74 @@ export async function editCourse(
       };
     }
 
+    // Prepare update data
+    const updateData: any = {
+      tenKhoaHoc: result.data.tenKhoaHoc,
+      moTa: result.data.moTa,
+      tepKH: result.data.tepKH,
+      gia: result.data.gia,
+      thoiLuong: result.data.thoiLuong,
+      moTaNgan: result.data.moTaNgan,
+      duongDan: result.data.duongDan,
+    };
+
+    // Handle Relations if IDs are present
+    if (result.data.danhMuc) {
+      const category = await prisma.danhMuc.findUnique({ where: { id: result.data.danhMuc } });
+      if (category) {
+        updateData.idDanhMuc = category.id;
+        updateData.danhMuc = category.tenDanhMuc; // Legacy
+      }
+    }
+
+    if (result.data.capDo) {
+      const level = await prisma.capDo.findUnique({ where: { id: result.data.capDo } });
+      if (level) {
+        updateData.idCapDo = level.id;
+        // Map Legacy Enum: UPPERCASE -> PascalCase
+        const mapLevel: Record<string, string> = {
+          "NGUOI_MOI": "NguoiMoi",
+          "TRUNG_CAP": "TrungCap",
+          "NANG_CAO": "NangCao"
+        };
+        if (level.maCapDo && mapLevel[level.maCapDo]) {
+           updateData.capDo = mapLevel[level.maCapDo] as any;
+        }
+      }
+    }
+
+    if (result.data.trangThai) {
+      const status = await prisma.trangThaiKhoaHoc.findUnique({ where: { id: result.data.trangThai } });
+      if (status) {
+        updateData.idTrangThai = status.id;
+        // Map Status Enum (Usually matches but explicit is safer)
+        const mapStatus: Record<string, string> = {
+          "BanNhap": "BanNhap",
+          "BanChinhThuc": "BanChinhThuc", 
+          "BanLuuTru": "BanLuuTru"
+        };
+        if (status.maTrangThai && mapStatus[status.maTrangThai]) {
+           updateData.trangThai = mapStatus[status.maTrangThai] as any;
+        }
+      }
+    }
+
     await prisma.khoaHoc.update({
       where: {
         id: idKhoaHoc,
         idNguoiDung: user.user.id,
       },
-      data: {
-        ...result.data,
-      },
+      data: updateData,
     });
+
+    revalidatePath(`/teacher/courses/${idKhoaHoc}/edit`);
+    revalidatePath("/teacher/courses");
+    
     return {
       status: "success",
       message: "Khóa học đã được cập nhật thành công",
     };
-  } catch {
+  } catch (error) {
     return {
       status: "error",
       message: "Khóa học cập nhật thất bại",
@@ -329,16 +383,6 @@ export async function createLesson(
         },
       });
 
-      // FAIL-SAFE: Generate embedding asynchronously
-      // We don't await this inside the transaction or block the response
-      // But we should await it if we want to ensure it happens before return? 
-      // Plan says: "Save lesson first. Then generate embedding... Log AI errors but do not fail the request."
-      // Since we are inside a transaction, we can't easily wait for non-tx async unless we move it out.
-      // However, updating the embedding requires the lesson to exist.
-      // So we'll do it AFTER the transaction commits OR inside try/catch here.
-
-      // Actually, let's do it after the transaction to be safe and fast.
-      // But we need the ID. `newLesson` has the ID.
       try {
         if (result.data.moTa) {
            const cleanedContent = cleanText(result.data.moTa);
@@ -551,6 +595,108 @@ export async function deleteChapter({
     return {
       status: "error",
       message: "Xóa chương thất bại",
+    };
+  }
+
+}
+
+
+export async function updateChapter(
+  values: ChuongSchemaType,
+  idChuong: string
+): Promise<ApiResponse> {
+  const session = await requireTeacher();
+  try {
+    const result = chuongSchema.safeParse(values);
+    if (!result.success) {
+      return {
+        status: "error",
+        message: "Dữ liệu không hợp lệ",
+      };
+    }
+
+    // Verify ownership
+    const isOwner = await verifyCourseOwnership(result.data.idKhoaHoc, session.user.id);
+    if (!isOwner) {
+      return {
+        status: "error",
+        message: "Bạn không có quyền chỉnh sửa chương này",
+      };
+    }
+
+    await prisma.chuong.update({
+      where: {
+        id: idChuong,
+        idKhoaHoc: result.data.idKhoaHoc,
+      },
+      data: {
+        tenChuong: result.data.ten,
+      },
+    });
+
+    revalidatePath(`/teacher/courses/${result.data.idKhoaHoc}/edit`);
+    return {
+      status: "success",
+      message: "Cập nhật tên chương thành công",
+    };
+  } catch {
+    return {
+      status: "error",
+      message: "Lỗi khi cập nhật chương",
+    };
+  }
+}
+
+export async function updateLessonTitle(
+  values: BaiHocSchemaType,
+  idBaiHoc: string
+): Promise<ApiResponse> {
+  const session = await requireTeacher();
+  try {
+    const result = baiHocSchema.safeParse(values);
+    if (!result.success) {
+      return {
+        status: "error",
+        message: "Dữ liệu không hợp lệ",
+      };
+    }
+
+    // Verify ownership through chapter
+    const chapter = await prisma.chuong.findFirst({
+      where: {
+        id: result.data.idChuong,
+        khoaHoc: {
+          idNguoiDung: session.user.id,
+        },
+      },
+    });
+
+    if (!chapter) {
+      return {
+        status: "error",
+        message: "Bạn không có quyền chỉnh sửa bài học này",
+      };
+    }
+
+    await prisma.baiHoc.update({
+      where: {
+        id: idBaiHoc,
+        idChuong: result.data.idChuong,
+      },
+      data: {
+        tenBaiHoc: result.data.ten,
+      },
+    });
+
+    revalidatePath(`/teacher/courses/${result.data.idKhoaHoc}/edit`);
+    return {
+      status: "success",
+      message: "Cập nhật tên bài học thành công",
+    };
+  } catch {
+    return {
+      status: "error",
+      message: "Lỗi khi cập nhật bài học",
     };
   }
 }

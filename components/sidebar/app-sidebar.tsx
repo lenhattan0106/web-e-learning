@@ -40,16 +40,6 @@ const data = {
       url: "/teacher/courses",
       icon: IconListDetails,
     },
-    {
-      title: "Phân tích",
-      url: "#",
-      icon: IconChartBar,
-    },
-    {
-      title: "Học viên",
-      url: "/teacher/students",
-      icon: IconUsers,
-    },
      {
       title: "Mã giảm giá",
       url: "/teacher/coupon",
@@ -63,13 +53,8 @@ const data = {
   ],
   navSecondary: [
     {
-      title: "Hỗ trợ",
-      url: "#",
-      icon: IconHelp,
-    },
-    {
       title: "Cài đặt",
-      url: "/profile",
+      url: "/settings",
       icon: IconSettings,
     },
   ],

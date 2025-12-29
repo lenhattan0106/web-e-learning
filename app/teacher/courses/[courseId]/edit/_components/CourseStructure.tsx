@@ -43,6 +43,8 @@ import { useRouter } from "next/navigation";
 import { NewLessonModal } from "./NewLessonModal";
 import { DeleteLesson } from "./DeleteLesson";
 import { DeleteChapter } from "./DeleteChapter";
+import { EditChapterModal } from "./EditChapterModal";
+import { EditLessonModal } from "./EditLessonModal";
 
 interface iAppProps {
   data: TeacherEditCourseType;
@@ -279,7 +281,10 @@ export function CourseStructure({ data }: iAppProps) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between border-b border-border">
           <CardTitle>Chương</CardTitle>
-          <NewChapterModal idKhoaHoc={data.id}></NewChapterModal>
+          <NewChapterModal 
+            idKhoaHoc={data.id} 
+            suggestedName={`Chương ${items.length + 1}`} 
+          />
         </CardHeader>
         <CardContent className="space-y-8">
           {isPending && (
@@ -330,7 +335,10 @@ export function CourseStructure({ data }: iAppProps) {
                             {item.tenChuong}
                           </p>
                         </div>
-                        <DeleteChapter idChuong={item.id} idKhoaHoc={data.id}></DeleteChapter>
+                        <div className="flex items-center gap-1">
+                           <EditChapterModal idKhoaHoc={data.id} idChuong={item.id} tenChuong={item.tenChuong} />
+                           <DeleteChapter idChuong={item.id} idKhoaHoc={data.id}></DeleteChapter>
+                        </div>
                       </div>
                       <CollapsibleContent>
                         <div className="p-1">
@@ -362,14 +370,27 @@ export function CourseStructure({ data }: iAppProps) {
                                         {baiHoc.tenBaiHoc}
                                       </Link>
                                     </div>
-                                    <DeleteLesson idChuong={item.id} idKhoaHoc={data.id} idBaiHoc={baiHoc.id}></DeleteLesson>
+                                    <div className="flex items-center gap-1">
+                                       <EditLessonModal 
+                                            idKhoaHoc={data.id} 
+                                            idChuong={item.id} 
+                                            idBaiHoc={baiHoc.id} 
+                                            tenBaiHoc={baiHoc.tenBaiHoc} 
+                                       />
+                                       <DeleteLesson idChuong={item.id} idKhoaHoc={data.id} idBaiHoc={baiHoc.id}></DeleteLesson>
+                                    </div>
                                   </div>
                                 )}
                               </SortableItem>
                             ))}
                           </SortableContext>
                           <div className="p-2">
-                              <NewLessonModal idChuong={item.id} idKhoaHoc={data.id}></NewLessonModal>
+                              {/* Integrated suggestedName here */}
+                              <NewLessonModal 
+                                idChuong={item.id} 
+                                idKhoaHoc={data.id}
+                                suggestedName={`Bài ${item.baiHocs.length + 1}: `}
+                              />
                           </div>
                         </div>
                       </CollapsibleContent>
@@ -384,3 +405,4 @@ export function CourseStructure({ data }: iAppProps) {
     </DndContext>
   );
 }
+

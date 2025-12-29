@@ -63,7 +63,7 @@ const MediaRenderer = ({ url, type, name }: { url: string; type: string | undefi
             <div className="relative w-full max-w-sm">
                 <video controls className="rounded-md w-full max-h-[300px] bg-black">
                     <source src={url} type={type} />
-                    Your browser does not support the video tag.
+                   Trình duyệt của bạn không hỗ trợ video tag.
                 </video>
             </div>
         );
@@ -73,7 +73,7 @@ const MediaRenderer = ({ url, type, name }: { url: string; type: string | undefi
             <div className="w-full max-w-[250px] bg-background/50 p-2 rounded-md flex items-center gap-2">
                 <audio controls className="w-full h-8">
                     <source src={url} type={type} />
-                     Your browser does not support the audio element.
+                     Trình duyệt của bạn không hỗ trợ audio tag.
                 </audio>
             </div>
         );

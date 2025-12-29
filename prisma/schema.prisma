@@ -92,11 +92,23 @@ model KhoaHoc {
   tepKH             String
   gia               Int
   thoiLuong         Int
-  capDo             CapDoKhoaHoc       @default(NguoiMoi)
-  danhMuc           String
+  // Old fields (will be deprecated after migration)
+  capDo             CapDoKhoaHocEnum?       @default(NguoiMoi)
+  danhMuc           String?
+  trangThai         TrangThaiKhoaHocEnum?   @default(BanNhap) @map("trangThai") // Renamed enum to avoid conflict with model
+  
+  // New Vietnamese relations
+  idDanhMuc         String?             @map("id_danh_muc")
+  danhMucRef        DanhMuc?            @relation(fields: [idDanhMuc], references: [id])
+  
+  idCapDo           String?             @map("id_cap_do")
+  capDoRef          CapDo?              @relation(fields: [idCapDo], references: [id])
+  
+  idTrangThai       String?             @map("id_trang_thai")
+  trangThaiRef      TrangThaiKhoaHoc?   @relation(fields: [idTrangThai], references: [id])
+
   moTaNgan          String
   duongDan          String             @unique
-  trangThai         TrangThaiKhoaHoc   @default(BanNhap)
   ngayTao           DateTime           @default(now())
   ngayCapNhat       DateTime           @updatedAt
   dangKyHocs        DangKyHoc[]
@@ -108,18 +120,61 @@ model KhoaHoc {
   phongChat         PhongChat?
 
   @@map("khoaHoc")
+  @@index([idDanhMuc])
+  @@index([idCapDo])
+  @@index([idTrangThai])
 }
 
-enum CapDoKhoaHoc {
+enum CapDoKhoaHocEnum {
   NguoiMoi
   TrungCap
   NangCao
 }
 
-enum TrangThaiKhoaHoc {
+enum TrangThaiKhoaHocEnum {
   BanNhap
   BanChinhThuc
   BanLuuTru
+}
+
+model DanhMuc {
+  id            String     @id @default(uuid())
+  tenDanhMuc    String     @map("ten_danh_muc")
+  duongDan      String     @unique @map("duong_dan") // slug
+  idDanhMucCha  String?    @map("id_danh_muc_cha")
+  danhMucCha    DanhMuc?   @relation("DanhMucCon", fields: [idDanhMucCha], references: [id])
+  danhMucCon    DanhMuc[]  @relation("DanhMucCon")
+  khoaHocs      KhoaHoc[]
+  
+  ngayTao       DateTime   @default(now()) @map("ngay_tao")
+  ngayCapNhat   DateTime   @updatedAt @map("ngay_cap_nhat")
+
+  @@map("danh_muc")
+  @@index([idDanhMucCha])
+}
+
+model CapDo {
+  id            String     @id @default(uuid())
+  tenCapDo      String     @map("ten_cap_do")
+  maCapDo       String     @unique @map("ma_cap_do") // e.g. 'NGUOI_MOI', 'TRUNG_CAP'
+  khoaHocs      KhoaHoc[]
+  
+  ngayTao       DateTime   @default(now()) @map("ngay_tao")
+  ngayCapNhat   DateTime   @updatedAt @map("ngay_cap_nhat")
+
+  @@map("cap_do")
+}
+
+model TrangThaiKhoaHoc {
+  id            String     @id @default(uuid())
+  tenTrangThai  String     @map("ten_trang_thai")
+  maTrangThai   String     @unique @map("ma_trang_thai") // e.g. 'DRAFT', 'PUBLISHED'
+  khoaHocs      KhoaHoc[]
+  
+  ngayTao       DateTime   @default(now()) @map("ngay_tao")
+  ngayCapNhat   DateTime   @updatedAt @map("ngay_cap_nhat")
+
+  @@map("trang_thai_khoa_hoc")
 }
 
 model Chuong {

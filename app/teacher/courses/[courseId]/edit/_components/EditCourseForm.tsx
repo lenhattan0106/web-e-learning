@@ -2,11 +2,8 @@
 
 import { Button } from "@/components/ui/button";
 import {
-  danhMucKhoaHoc,
-  capDoKhoaHoc,
   khoaHocSchema,
   KhoaHocSchemaType,
-  trangThaiKhoaHoc,
 } from "@/lib/zodSchemas";
 import { Loader, SparkleIcon } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -22,30 +19,37 @@ import {
 import { Input } from "@/components/ui/input";
 import slugify from "slugify";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "@/components/ui/select";
-import { SelectValue } from "@radix-ui/react-select";
 import { RichTextEditor } from "@/components/rich-text-editor/Editor";
 import { Uploader } from "@/components/file-uploader/Uploader";
-import { useTransition } from "react";
+import { useTransition, useMemo } from "react";
 import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { editCourse } from "../action";
 import { TeacherEditCourseType } from "@/app/data/teacher/edit-course";
 import { CourseTitleInput } from "@/components/teacher/CourseTitleInput";
+import { CascadingCategorySelect, Category } from "@/components/teacher/CascadingCategorySelect";
+import { LevelSelect } from "@/components/teacher/LevelSelect";
+import { StatusSelect } from "@/components/teacher/StatusSelect";
+import { formatDuration } from "@/lib/formatDuration";
+import { calculateCourseDuration } from "@/lib/video-utils";
 
 interface iAppProps {
   data: TeacherEditCourseType;
+  categories: Category[];
+  levels: any[];
+  statuses: any[];
 }
 
-export function EditCourseForm({ data }: iAppProps) {
+export function EditCourseForm({ data, categories, levels, statuses }: iAppProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  
+  // Calculate duration from lessons
+  const calculatedDuration = useMemo(() => {
+    return calculateCourseDuration(data.chuongs || []);
+  }, [data.chuongs]);
+  
   const form = useForm<KhoaHocSchemaType>({
     resolver: zodResolver(khoaHocSchema),
     defaultValues: {
@@ -53,10 +57,10 @@ export function EditCourseForm({ data }: iAppProps) {
       moTa: data.moTa,
       tepKH: data.tepKH,
       gia: data.gia,
-      thoiLuong: data.thoiLuong,
-      capDo: data.capDo,
-      danhMuc: data.danhMuc as KhoaHocSchemaType["danhMuc"],
-      trangThai: data.trangThai,
+      thoiLuong: calculatedDuration,
+      capDo: data.idCapDo || "",
+      danhMuc: data.idDanhMuc || "",
+      trangThai: data.idTrangThai || "",
       duongDan: data.duongDan,
       moTaNgan: data.moTaNgan,
     },
@@ -80,7 +84,10 @@ export function EditCourseForm({ data }: iAppProps) {
 
   return (
     <Form {...form}>
-      <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
+      <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit, (errors) => {
+        console.error("Form validation errors:", errors);
+        toast.error("Vui lòng kiểm tra lại thông tin nhập");
+      })}>
         <FormField
           control={form.control}
           name="tenKhoaHoc"
@@ -185,23 +192,13 @@ export function EditCourseForm({ data }: iAppProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Danh Mục</FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Chọn danh mục"></SelectValue>
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {danhMucKhoaHoc.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <CascadingCategorySelect
+                    categories={categories}
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                </FormControl>
                 <FormMessage></FormMessage>
               </FormItem>
             )}
@@ -213,49 +210,29 @@ export function EditCourseForm({ data }: iAppProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Cấp Độ</FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Chọn cấp độ"></SelectValue>
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {capDoKhoaHoc.map((capDo) => (
-                      <SelectItem key={capDo} value={capDo}>
-                        {capDo}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage></FormMessage>
-              </FormItem>
-            )}
-          ></FormField>
-
-          <FormField
-            control={form.control}
-            name="thoiLuong"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Thời Lượng (giờ)</FormLabel>
                 <FormControl>
-                  <Input
-                    placeholder="Thời lượng"
-                    type="number"
-                    value={field.value || ""}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      field.onChange(value === "" ? 0 : Number(value));
-                    }}
-                  ></Input>
+                  <LevelSelect
+                    levels={levels}
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
                 </FormControl>
                 <FormMessage></FormMessage>
               </FormItem>
             )}
           ></FormField>
+
+          <FormItem>
+            <FormLabel>Thời Lượng</FormLabel>
+            <FormControl>
+               <Input 
+                 value={formatDuration(calculatedDuration)} 
+                 readOnly 
+                 disabled
+                 className="bg-muted/50 text-foreground cursor-not-allowed" 
+               />
+            </FormControl>
+          </FormItem>
 
           <FormField
             control={form.control}
@@ -280,44 +257,36 @@ export function EditCourseForm({ data }: iAppProps) {
           ></FormField>
         </div>
 
-        <FormField
-          control={form.control}
-          name="trangThai"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Trạng Thái</FormLabel>
-              <Select
-                onValueChange={field.onChange}
-                defaultValue={field.value}
-              >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+          <FormField
+            control={form.control}
+            name="trangThai"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Trạng Thái</FormLabel>
                 <FormControl>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Chọn trạng thái"></SelectValue>
-                  </SelectTrigger>
+                  <StatusSelect
+                    statuses={statuses}
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
                 </FormControl>
-                <SelectContent>
-                  {trangThaiKhoaHoc.map((trangThai) => (
-                    <SelectItem key={trangThai} value={trangThai}>
-                      {trangThai}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage></FormMessage>
-            </FormItem>
-          )}
-        ></FormField>
+                <FormMessage></FormMessage>
+              </FormItem>
+            )}
+          ></FormField>
 
-        <Button type="submit" disabled={isPending}>
-          {isPending ? (
-            <>
-              <Loader className="size-4 mr-2 animate-spin" />
-              Đang cập nhật...
-            </>
-          ) : (
-            "Cập nhật khóa học"
-          )}
-        </Button>
+          <Button type="submit" disabled={isPending} className="w-full">
+            {isPending ? (
+              <>
+                <Loader className="size-4 mr-2 animate-spin" />
+                Đang cập nhật...
+              </>
+            ) : (
+              "Cập nhật khóa học"
+            )}
+          </Button>
+        </div>
       </form>
     </Form>
   );

@@ -1,10 +1,15 @@
 "use client";
 
-import { MessageCircle, Sparkles, PanelRightClose } from "lucide-react";
+import { MessageCircle, Sparkles, PanelRightClose, Crown } from "lucide-react";
 import { TutorChat } from "./TutorChat";
 import { TutorProvider, useTutor } from "./TutorContext";
 
-function TutorPanel() {
+interface TutorPanelProps {
+  isPremium?: boolean;
+  premiumExpires?: Date | null;
+}
+
+function TutorPanel({ isPremium, premiumExpires }: TutorPanelProps) {
   const { isOpen, closeChat, toggleChat } = useTutor();
 
   return (
@@ -56,11 +61,19 @@ function TutorPanel() {
                 <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-400 rounded-full border-2 border-slate-900" />
               </div>
               <div>
-                <h3 className="font-semibold text-white text-lg">
-                  ChatBot Tư Vấn
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-white text-lg">
+                    ChatBot Tư Vấn
+                  </h3>
+                  {isPremium && (
+                    <span className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-medium flex items-center gap-1">
+                      <Crown className="w-3 h-3" />
+                      Pro
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-cyan-300/70">
-                  *AI-powered
+                  Powered by Gemini AI
                 </p>
               </div>
             </div>
@@ -81,7 +94,7 @@ function TutorPanel() {
 
           {/* Chat Content - Takes remaining space */}
           <div className="flex-1 overflow-hidden">
-            <TutorChat />
+            <TutorChat isPremium={isPremium} premiumExpires={premiumExpires} />
           </div>
         </div>
       </div>
@@ -113,15 +126,27 @@ function TutorPanel() {
           "
         />
         <MessageCircle className="w-7 h-7 text-white transition-transform group-hover:scale-110" />
+        
+        {/* Premium Badge on FAB */}
+        {isPremium && (
+          <span className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
+            <Crown className="w-3 h-3 text-white" />
+          </span>
+        )}
       </button>
     </>
   );
 }
 
-export function TutorWidget() {
+interface TutorWidgetProps {
+  isPremium?: boolean;
+  premiumExpires?: Date | null;
+}
+
+export function TutorWidget({ isPremium = false, premiumExpires }: TutorWidgetProps) {
   return (
     <TutorProvider>
-      <TutorPanel />
+      <TutorPanel isPremium={isPremium} premiumExpires={premiumExpires} />
     </TutorProvider>
   );
 }

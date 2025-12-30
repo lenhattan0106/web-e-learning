@@ -59,6 +59,8 @@
       totalUsers: number;
       totalCourses: number;
       totalLessons: number;
+      revenueGrowth?: number;
+      usersGrowth?: number;
     };
     chartData: any[]; // Data for chart
   }

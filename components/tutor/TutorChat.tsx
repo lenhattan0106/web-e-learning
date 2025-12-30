@@ -4,8 +4,14 @@ import { useChat } from "@ai-sdk/react";
 import { useRef, useEffect, useState, type FormEvent } from "react";
 import { Send, Loader2 } from "lucide-react";
 import { TutorMessages } from "./TutorMessages";
+import { PremiumPaywall } from "./PremiumPaywall";
 
-export function TutorChat() {
+interface TutorChatProps {
+  isPremium?: boolean;
+  premiumExpires?: Date | null;
+}
+
+export function TutorChat({ isPremium = false, premiumExpires }: TutorChatProps) {
   const [inputValue, setInputValue] = useState("");
 
   const { messages, sendMessage, status } = useChat({
@@ -13,12 +19,14 @@ export function TutorChat() {
       {
         id: "welcome",
         role: "assistant",
-        content: "Hey! 👋 I'm your personal learning assistant. Tell me what you'd like to learn, and I'll find the perfect courses for you.",
+        content: isPremium 
+          ? "Xin chào! 👋 Tôi là trợ lý AI của bạn. Hãy hỏi bất cứ điều gì về khóa học, và tôi sẽ giúp bạn học tập hiệu quả hơn!"
+          : "Xin chào! 👋 Tôi là trợ lý học tập của bạn. Nâng cấp lên AI Pro để tôi có thể giúp bạn tìm khóa học phù hợp nhé!",
       } as any,
     ],
+
     onError: (error) => {
       console.error("Chat error:", error);
-      alert("Có lỗi xảy ra khi kết nối với AI Tutor. Vui lòng thử lại.");
     },
   });
 
@@ -34,8 +42,10 @@ export function TutorChat() {
 
   // Focus input on mount
   useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+    if (isPremium) {
+      inputRef.current?.focus();
+    }
+  }, [isPremium]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -45,8 +55,22 @@ export function TutorChat() {
     setInputValue("");
   };
 
+  // Show paywall if not premium
+  if (!isPremium) {
+    return <PremiumPaywall />;
+  }
+
   return (
     <div className="flex flex-col h-full">
+      {/* Premium Badge */}
+      {premiumExpires && (
+        <div className="shrink-0 px-4 py-2 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-b border-amber-500/20">
+          <p className="text-xs text-amber-400 text-center">
+            ✨ Gói Pro • Hết hạn: {new Date(premiumExpires).toLocaleDateString('vi-VN')}
+          </p>
+        </div>
+      )}
+
       {/* Messages Container - Scrollable */}
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
         <TutorMessages messages={messages} isLoading={isLoading} />
@@ -61,7 +85,7 @@ export function TutorChat() {
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder="What would you like to learn?"
+            placeholder="Hỏi bất cứ điều gì về khóa học..."
             disabled={isLoading}
             className="
               w-full
@@ -100,7 +124,7 @@ export function TutorChat() {
           </button>
         </form>
         <p className="mt-3 text-sm text-slate-500 text-center">
-          NT E-Learning • AI 
+          NT E-Learning • Powered by Gemini AI
         </p>
       </div>
     </div>

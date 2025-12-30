@@ -17,7 +17,6 @@ model User {
   image         String?        @map("anhDaiDien")
   createdAt     DateTime       @default(now()) @map("ngayTao")
   updatedAt     DateTime       @updatedAt @map("ngayCapNhat")
-  password      String?        @map("matKhau")
   khoaHocs      KhoaHoc[]
   sessions      Session[]
   accounts      Account[]
@@ -29,8 +28,16 @@ model User {
   banReason     String?        @map("lyDoCam")
   banExpires    DateTime?      @map("hetHanCam")
 
+  // Premium AI Subscription (99k/tháng)
+  isPremium      Boolean   @default(false) @map("is_premium")
+  premiumExpires DateTime? @map("han_su_dung_premium")
+
+  thanhToanPremiums ThanhToanPremium[]
+
   @@map("nguoiDung")
 }
+
+
 
 model Session {
   id        String   @id @map("idPhien")
@@ -337,3 +344,27 @@ model TinNhan {
   @@index([userId])
   @@map("tinNhan")
 }
+
+// Premium AI Subscription Payment Tracking
+model ThanhToanPremium {
+  id               String            @id @default(uuid())
+  soTien           Int               // 99000 VND
+  soNgay           Int               @default(30) @map("so_ngay") // 30 days
+  trangThai        TrangThaiDangKy   @default(DangXuLy)
+  
+  // VNPay transaction tracking
+  vnpTxnRef        String?           @map("vnp_txn_ref")
+  vnpTransactionNo String?           @map("vnp_transaction_no")
+  vnpBankCode      String?           @map("vnp_bank_code")
+  
+  idNguoiDung      String            @map("id_nguoi_dung")
+  nguoiDung        User              @relation(fields: [idNguoiDung], references: [id], onDelete: Cascade)
+  
+  ngayTao          DateTime          @default(now()) @map("ngay_tao")
+  ngayCapNhat      DateTime          @updatedAt @map("ngay_cap_nhat")
+  
+  @@index([idNguoiDung])
+  @@index([trangThai])
+  @@map("thanh_toan_premium")
+}
+

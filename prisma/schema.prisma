@@ -28,11 +28,17 @@ model User {
   banReason     String?        @map("lyDoCam")
   banExpires    DateTime?      @map("hetHanCam")
 
-  // Premium AI Subscription (99k/tháng)
   isPremium      Boolean   @default(false) @map("is_premium")
   premiumExpires DateTime? @map("han_su_dung_premium")
 
   thanhToanPremiums ThanhToanPremium[]
+  
+  // Comment relations
+  binhLuans         BinhLuan[]
+  baoCaoBinhLuans   BaoCaoBinhLuan[]
+  
+  // Rating relations
+  danhGias          DanhGia[]
 
   @@map("nguoiDung")
 }
@@ -125,6 +131,9 @@ model KhoaHoc {
   maGiamGiaKhoaHocs MaGiamGiaKhoaHoc[]
   
   phongChat         PhongChat?
+  
+  // Rating relations
+  danhGias          DanhGia[]
 
   @@map("khoaHoc")
   @@index([idDanhMuc])
@@ -175,7 +184,7 @@ model CapDo {
 model TrangThaiKhoaHoc {
   id            String     @id @default(uuid())
   tenTrangThai  String     @map("ten_trang_thai")
-  maTrangThai   String     @unique @map("ma_trang_thai") // e.g. 'DRAFT', 'PUBLISHED'
+  maTrangThai   String     @unique @map("ma_trang_thai") 
   khoaHocs      KhoaHoc[]
   
   ngayTao       DateTime   @default(now()) @map("ngay_tao")
@@ -214,18 +223,21 @@ model BaiHoc {
   idChuong      String
   chuong        Chuong         @relation(fields: [idChuong], references: [id], onDelete: Cascade)
   tienTrinhHocs TienTrinhHoc[]
+  binhLuans     BinhLuan[]
 
   @@index([idChuong])
   @@map("baiHoc")
 }
 
 model DangKyHoc {
-  id          String          @id @default(uuid())
-  soTien      Int
-  trangThai   TrangThaiDangKy @default(DangXuLy)
-  camChat     Boolean         @default(false)
-  ngayTao     DateTime        @default(now())
-  ngayCapNhat DateTime        @updatedAt
+  id            String          @id @default(uuid())
+  soTien        Int             // Tổng tiền người dùng trả (Gross)
+  phiSan        Int             @default(0) @map("phi_san")        // Phí Admin thu (5%)
+  thanhToanThuc Int             @default(0) @map("thanh_toan_thuc") // Tiền GV nhận (95%)
+  trangThai     TrangThaiDangKy @default(DangXuLy)
+  camChat       Boolean         @default(false)
+  ngayTao       DateTime        @default(now())
+  ngayCapNhat   DateTime        @updatedAt
 
   idKhoaHoc String
   khoaHoc   KhoaHoc @relation(fields: [idKhoaHoc], references: [id], onDelete: Cascade)
@@ -345,7 +357,7 @@ model TinNhan {
   @@map("tinNhan")
 }
 
-// Premium AI Subscription Payment Tracking
+
 model ThanhToanPremium {
   id               String            @id @default(uuid())
   soTien           Int               // 99000 VND
@@ -368,3 +380,96 @@ model ThanhToanPremium {
   @@map("thanh_toan_premium")
 }
 
+
+enum TrangThaiBinhLuan {
+  HIEN       // Visible (default)
+  AN         // Hidden (reported)
+  DA_XOA     // Soft-deleted
+}
+
+enum TrangThaiBaoCao {
+  ChoXuLy    // Pending
+  DaXuLy     // Processed  
+  TuChoi     // Rejected
+}
+
+model BinhLuan {
+  id            String             @id @default(uuid()) @map("idBL")
+  capDo         Int                @default(0) // 0 = root comment, 1 = reply (max 2 levels)
+  noiDung       String             @db.Text
+  trangThai     TrangThaiBinhLuan  @default(HIEN)
+  
+  idNguoiDung   String             @map("idND")
+  nguoiDung     User               @relation(fields: [idNguoiDung], references: [id], onDelete: Cascade)
+  
+  idBaiHoc      String             @map("idBH")
+  baiHoc        BaiHoc             @relation(fields: [idBaiHoc], references: [id], onDelete: Cascade)
+  
+  idKhoaHoc     String             @map("idKH")
+  
+  idCha         String?            @map("idCha")
+  parent        BinhLuan?          @relation("BinhLuanReplies", fields: [idCha], references: [id], onDelete: Cascade)
+  replies       BinhLuan[]         @relation("BinhLuanReplies")
+  
+  // Reports
+  baoCaos       BaoCaoBinhLuan[]
+  
+  ngayTao       DateTime           @default(now())
+  ngayCapNhat   DateTime           @updatedAt
+  
+  @@index([idBaiHoc])
+  @@index([idNguoiDung])
+  @@index([idKhoaHoc])
+  @@index([idCha])
+  @@map("binhLuan")
+}
+
+model BaoCaoBinhLuan {
+  id            String           @id @default(uuid())
+  lyDo          String           @db.Text
+  
+  // Reporter
+  idNguoiDung   String           @map("idND")
+  nguoiDung     User             @relation(fields: [idNguoiDung], references: [id], onDelete: Cascade)
+  
+  // Reported comment
+  idBinhLuan    String           @map("idBL")
+  binhLuan      BinhLuan         @relation(fields: [idBinhLuan], references: [id], onDelete: Cascade)
+  
+  trangThai     TrangThaiBaoCao  @default(ChoXuLy)
+  ngayTao       DateTime         @default(now())
+  
+  // User can only report a comment once
+  @@unique([idNguoiDung, idBinhLuan])
+  @@index([idBinhLuan])
+  @@map("baoCaoBinhLuan")
+}
+
+// ==================== ĐÁNH GIÁ KHÓA HỌC ====================
+
+enum TrangThaiDanhGia {
+  HIEN       // Visible (default)
+  AN         // Hidden (spam/violating)
+}
+
+model DanhGia {
+  id            String            @id @default(uuid()) @map("idDG")
+  diemDanhGia   Int               // 1-5 stars
+  noiDung       String?           @db.Text
+  trangThai     TrangThaiDanhGia  @default(HIEN)
+  
+  idNguoiDung   String            @map("idND")
+  nguoiDung     User              @relation(fields: [idNguoiDung], references: [id], onDelete: Cascade)
+  
+  idKhoaHoc     String            @map("idKH")
+  khoaHoc       KhoaHoc           @relation(fields: [idKhoaHoc], references: [id], onDelete: Cascade)
+  
+  ngayTao       DateTime          @default(now())
+  ngayCapNhat   DateTime          @updatedAt
+  
+  // Each user can only rate a course once
+  @@unique([idNguoiDung, idKhoaHoc])
+  @@index([idKhoaHoc])
+  @@index([idNguoiDung])
+  @@map("danhGia")
+}

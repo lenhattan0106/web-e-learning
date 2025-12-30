@@ -8,6 +8,11 @@ const nextConfig: NextConfig = {
         hostname:'nt-e-learning.t3.storage.dev',
         port:"",
         protocol:'https'  
+      },
+      {
+        hostname:'avatars.githubusercontent.com',
+        port:"",
+        protocol:'https'  
       }
     ]
   }

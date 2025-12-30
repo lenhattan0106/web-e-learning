@@ -19,18 +19,56 @@ import {
   Clock,
   Play,
   Check,
+  User,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { EnrollmentButton } from "./_components/EnrollmentButton";
 import { CourseSidebar } from "./_components/CourseSidebar";
+import { formatDuration, formatCategoryPath } from "@/lib/format";
+import { CourseRatingSection } from "@/components/rating/CourseRatingSection";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { getUserRating, getCourseAverageRating, getRatingDistribution } from "./_actions/rating-actions";
 
 type Params = Promise<{ slug: string }>;
+
+// Helper to calculate average rating from ratings array
+function calculateRatingStats(ratings: { diemDanhGia: number }[] | undefined) {
+  if (!ratings || ratings.length === 0) return { average: 0, total: 0 };
+  const sum = ratings.reduce((acc, r) => acc + r.diemDanhGia, 0);
+  return { average: sum / ratings.length, total: ratings.length };
+}
+
+// Helper to create distribution from ratings
+function createDistribution(ratings: { diemDanhGia: number }[] | undefined): Record<number, number> {
+  const result: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  if (!ratings) return result;
+  ratings.forEach(r => {
+    result[r.diemDanhGia] = (result[r.diemDanhGia] || 0) + 1;
+  });
+  return result;
+}
 
 export default async function SlugPage({ params }: { params: Params }) {
   const { slug } = await params;
   const khoaHoc = await getIndivialCourse(slug);
   const isEnrolled = await checkIfCourseBought(khoaHoc.id);
+  
+  // Get current user ID for rating section
+  const session = await auth.api.getSession({
+    headers: await headers()
+  });
+  const currentUserId = session?.user?.id;
+  
+  // Get user's existing rating if logged in
+  const userRating = currentUserId ? await getUserRating(khoaHoc.id) : null;
+  
+  // Calculate rating stats from danhGias (will be available after Prisma regeneration)
+  const danhGias = (khoaHoc as any).danhGias || [];
+  const ratingStats = calculateRatingStats(danhGias);
+  const distribution = createDistribution(danhGias);
+  
   return (
     <div className="grid grid-cols-1  gap-8 lg:grid-cols-3 mt-5">
       <div className="order-1 lg:col-span-2">
@@ -56,15 +94,15 @@ export default async function SlugPage({ params }: { params: Params }) {
           <div className="flex flex-wrap gap-3">
             <Badge className="flex items-center gap-1 px-3 py-1 rounded">
               <BarChart3 className="size-6" />
-              <span>{khoaHoc.capDo}</span>
+              <span>{khoaHoc.capDoRef?.tenCapDo || khoaHoc.capDo}</span>
             </Badge>
             <Badge className="flex items-center gap-1 px-3 py-1 rounded">
               <FolderOpen className="size-6" />
-              <span>{khoaHoc.danhMuc}</span>
+              <span>{formatCategoryPath(khoaHoc.danhMucRef, khoaHoc.danhMuc)}</span>
             </Badge>
             <Badge className="flex items-center gap-1 px-3 py-1 rounded">
               <Clock className="size-6" />
-              <span>{khoaHoc.thoiLuong} giờ</span>
+              <span>{formatDuration(khoaHoc.thoiLuong)}</span>
             </Badge>
           </div>
           <Separator className="my-8"></Separator>
@@ -151,6 +189,20 @@ export default async function SlugPage({ params }: { params: Params }) {
             ))}
           </div>
         </div>
+        
+        {/* Rating Section */}
+        <div className="mt-12">
+          <CourseRatingSection
+            courseId={khoaHoc.id}
+            isEnrolled={isEnrolled}
+            currentUserId={currentUserId}
+            ratings={danhGias}
+            averageRating={ratingStats.average}
+            totalRatings={ratingStats.total}
+            distribution={distribution}
+            userRating={userRating}
+          />
+        </div>
       </div>
       {/* Design khu vực mua khóa học */}
       <div className="order-2 lg:col-span-1">
@@ -170,7 +222,7 @@ export default async function SlugPage({ params }: { params: Params }) {
                 <div>
                   <p className="text-sm font-medium">Thời lượng</p>
                   <p className="text-sm text-muted-foreground">
-                    {khoaHoc.thoiLuong} giờ
+                    {formatDuration(khoaHoc.thoiLuong)}
                   </p>
                 </div>
               </div>
@@ -181,7 +233,7 @@ export default async function SlugPage({ params }: { params: Params }) {
                 <div>
                   <p className="text-sm font-medium">Cấp độ</p>
                   <p className="text-sm text-muted-foreground">
-                    {khoaHoc.capDo}
+                    {khoaHoc.capDoRef?.tenCapDo || khoaHoc.capDo}
                   </p>
                 </div>
               </div>
@@ -192,7 +244,7 @@ export default async function SlugPage({ params }: { params: Params }) {
                 <div>
                   <p className="text-sm font-medium">Danh mục</p>
                   <p className="text-sm text-muted-foreground">
-                    {khoaHoc.danhMuc}
+                    {formatCategoryPath(khoaHoc.danhMucRef, khoaHoc.danhMuc)}
                   </p>
                 </div>
               </div>
@@ -208,6 +260,28 @@ export default async function SlugPage({ params }: { params: Params }) {
                       0
                     )}{" "}
                     bài học
+                  </p>
+                </div>
+              </div>
+              {/* Teacher info section */}
+              <div className="flex items-center gap-3">
+                <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary overflow-hidden">
+                  {khoaHoc.nguoiDung?.image ? (
+                    <Image
+                      src={khoaHoc.nguoiDung.image}
+                      alt={khoaHoc.nguoiDung.name || "Giảng viên"}
+                      width={32}
+                      height={32}
+                      className="rounded-full object-cover"
+                    />
+                  ) : (
+                    <User className="size-4" />
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Giảng viên</p>
+                  <p className="text-sm text-muted-foreground">
+                    {khoaHoc.nguoiDung?.name || "Giảng viên ẩn danh"}
                   </p>
                 </div>
               </div>

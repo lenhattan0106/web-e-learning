@@ -53,55 +53,7 @@ export async function enrollInCourseAction(idKhoaHoc: string, couponCode?: strin
         message: "Không tìm thấy khóa học",
       };
     }
-
-    // --- LOGIC XỬ LÝ COUPON ---
-    let finalPrice = khoaHoc.gia;
-    let appliedCouponId = null;
-    let orderInfo = `Thanh toán khoá học: ${khoaHoc.tenKhoaHoc}`;
-
-    if (couponCode) {
-        const verifyResult = await verifyCoupon(couponCode, idKhoaHoc);
-        if (!verifyResult.isValid) {
-            // Nếu coupon không hợp lệ, trả lỗi luôn (hoặc có thể fallback về giá gốc tùy business, nhưng trả lỗi an toàn hơn)
-            return {
-                status: "error",
-                message: verifyResult.error || "Mã giảm giá không hợp lệ",
-            };
-        }
-        finalPrice = verifyResult.discountedPrice;
-        
-        // Lấy lại ID coupon từ DB để lưu vào DangKyHoc (vì verifyCoupon trả code normalized)
-        // Lưu ý: verifyCoupon check logic ok nhưng để lấy ID chính xác ta query nhẹ lại hoặc update verifyCoupon trả ID.
-        // Tối ưu: Update verifyCoupon trả về couponId luôn.
-        // Nhưng ở đây ta query nhanh lại cho chắc chắn.
-        const couponDb = await prisma.maGiamGia.findUnique({
-            where: { maGiamGia: verifyResult.couponCode }
-        });
-        if (couponDb) {
-            appliedCouponId = couponDb.id;
-            // Sanitizing content for VNPay: Remove (, ), :, and ensure pure text
-            // Replace special chars with hyphen or space
-            orderInfo = `Thanh toan khoa hoc ${khoaHoc.tenKhoaHoc} Ma ${verifyResult.couponCode}`;
-            
-            // Remove Vietnamese accents to be absolutely safe (standard VNPay practice often recommends ASCII)
-            orderInfo = orderInfo.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w\s]/gi, '');
-        }
-    }
-
-    // Đảm bảo giá là số nguyên cho VNPay
-    finalPrice = Math.round(finalPrice);   
-    
-    // VNPay không cho phép thanh toán 0 đồng
-    if (finalPrice <= 0) {
-         // Xử lý case 0 đồng (Free) -> Tự động Enroll không qua VNPay
-         // Logic này cần thiết nếu coupon giảm 100%
-         // ... Tạm thời assume >= 10000 VND (VNPay min limit)
-         // Nếu < 10000 có thể VNPay sẽ lỗi khác, nhưng Code 70 là Signature.
-         // Tuy nhiên, ta cứ sanitize orderInfo trước.
-    }
-
-
-    // Kiểm tra enrollment hiện tại
+    // --- 1. KIỂM TRA ENROLLMENT CŨ ---
     const existingDangKy = await prisma.dangKyHoc.findUnique({
       where: {
         idNguoiDung_idKhoaHoc: {
@@ -115,7 +67,7 @@ export async function enrollInCourseAction(idKhoaHoc: string, couponCode?: strin
       },
     });
 
-    // Nếu đã thanh toán rồi
+    // Nếu đã thanh toán rồi -> Return ngay
     if (existingDangKy?.trangThai === "DaThanhToan") {
       return {
         status: "success",
@@ -123,7 +75,7 @@ export async function enrollInCourseAction(idKhoaHoc: string, couponCode?: strin
       };
     }
 
-    // ✅ XÓA ENROLLMENT CŨ NẾU CÓ (DangXuLy hoặc DaHuy)
+    // Nếu có enrollment cũ (DangXuLy hoặc DaHuy) -> Xóa để tạo mới cho sạch
     if (existingDangKy) {
       await prisma.dangKyHoc.delete({
         where: { id: existingDangKy.id },
@@ -131,31 +83,97 @@ export async function enrollInCourseAction(idKhoaHoc: string, couponCode?: strin
       console.log("🗑️ Đã xóa enrollment cũ:", existingDangKy.id);
     }
 
-    // ✅ LUÔN TẠO ENROLLMENT MỚI
+    // --- 2. LOGIC XỬ LÝ COUPON ---
+    let finalPrice = khoaHoc.gia;
+    let appliedCouponId = null;
+    let orderInfo = `Thanh toán khoá học: ${khoaHoc.tenKhoaHoc}`;
+
+    if (couponCode) {
+        const verifyResult = await verifyCoupon(couponCode, idKhoaHoc);
+        if (!verifyResult.isValid) {
+            return {
+                status: "error",
+                message: verifyResult.error || "Mã giảm giá không hợp lệ",
+            };
+        }
+        finalPrice = verifyResult.discountedPrice;
+        
+        const couponDb = await prisma.maGiamGia.findUnique({
+            where: { maGiamGia: verifyResult.couponCode }
+        });
+        if (couponDb) {
+            appliedCouponId = couponDb.id;
+            orderInfo = `Thanh toan khoa hoc ${khoaHoc.tenKhoaHoc} Ma ${verifyResult.couponCode}`;
+            orderInfo = orderInfo.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w\s]/gi, '');
+        }
+    }
+
+    // Đảm bảo giá là số nguyên
+    finalPrice = Math.round(finalPrice);   
+    
+    // --- 3. XỬ LÝ THANH TOÁN ---
+    
+    // MIỄN PHÍ HOẶC GIẢM 100% (Giá <= 0)
+    if (finalPrice <= 0) {
+         try {
+            await prisma.$transaction(async (tx) => {
+                // Tạo enrollment với trạng thái ĐÃ THANH TOÁN luôn
+                await tx.dangKyHoc.create({
+                    data: {
+                        idNguoiDung: user.id,
+                        idKhoaHoc: khoaHoc.id,
+                        soTien: 0,
+                        phiSan: 0,
+                        thanhToanThuc: 0,
+                        trangThai: "DaThanhToan",
+                        maGiamGiaId: appliedCouponId,
+                    }
+                });
+
+                // Cập nhật coupon nếu có
+                if (appliedCouponId) {
+                    await tx.maGiamGia.update({
+                        where: { id: appliedCouponId },
+                        data: { daSuDung: { increment: 1 } }
+                    });
+                }
+            });
+         } catch (error) {
+             console.error("Free enrollment error:", error);
+             return { status: "error", message: "Lỗi xử lý đăng ký miễn phí" };
+         }
+
+         // Redirect thẳng vào học
+         redirect(`/courses/${khoaHoc.duongDan}/learn`);
+    }
+
+    //THANH TOÁN QUA VNPAY (Giá > 0)
+    
+    // Tạo enrollment trạng thái CHỜ XỬ LÝ
     const dangKyHoc = await prisma.dangKyHoc.create({
       data: {
         idNguoiDung: user.id,
         idKhoaHoc: khoaHoc.id,
-        soTien: finalPrice, // Lưu giá thực trả
+        soTien: finalPrice, 
         trangThai: "DangXuLy",
-        maGiamGiaId: appliedCouponId, // Lưu coupon ID nếu có
+        maGiamGiaId: appliedCouponId,
       },
     });
 
-    console.log("✨ Đã tạo enrollment mới:", dangKyHoc.id, "Giá:", finalPrice);
+    console.log("✨ Đã tạo enrollment mới (Chờ VNPay):", dangKyHoc.id, "Giá:", finalPrice);
 
     // Lấy IP address
     const headersList = await headers();
     const clientIP =
       headersList.get("x-forwarded-for")?.split(",")[0] ||
       headersList.get("x-real-ip") ||
-      "127.0.0.1";
+      "127.00.1";
 
-    // Tạo payment URL với enrollment ID mới
+    // Tạo payment URL
     const enrollmentId = dangKyHoc.id;
     paymentUrl = vnpay.buildPaymentUrl({
-      vnp_Amount: finalPrice, // Sử dụng giá cuối cùng
-      vnp_TxnRef: enrollmentId, // ID mới, unique
+      vnp_Amount: finalPrice,
+      vnp_TxnRef: enrollmentId,
       vnp_OrderInfo: orderInfo,
       vnp_OrderType: ProductCode.Other,
       vnp_IpAddr: clientIP,
@@ -173,6 +191,6 @@ export async function enrollInCourseAction(idKhoaHoc: string, couponCode?: strin
     };
   }
 
-  // Redirect ở ngoài try/catch
+  // Redirect VNPay
   redirect(paymentUrl);
 }

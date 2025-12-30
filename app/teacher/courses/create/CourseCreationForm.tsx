@@ -39,7 +39,7 @@ import { CourseTitleInput } from "@/components/teacher/CourseTitleInput";
 import { CascadingCategorySelect } from "@/components/teacher/CascadingCategorySelect";
 import { LevelSelect } from "@/components/teacher/LevelSelect";
 import { StatusSelect } from "@/components/teacher/StatusSelect";
-import { formatDuration } from "@/lib/formatDuration";
+import { formatDuration } from "@/lib/format";
 
 interface Props {
   categories: any[];

@@ -57,9 +57,8 @@ export async function getUsers({
       {
         OR: [
           { isPremium: false },
-          { isPremium: null },
           { premiumExpires: { lt: now } },
-          { premiumExpires: null }
+          { premiumExpires: { equals: null } }
         ]
       }
     ];

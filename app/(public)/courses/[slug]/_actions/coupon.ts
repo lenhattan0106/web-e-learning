@@ -68,15 +68,9 @@ export async function verifyCoupon(
 
     // 5. Check phạm vi áp dụng (Khóa học này có được áp dụng không?)
     const isApplicable = coupon.maGiamGiaKhoaHocs.length > 0;
-
-    // Lưu ý: Nếu logic của bạn là "Nếu không gán cụ thể cho khóa nào thì áp dụng tất cả" 
-    // thì bỏ check này hoặc sửa lại. 
-    // Nhưng data model hiện tại có bảng maGiamGiaKhoaHoc nên assume là phải link mới được dùng.
     if (!isApplicable) {
          return { isValid: false, error: "Mã giảm giá không áp dụng cho khóa học này" };
     }
-
-    // 6. Check User đã dùng mã này cho CHÍNH KHÓA HỌC NÀY chưa (Chỉ check đơn thành công)
     const usedCount = await prisma.dangKyHoc.count({
       where: {
         idNguoiDung: user.id,
@@ -107,11 +101,10 @@ export async function verifyCoupon(
       discountAmount = coupon.giaTri;
     }
 
-    // Đảm bảo không giảm quá 100% (âm tiền)
+ 
     let finalPrice = course.gia - discountAmount;
     if (finalPrice < 0) finalPrice = 0;
 
-    // Làm tròn số tiền (quan trọng cho VNPay)
     finalPrice = Math.round(finalPrice);
     discountAmount = course.gia - finalPrice; // Recalculate exact discount
 

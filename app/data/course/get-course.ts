@@ -7,6 +7,9 @@ export async function getIndivialCourse(slug: string) {
   const khoaHoc = await prisma.khoaHoc.findUnique({
     where: {
       duongDan: slug,
+      // Chỉ cho phép xem khóa học đã xuất bản (BanChinhThuc)
+      // Khóa học bản nháp hoặc lưu trữ sẽ không hiển thị cho public
+      trangThai: "BanChinhThuc",
     },
     select: {
       id: true,
@@ -18,6 +21,40 @@ export async function getIndivialCourse(slug: string) {
       capDo: true,
       danhMuc: true,
       moTaNgan: true,
+      // Category with parent hierarchy
+      danhMucRef: {
+        select: {
+          id: true,
+          tenDanhMuc: true,
+          danhMucCha: {
+            select: {
+              id: true,
+              tenDanhMuc: true,
+              danhMucCha: {
+                select: {
+                  id: true,
+                  tenDanhMuc: true,
+                },
+              },
+            },
+          },
+        },
+      },
+      // Level relation
+      capDoRef: {
+        select: {
+          id: true,
+          tenCapDo: true,
+        },
+      },
+      // Teacher info (only safe fields)
+      nguoiDung: {
+        select: {
+          id: true,
+          name: true,
+          image: true,
+        },
+      },
       chuongs: {
         select: {
           id: true,
@@ -34,6 +71,25 @@ export async function getIndivialCourse(slug: string) {
         },
         orderBy: {
           thuTu: "asc",
+        },
+      },
+      // Ratings with user info for display
+      danhGias: {
+        where: { trangThai: "HIEN" },
+        orderBy: { ngayTao: "desc" },
+        take: 10,
+        select: {
+          id: true,
+          diemDanhGia: true,
+          noiDung: true,
+          ngayTao: true,
+          nguoiDung: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+            },
+          },
         },
       },
     },

@@ -12,7 +12,9 @@ import {
   Ban,
   Star,
   GraduationCap,
-  User
+  User,
+  Users,
+  UserPlus
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -38,18 +40,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import {
   Pagination,
   PaginationContent,
   PaginationItem,
-  PaginationLink,
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
@@ -65,15 +60,26 @@ import {
   revokePremium 
 } from "@/app/admin/actions/user-management";
 import type { UserWithStats } from "@/app/data/admin/get-users";
+import { StatsCard } from "../../_components/StatsCard";
+
+interface UserStats {
+  totalUsers: number;
+  totalTeachers: number;
+  premiumActive: number;
+  newUsers: number;
+}
 
 interface UsersClientProps {
   users: UserWithStats[];
   total: number;
   totalPages: number;
   currentPage: number;
+  stats: UserStats;
 }
 
-export function UsersClient({ users, total, totalPages, currentPage }: UsersClientProps) {
+type FilterType = "all" | "teacher" | "premium" | "new";
+
+export function UsersClient({ users, total, totalPages, currentPage, stats }: UsersClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -84,6 +90,7 @@ export function UsersClient({ users, total, totalPages, currentPage }: UsersClie
   const [banModalOpen, setBanModalOpen] = useState(false);
   const [premiumDialogOpen, setPremiumDialogOpen] = useState(false);
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
 
   const updateUrl = (key: string, value: string | null) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -103,11 +110,33 @@ export function UsersClient({ users, total, totalPages, currentPage }: UsersClie
     updateUrl("search", searchValue || null);
   };
 
+  const handleFilterChange = (filter: FilterType) => {
+    setActiveFilter(filter);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("role");
+    params.delete("premium");
+    params.delete("page");
+    
+    if (filter === "teacher") {
+      params.set("role", "teacher");
+    } else if (filter === "premium") {
+      params.set("premium", "premium");
+    } else if (filter === "new") {
+      // New users = created in last 7 days (we'll filter by status)
+      params.set("status", "active");
+    }
+    
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`);
+    });
+  };
+
   const handleBan = async (reason: string, expiresAt?: Date) => {
     if (!selectedUser) return;
     const result = await banUser(selectedUser.id, reason, expiresAt);
     if (result.success) {
       toast.success(result.message);
+      router.refresh();
     } else {
       toast.error(result.message);
     }
@@ -119,6 +148,7 @@ export function UsersClient({ users, total, totalPages, currentPage }: UsersClie
     const result = await unbanUser(user.id);
     if (result.success) {
       toast.success(result.message);
+      router.refresh();
     } else {
       toast.error(result.message);
     }
@@ -129,6 +159,7 @@ export function UsersClient({ users, total, totalPages, currentPage }: UsersClie
     const result = await changeUserRole(selectedUser.id, newRole);
     if (result.success) {
       toast.success(result.message);
+      router.refresh();
     } else {
       toast.error(result.message);
     }
@@ -141,6 +172,7 @@ export function UsersClient({ users, total, totalPages, currentPage }: UsersClie
     const result = await grantPremium(selectedUser.id, days);
     if (result.success) {
       toast.success(result.message);
+      router.refresh();
     } else {
       toast.error(result.message);
     }
@@ -152,6 +184,7 @@ export function UsersClient({ users, total, totalPages, currentPage }: UsersClie
     const result = await revokePremium(user.id);
     if (result.success) {
       toast.success(result.message);
+      router.refresh();
     } else {
       toast.error(result.message);
     }
@@ -160,17 +193,65 @@ export function UsersClient({ users, total, totalPages, currentPage }: UsersClie
   const getRoleBadge = (role: string | null) => {
     switch (role) {
       case "admin":
-        return <Badge variant="destructive"><Shield className="w-3 h-3 mr-1" />Admin</Badge>;
+        return <Badge className="bg-red-100 text-red-700 hover:bg-red-200 border-0"><Shield className="w-3 h-3 mr-1" />Admin</Badge>;
       case "teacher":
-        return <Badge variant="secondary"><GraduationCap className="w-3 h-3 mr-1" />Giáo viên</Badge>;
+        return <Badge className="bg-sky-100 text-sky-700 hover:bg-sky-200 border-0"><GraduationCap className="w-3 h-3 mr-1" />Giáo viên</Badge>;
       default:
         return <Badge variant="outline"><User className="w-3 h-3 mr-1" />Học viên</Badge>;
     }
   };
 
   return (
-    <div className="space-y-4">
-      {/* Filters */}
+    <div className="space-y-6">
+      {/* Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div 
+          onClick={() => handleFilterChange("all")} 
+          className="cursor-pointer transition-transform hover:scale-[1.02]"
+        >
+          <StatsCard
+            title="Tổng người dùng"
+            value={stats.totalUsers}
+            icon={<Users className="h-5 w-5 text-blue-500" />}
+            className={activeFilter === "all" ? "ring-2 ring-blue-500 bg-blue-50/50" : ""}
+          />
+        </div>
+        <div 
+          onClick={() => handleFilterChange("teacher")} 
+          className="cursor-pointer transition-transform hover:scale-[1.02]"
+        >
+          <StatsCard
+            title="Giáo viên"
+            value={stats.totalTeachers}
+            icon={<GraduationCap className="h-5 w-5 text-sky-500" />}
+            className={activeFilter === "teacher" ? "ring-2 ring-sky-500 bg-sky-50/50" : ""}
+          />
+        </div>
+        <div 
+          onClick={() => handleFilterChange("premium")} 
+          className="cursor-pointer transition-transform hover:scale-[1.02]"
+        >
+          <StatsCard
+            title="Hội viên AI"
+            value={stats.premiumActive}
+            icon={<Sparkles className="h-5 w-5 text-amber-500" />}
+            className={activeFilter === "premium" ? "ring-2 ring-amber-500 bg-amber-50/50" : ""}
+          />
+        </div>
+        <div 
+          onClick={() => handleFilterChange("new")} 
+          className="cursor-pointer transition-transform hover:scale-[1.02]"
+        >
+          <StatsCard
+            title="Người dùng mới"
+            value={stats.newUsers}
+            icon={<UserPlus className="h-5 w-5 text-emerald-500" />}
+            className={activeFilter === "new" ? "ring-2 ring-emerald-500 bg-emerald-50/50" : ""}
+          />
+        </div>
+      </div>
+
+      {/* Search & Filter Badges */}
       <div className="flex flex-col sm:flex-row gap-4">
         <form onSubmit={handleSearch} className="flex-1 flex gap-2">
           <div className="relative flex-1">
@@ -185,238 +266,214 @@ export function UsersClient({ users, total, totalPages, currentPage }: UsersClie
           <Button type="submit" variant="secondary">Tìm</Button>
         </form>
         
-        <div className="flex gap-2">
-          <Select 
-            value={searchParams.get("role") || "all"} 
-            onValueChange={(v) => updateUrl("role", v)}
-          >
-            <SelectTrigger className="w-[130px]">
-              <SelectValue placeholder="Vai trò" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
-              <SelectItem value="user">Học viên</SelectItem>
-              <SelectItem value="teacher">Giáo viên</SelectItem>
-              <SelectItem value="admin">Admin</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          <Select 
-            value={searchParams.get("status") || "all"} 
-            onValueChange={(v) => updateUrl("status", v)}
-          >
-            <SelectTrigger className="w-[130px]">
-              <SelectValue placeholder="Trạng thái" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
-              <SelectItem value="active">Hoạt động</SelectItem>
-              <SelectItem value="banned">Bị cấm</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          <Select 
-            value={searchParams.get("premium") || "all"} 
-            onValueChange={(v) => updateUrl("premium", v)}
-          >
-            <SelectTrigger className="w-[130px]">
-              <SelectValue placeholder="Premium" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
-              <SelectItem value="premium">Premium</SelectItem>
-              <SelectItem value="free">Miễn phí</SelectItem>
-            </SelectContent>
-          </Select>
+        {/* Quick Filter Badges */}
+        <div className="flex flex-wrap gap-2">
+          <FilterBadge 
+            label="Tất cả" 
+            active={activeFilter === "all"} 
+            onClick={() => handleFilterChange("all")} 
+          />
+          <FilterBadge 
+            label="Giáo viên" 
+            active={activeFilter === "teacher"} 
+            onClick={() => handleFilterChange("teacher")} 
+          />
+          <FilterBadge 
+            label="Hội viên AI" 
+            active={activeFilter === "premium"} 
+            onClick={() => handleFilterChange("premium")} 
+          />
+          <FilterBadge 
+            label="Mới đăng ký" 
+            active={activeFilter === "new"} 
+            onClick={() => handleFilterChange("new")} 
+          />
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Results count */}
       <div className="text-sm text-muted-foreground">
         Hiển thị {users.length} / {total} người dùng
       </div>
 
       {/* Table */}
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Người dùng</TableHead>
-              <TableHead>Vai trò</TableHead>
-              <TableHead>Premium</TableHead>
-              <TableHead>Trạng thái</TableHead>
-              <TableHead>Ngày tham gia</TableHead>
-              <TableHead className="text-right">Thao tác</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  Không tìm thấy người dùng nào
-                </TableCell>
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow className="select-none">
+                <TableHead>Người dùng</TableHead>
+                <TableHead>Vai trò</TableHead>
+                <TableHead>Premium</TableHead>
+                <TableHead>Trạng thái</TableHead>
+                <TableHead>Ngày tham gia</TableHead>
+                <TableHead className="text-right">Thao tác</TableHead>
               </TableRow>
-            ) : (
-              users.map((user) => (
-                <TableRow key={user.id} className={user.banned ? "bg-red-50/50 dark:bg-red-950/20" : ""}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarImage src={user.image || undefined} />
-                        <AvatarFallback>{user.name?.charAt(0) || "U"}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">{user.name}</p>
-                        <p className="text-sm text-muted-foreground">{user.email}</p>
-                      </div>
+            </TableHeader>
+            <TableBody>
+              {users.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-12">
+                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                      <Search className="h-8 w-8 opacity-50" />
+                      <p>Không tìm thấy người dùng nào</p>
                     </div>
                   </TableCell>
-                  <TableCell>{getRoleBadge(user.role)}</TableCell>
-                  <TableCell>
-                    {user.isPremiumActive ? (
-                      <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200">
-                        <Sparkles className="w-3 h-3 mr-1" />
-                        {user.premiumExpires && format(new Date(user.premiumExpires), "dd/MM/yy", { locale: vi })}
-                      </Badge>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {user.banned ? (
-                      <Badge variant="destructive">
-                        <Ban className="w-3 h-3 mr-1" />Bị cấm
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="border-green-500 text-green-600">
-                        <UserCheck className="w-3 h-3 mr-1" />Hoạt động
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {format(new Date(user.createdAt), "dd/MM/yyyy", { locale: vi })}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        
-                        {/* Role change */}
-                        {user.role !== "admin" && (
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setSelectedUser(user);
-                              setRoleDialogOpen(true);
-                            }}
-                          >
-                            <GraduationCap className="mr-2 h-4 w-4" />
-                            Đổi vai trò
-                          </DropdownMenuItem>
-                        )}
-                        
-                        {/* Premium actions */}
-                        {user.isPremiumActive ? (
-                          <DropdownMenuItem
-                            onClick={() => handleRevokePremium(user)}
-                            className="text-orange-600"
-                          >
-                            <Star className="mr-2 h-4 w-4" />
-                            Thu hồi Premium
-                          </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setSelectedUser(user);
-                              setPremiumDialogOpen(true);
-                            }}
-                          >
-                            <Sparkles className="mr-2 h-4 w-4" />
-                            Cấp Premium
-                          </DropdownMenuItem>
-                        )}
-                        
-                        <DropdownMenuSeparator />
-                        
-                        {/* Ban/Unban */}
-                        {user.role !== "admin" && (
-                          user.banned ? (
+                </TableRow>
+              ) : (
+                users.map((user) => (
+                  <TableRow 
+                    key={user.id} 
+                    className={`select-none cursor-default transition-colors ${user.banned ? "bg-red-50/50 dark:bg-red-950/20" : "hover:bg-muted/50"}`}
+                  >
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-9 w-9">
+                          <AvatarImage src={user.image || undefined} />
+                          <AvatarFallback>{user.name?.charAt(0) || "U"}</AvatarFallback>
+                        </Avatar>
+                        <div className="select-text cursor-text">
+                          <p className="font-medium text-sm">{user.name}</p>
+                          <p className="text-xs text-muted-foreground">{user.email}</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>{getRoleBadge(user.role)}</TableCell>
+                    <TableCell>
+                      {user.isPremiumActive ? (
+                        <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-0">
+                          <Sparkles className="w-3 h-3 mr-1" />
+                          {user.premiumExpires && format(new Date(user.premiumExpires), "dd/MM/yy", { locale: vi })}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {user.banned ? (
+                        <Badge variant="destructive" className="gap-1">
+                          <Ban className="w-3 h-3" />Bị cấm
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-green-500 text-green-600 gap-1">
+                          <UserCheck className="w-3 h-3" />Hoạt động
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {format(new Date(user.createdAt), "dd/MM/yyyy", { locale: vi })}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          
+                          {/* Role change */}
+                          {user.role !== "admin" && (
                             <DropdownMenuItem
-                              onClick={() => handleUnban(user)}
-                              className="text-green-600"
+                              onClick={() => {
+                                setSelectedUser(user);
+                                setRoleDialogOpen(true);
+                              }}
                             >
-                              <UserCheck className="mr-2 h-4 w-4" />
-                              Bỏ cấm
+                              <GraduationCap className="mr-2 h-4 w-4" />
+                              Đổi vai trò
+                            </DropdownMenuItem>
+                          )}
+                          
+                          {/* Premium actions */}
+                          {user.isPremiumActive ? (
+                            <DropdownMenuItem
+                              onClick={() => handleRevokePremium(user)}
+                              className="text-orange-600"
+                            >
+                              <Star className="mr-2 h-4 w-4" />
+                              Thu hồi Premium
                             </DropdownMenuItem>
                           ) : (
                             <DropdownMenuItem
                               onClick={() => {
                                 setSelectedUser(user);
-                                setBanModalOpen(true);
+                                setPremiumDialogOpen(true);
                               }}
-                              className="text-red-600"
                             >
-                              <UserX className="mr-2 h-4 w-4" />
-                              Cấm tài khoản
+                              <Sparkles className="mr-2 h-4 w-4" />
+                              Cấp Premium
                             </DropdownMenuItem>
-                          )
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious 
-                href={`${pathname}?${new URLSearchParams({ 
-                  ...Object.fromEntries(searchParams.entries()), 
-                  page: String(Math.max(1, currentPage - 1)) 
-                }).toString()}`}
-                aria-disabled={currentPage <= 1}
-              />
-            </PaginationItem>
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              const page = i + 1;
-              return (
-                <PaginationItem key={page}>
-                  <PaginationLink
+                          )}
+                          
+                          <DropdownMenuSeparator />
+                          
+                          {/* Ban/Unban */}
+                          {user.role !== "admin" && (
+                            user.banned ? (
+                              <DropdownMenuItem
+                                onClick={() => handleUnban(user)}
+                                className="text-green-600"
+                              >
+                                <UserCheck className="mr-2 h-4 w-4" />
+                                Bỏ cấm
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSelectedUser(user);
+                                  setBanModalOpen(true);
+                                }}
+                                className="text-red-600"
+                              >
+                                <UserX className="mr-2 h-4 w-4" />
+                                Cấm tài khoản
+                              </DropdownMenuItem>
+                            )
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+        
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <CardFooter className="py-4 border-t">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious 
                     href={`${pathname}?${new URLSearchParams({ 
                       ...Object.fromEntries(searchParams.entries()), 
-                      page: String(page) 
+                      page: String(Math.max(1, currentPage - 1)) 
                     }).toString()}`}
-                    isActive={currentPage === page}
-                  >
-                    {page}
-                  </PaginationLink>
+                    className={currentPage <= 1 ? "pointer-events-none opacity-50" : ""}
+                  />
                 </PaginationItem>
-              );
-            })}
-            <PaginationItem>
-              <PaginationNext 
-                href={`${pathname}?${new URLSearchParams({ 
-                  ...Object.fromEntries(searchParams.entries()), 
-                  page: String(Math.min(totalPages, currentPage + 1)) 
-                }).toString()}`}
-                aria-disabled={currentPage >= totalPages}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      )}
+                <div className="text-sm font-medium mx-4">
+                  Trang {currentPage} / {totalPages}
+                </div>
+                <PaginationItem>
+                  <PaginationNext 
+                    href={`${pathname}?${new URLSearchParams({ 
+                      ...Object.fromEntries(searchParams.entries()), 
+                      page: String(Math.min(totalPages, currentPage + 1)) 
+                    }).toString()}`}
+                    className={currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </CardFooter>
+        )}
+      </Card>
 
       {/* Modals */}
       <BanUserModal
@@ -440,5 +497,27 @@ export function UsersClient({ users, total, totalPages, currentPage }: UsersClie
         onConfirm={handleRoleChange}
       />
     </div>
+  );
+}
+
+function FilterBadge({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  if (active) {
+    return (
+      <Badge 
+        className="cursor-pointer hover:opacity-90 px-3 py-1.5 select-none transition-all" 
+        onClick={onClick}
+      >
+        {label}
+      </Badge>
+    );
+  }
+  return (
+    <Badge 
+      variant="outline" 
+      className="cursor-pointer hover:bg-muted px-3 py-1.5 select-none transition-all" 
+      onClick={onClick}
+    >
+      {label}
+    </Badge>
   );
 }

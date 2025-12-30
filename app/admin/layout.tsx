@@ -1,16 +1,17 @@
-"use client";
-import { AppSidebar } from "@/components/sidebar/app-sidebar";
-import { SiteHeader } from "@/components/sidebar/site-header"
+import { requireAdmin } from "@/app/data/admin/require-admin";
+import { AdminSidebar } from "./_components/AdminSidebar";
+import { SiteHeader } from "@/components/sidebar/site-header";
 import {
   SidebarInset,
   SidebarProvider,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
 import { ReactNode } from "react";
 
-
-export default function TeacherLayout({children}:{children:ReactNode}){
-    return(
-            <SidebarProvider
+export default async function AdminLayout({ children }: { children: ReactNode }) {
+  await requireAdmin();
+  
+  return (
+    <SidebarProvider
       style={
         {
           "--sidebar-width": "calc(var(--spacing) * 72)",
@@ -18,17 +19,17 @@ export default function TeacherLayout({children}:{children:ReactNode}){
         } as React.CSSProperties
       }
     >
-      <AppSidebar variant="inset" />
+      <AdminSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
             <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 px-4 lg:px-6">
-               {children}
+              {children}
             </div>
           </div>
         </div>
       </SidebarInset>
     </SidebarProvider>
-    )
+  );
 }

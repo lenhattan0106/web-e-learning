@@ -52,7 +52,21 @@ export function UserDropDown({ email, name, image, role }: iAppProps) {
         });
       }
 
-      const isTeacher = role === "teacher" || role === "admin";
+      // Xác định đường dẫn dựa theo role
+      const getDashboardPath = () => {
+        if (role === "admin") return "/admin";
+        if (role === "teacher") return "/teacher";
+        return "/dashboard";
+      };
+
+      const getCoursesPath = () => {
+        // Admin chỉ xem khóa học (không quản lý) → /courses
+        // Teacher quản lý khóa học → /teacher/courses
+        if (role === "teacher") return "/teacher/courses";
+        return "/courses";
+      };
+
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -86,9 +100,8 @@ export function UserDropDown({ email, name, image, role }: iAppProps) {
               </Link>
             </DropdownMenuItem>
 
-            {/* Khóa học: public cho user, khu vực quản lý cho teacher */}
             <DropdownMenuItem asChild>
-              <Link href={isTeacher ? "/teacher/courses" : "/courses"}>
+              <Link href={getCoursesPath()}>
                 <BookOpen
                   aria-hidden="true"
                   className="opacity-60"
@@ -98,9 +111,8 @@ export function UserDropDown({ email, name, image, role }: iAppProps) {
               </Link>
             </DropdownMenuItem>
 
-            {/* Bảng điều khiển: học tập cho user, quản lý cho teacher */}
             <DropdownMenuItem asChild>
-              <Link href={isTeacher ? "/teacher" : "/dashboard"}>
+              <Link href={getDashboardPath()}>
                 <LayoutDashboardIcon
                   aria-hidden="true"
                   className="opacity-60"
@@ -109,7 +121,8 @@ export function UserDropDown({ email, name, image, role }: iAppProps) {
                 <span>Bảng điều khiển</span>
               </Link>
             </DropdownMenuItem>
-                <DropdownMenuItem asChild>
+
+            <DropdownMenuItem asChild>
               <Link href={"/settings"}>
                 <IconSettings
                   aria-hidden="true"

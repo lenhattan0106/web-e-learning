@@ -1,10 +1,11 @@
 import { Suspense } from "react";
-import { CheckCircle, XCircle, Clock, ArrowRight, Home, AlertCircle } from "lucide-react";
+import { CheckCircle, XCircle, Home, AlertCircle, Sparkles, BookOpen } from "lucide-react";
 import { vnpay } from "@/lib/vnpay";
 import { type VerifyReturnUrl, parseDate } from "vnpay";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { redirect } from "next/navigation";
+import { format } from "date-fns";
+import { vi } from "date-fns/locale";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ interface PaymentReturnProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-// ✅ Helper function để chuyển status sang tiếng Việt
+// Helper function để chuyển status sang tiếng Việt
 function getStatusDisplay(status: string | null): { text: string; color: string } {
   switch (status) {
     case "DaThanhToan":
@@ -45,37 +46,117 @@ function PaymentResultSkeleton() {
   );
 }
 
+type PaymentType = "COURSE" | "PREMIUM" | "UNKNOWN";
+
 async function PaymentResult({ searchParams }: PaymentReturnProps) {
   let verify: VerifyReturnUrl | null = null;
   let isSuccess = false;
   let hasError = false;
   let errorMessage = "";
   let displayStatus: string | null = null;
+  let paymentType: PaymentType = "UNKNOWN";
+  let premiumExpires: Date | null = null;
+  let courseSlug: string | null = null;
+  let courseName: string | null = null;
 
   try {
     const params = await searchParams;
     verify = vnpay.verifyReturnUrl(params as unknown as VerifyReturnUrl);
     isSuccess = verify.isVerified && verify.isSuccess;
 
-    // ✅ CẬP NHẬT DATABASE NGAY TẠI ĐÂY
     if (verify?.vnp_TxnRef) {
-      try {
+      const txnRef = verify.vnp_TxnRef;
+
+      // ⭐ Kiểm tra xem đây là Premium hay Course
+      if (txnRef.startsWith("PREMIUM_")) {
+        paymentType = "PREMIUM";
+        const paymentId = txnRef.replace("PREMIUM_", "");
+        
+        // Xử lý Premium payment
+        const payment = await prisma.thanhToanPremium.findUnique({
+          where: { id: paymentId },
+          include: {
+            nguoiDung: {
+              select: {
+                id: true,
+                isPremium: true,
+                premiumExpires: true
+              }
+            }
+          }
+        });
+
+        if (payment) {
+          if (isSuccess && payment.trangThai !== "DaThanhToan") {
+            // Calculate new expiry
+            const now = new Date();
+            const user = payment.nguoiDung;
+            const startDate = (user.isPremium && user.premiumExpires && user.premiumExpires > now)
+              ? user.premiumExpires
+              : now;
+            
+            const newExpiry = new Date(startDate);
+            newExpiry.setDate(newExpiry.getDate() + payment.soNgay);
+            premiumExpires = newExpiry;
+
+            // Update in transaction
+            await prisma.$transaction([
+              prisma.thanhToanPremium.update({
+                where: { id: paymentId },
+                data: {
+                  trangThai: "DaThanhToan",
+                  vnpTxnRef: txnRef,
+                  vnpTransactionNo: verify.vnp_TransactionNo?.toString(),
+                  vnpBankCode: verify.vnp_BankCode
+                }
+              }),
+              prisma.user.update({
+                where: { id: user.id },
+                data: {
+                  isPremium: true,
+                  premiumExpires: newExpiry
+                }
+              })
+            ]);
+            displayStatus = "DaThanhToan";
+          } else if (!isSuccess && payment.trangThai !== "DaHuy") {
+            await prisma.thanhToanPremium.update({
+              where: { id: paymentId },
+              data: { trangThai: "DaHuy" }
+            });
+            displayStatus = "DaHuy";
+          } else {
+            displayStatus = payment.trangThai;
+            if (payment.nguoiDung.premiumExpires) {
+              premiumExpires = payment.nguoiDung.premiumExpires;
+            }
+          }
+        }
+      } else {
+        paymentType = "COURSE";
+        // Xử lý Course payment (logic cũ)
         const dangKyHoc = await prisma.dangKyHoc.findUnique({
-          where: { id: verify.vnp_TxnRef },
+          where: { id: txnRef },
           select: {
             id: true,
             trangThai: true,
-            maGiamGiaId: true, // Lấy thêm maGiamGiaId
+            maGiamGiaId: true,
+            khoaHoc: {
+              select: {
+                tenKhoaHoc: true,
+                duongDan: true
+              }
+            }
           },
         });
 
         if (dangKyHoc) {
+          courseSlug = dangKyHoc.khoaHoc.duongDan;
+          courseName = dangKyHoc.khoaHoc.tenKhoaHoc;
+
           if (isSuccess) {
-            // ✅ THANH TOÁN THÀNH CÔNG → CẬP NHẬT NGAY
             if (dangKyHoc.trangThai !== "DaThanhToan") {
-              // Dùng transaction để đảm bảo cả 2 update đều chạy hoặc rollback
               await prisma.$transaction(async (tx) => {
-                // 1. Update trạng thái Đăng ký
                 await tx.dangKyHoc.update({
                   where: { id: dangKyHoc.id },
                   data: {
@@ -84,27 +165,18 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
                   },
                 });
 
-                // 2. Update số lượng sử dụng Coupon nếu có
                 if (dangKyHoc.maGiamGiaId) {
-                   await tx.maGiamGia.update({
-                       where: { id: dangKyHoc.maGiamGiaId },
-                       data: {
-                           daSuDung: {
-                               increment: 1
-                           }
-                       }
-                   });
-                   console.log("🎟️ Đã tăng số lượng sử dụng cho coupon:", dangKyHoc.maGiamGiaId);
+                  await tx.maGiamGia.update({
+                    where: { id: dangKyHoc.maGiamGiaId },
+                    data: { daSuDung: { increment: 1 } }
+                  });
                 }
               });
-
               displayStatus = "DaThanhToan";
-              console.log("✅ Đã cập nhật đăng ký thành công tại Return URL:", dangKyHoc.id);
             } else {
               displayStatus = "DaThanhToan";
             }
           } else {
-            // ❌ THANH TOÁN THẤT BẠI → CẬP NHẬT THÀNH DaHuy
             if (dangKyHoc.trangThai !== "DaHuy") {
               await prisma.dangKyHoc.update({
                 where: { id: dangKyHoc.id },
@@ -114,24 +186,16 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
                 },
               });
               displayStatus = "DaHuy";
-              console.log("❌ Đã cập nhật đăng ký thất bại tại Return URL:", dangKyHoc.id);
             } else {
               displayStatus = "DaHuy";
             }
           }
-        } else {
-          displayStatus = null;
         }
-      } catch (updateError) {
-        console.error("Lỗi cập nhật đăng ký:", updateError);
-        // Fallback: Hiển thị dựa vào VNPay
-        displayStatus = isSuccess ? "DaThanhToan" : "DaHuy";
       }
     }
   } catch (error) {
     hasError = true;
-    errorMessage =
-      error instanceof Error ? error.message : "Lỗi không xác định";
+    errorMessage = error instanceof Error ? error.message : "Lỗi không xác định";
   }
 
   // Error UI
@@ -184,8 +248,10 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
       })
     : "N/A";
 
-  // ✅ Lấy text và màu hiển thị
   const statusDisplay = getStatusDisplay(displayStatus);
+
+  // ⭐ Render khác nhau cho Premium vs Course
+  const isPremiumPayment = paymentType === "PREMIUM";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
@@ -205,11 +271,17 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
               </div>
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-3">
-              {isSuccess ? "Thanh Toán Thành Công! 🎉" : "Thanh Toán Thất Bại"}
+              {isSuccess 
+                ? (isPremiumPayment ? "Nâng cấp Premium Thành Công! 🎉" : "Thanh Toán Thành Công! 🎉")
+                : "Thanh Toán Thất Bại"
+              }
             </h1>
             <p className="text-gray-600 text-lg">
               {isSuccess
-                ? "Chúc mừng! Bạn đã đăng ký khóa học thành công"
+                ? (isPremiumPayment 
+                    ? "Chào mừng bạn đến với AI Pro! Trải nghiệm chatbot không giới hạn."
+                    : "Chúc mừng! Bạn đã đăng ký khóa học thành công"
+                  )
                 : "Giao dịch không thể hoàn thành"}
             </p>
           </div>
@@ -217,12 +289,43 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
           {/* Success/Failure Message */}
           <div className="px-8 py-6">
             {isSuccess ? (
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-5 mb-6">
-                <p className="text-sm text-green-800 leading-relaxed">
-                  ✅ <strong>Tuyệt vời!</strong> Khóa học đã được kích hoạt
-                  cho tài khoản của bạn. Bạn có thể bắt đầu học ngay bây giờ.
-                </p>
-              </div>
+              isPremiumPayment ? (
+                // Premium Success Message
+                <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-5 mb-6">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Sparkles className="w-6 h-6 text-amber-500" />
+                    <span className="font-semibold text-amber-800">Gói AI Pro đã kích hoạt!</span>
+                  </div>
+                  <p className="text-sm text-amber-700 leading-relaxed">
+                    Bạn có thể sử dụng <strong>AI Chatbot</strong> không giới hạn để:
+                  </p>
+                  <ul className="text-sm text-amber-700 mt-2 space-y-1">
+                    <li>✓ Giải đáp mọi thắc mắc về khóa học</li>
+                    <li>✓ Phân tích và hướng dẫn bài tập</li>
+                    <li>✓ Tư vấn lộ trình học tập cá nhân</li>
+                  </ul>
+                  {premiumExpires && (
+                    <div className="mt-4 pt-3 border-t border-amber-200">
+                      <p className="text-sm text-amber-800">
+                        <strong>Hiệu lực đến:</strong> {format(premiumExpires, "dd/MM/yyyy 'lúc' HH:mm", { locale: vi })}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // Course Success Message
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-5 mb-6">
+                  <div className="flex items-center gap-3 mb-3">
+                    <BookOpen className="w-6 h-6 text-green-600" />
+                    <span className="font-semibold text-green-800">Khóa học đã được kích hoạt!</span>
+                  </div>
+                  {courseName && (
+                    <p className="text-sm text-green-700">
+                      <strong>{courseName}</strong> đã sẵn sàng trong thư viện của bạn.
+                    </p>
+                  )}
+                </div>
+              )
             ) : (
               <div className="bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl p-5 mb-6">
                 <p className="text-sm text-red-800 leading-relaxed">
@@ -242,10 +345,10 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
                 {verify?.vnp_TxnRef && (
                   <div className="flex justify-between items-center pb-3 border-b border-gray-200">
                     <span className="text-sm font-medium text-gray-600">
-                      Mã đăng ký
+                      Loại giao dịch
                     </span>
-                    <span className="text-sm text-gray-900 font-mono bg-white px-3 py-1 rounded-lg">
-                      {verify.vnp_TxnRef.slice(0, 8)}...
+                    <span className={`text-sm font-semibold px-3 py-1 rounded-lg ${isPremiumPayment ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                      {isPremiumPayment ? "AI Premium" : "Khóa học"}
                     </span>
                   </div>
                 )}
@@ -257,17 +360,6 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
                     </span>
                     <span className="text-base font-bold text-gray-900">
                       {Number(verify.vnp_Amount).toLocaleString("vi-VN")} ₫
-                    </span>
-                  </div>
-                )}
-
-                {verify?.vnp_OrderInfo && (
-                  <div className="flex justify-between items-center pb-3 border-b border-gray-200">
-                    <span className="text-sm font-medium text-gray-600">
-                      Nội dung
-                    </span>
-                    <span className="text-sm text-gray-900 text-right max-w-[250px]">
-                      {verify.vnp_OrderInfo}
                     </span>
                   </div>
                 )}
@@ -301,7 +393,6 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
                   </div>
                 )}
 
-                {/* ✅ Hiển thị trạng thái bằng tiếng Việt */}
                 {displayStatus && (
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium text-gray-600">
@@ -339,13 +430,25 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
               Về Trang Chủ
             </Link>
             {isSuccess && (
-              <Link
-                href="/courses"
-                className="flex-1 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl font-medium hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg hover:shadow-xl"
-              >
-                Khóa Học Của Tôi
-                <ArrowRight className="w-5 h-5" />
-              </Link>
+              isPremiumPayment ? (
+                // Premium: Go to chat
+                <Link
+                  href="/courses"
+                  className="flex-1 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-6 py-3 rounded-xl font-medium hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg hover:shadow-xl"
+                >
+                  <Sparkles className="w-5 h-5" />
+                  Trò chuyện với AI ngay
+                </Link>
+              ) : (
+                // Course: Go to learning
+                <Link
+                  href={courseSlug ? `/courses/${courseSlug}/learn` : "/courses"}
+                  className="flex-1 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl font-medium hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg hover:shadow-xl"
+                >
+                  <BookOpen className="w-5 h-5" />
+                  Vào Học Ngay
+                </Link>
+              )
             )}
           </div>
         </div>

@@ -13,20 +13,32 @@ export function Navbar() {
 
   const role = session?.user.role as "user" | "teacher" | "admin" | undefined;
 
-  const navigationItems =
-    role === "teacher" || role === "admin"
-      ? [
-          { name: "Trang chủ", href: "/" },
-          // Teacher: đi thẳng vào trang quản lý khóa học
-          { name: "Khóa học", href: "/teacher/courses" },
-          { name: "Bảng điều khiển", href: "/teacher" },
-        ]
-      : [
-          { name: "Trang chủ", href: "/" },
-          // User thường: xem danh sách khóa học public
-          { name: "Khóa học", href: "/courses" },
-          { name: "Bảng điều khiển", href: "/dashboard" },
-        ];
+  // Navigation items dựa theo role
+  const getNavigationItems = () => {
+    if (role === "admin") {
+      // Admin: quản lý users + Premium, không quản lý khóa học
+      return [
+        { name: "Trang chủ", href: "/" },
+        { name: "Khóa học", href: "/courses" },
+        { name: "Bảng điều khiển", href: "/admin" },
+      ];
+    }
+    if (role === "teacher") {
+      return [
+        { name: "Trang chủ", href: "/" },
+        { name: "Khóa học", href: "/teacher/courses" },
+        { name: "Bảng điều khiển", href: "/teacher" },
+      ];
+    }
+    return [
+      { name: "Trang chủ", href: "/" },
+      { name: "Khóa học", href: "/courses" },
+      { name: "Bảng điều khiển", href: "/dashboard" },
+    ];
+  };
+
+  const navigationItems = getNavigationItems();
+
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur-[backdrop-filter]:bg-background/60">

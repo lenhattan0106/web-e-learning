@@ -434,12 +434,29 @@ export function TeacherDashboardClient({ stats, chartData }: TeacherDashboardCli
                       <TableHead>Khóa học</TableHead>
                       <TableHead>Ngày mua</TableHead>
                       <TableHead>Mã giảm giá</TableHead>
-                      <TableHead>Trạng thái</TableHead>
-                      <TableHead className="text-right">Giá tiền</TableHead>
+                      <TableHead className="text-right">Tổng tiền (Gross)</TableHead>
+                      <TableHead className="text-right">
+                          <TooltipProvider>
+                              <Tooltip>
+                                  <TooltipTrigger className="underline decoration-dotted cursor-help">
+                                      Phí sàn (5%)
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                      Phi vận hành hệ thống
+                                  </TooltipContent>
+                              </Tooltip>
+                          </TooltipProvider>
+                      </TableHead>
+                      <TableHead className="text-right font-bold text-emerald-600">Thực nhận (Net)</TableHead>
                   </TableRow>
               </TableHeader>
               <TableBody>
-                  {data.map((item: any, idx: number) => (
+                  {data.map((item: any, idx: number) => {
+                      // Fallback logic if backend fields are 0 (e.g. old data)
+                      const phiSan = item.phiSan ?? Math.round(item.soTien * 0.05);
+                      const thanhToanThuc = item.thanhToanThuc ?? (item.soTien - phiSan);
+
+                      return (
                       <TableRow key={item.id || idx}>
                           <TableCell>
                               <div className="flex items-center gap-3">
@@ -458,7 +475,6 @@ export function TeacherDashboardClient({ stats, chartData }: TeacherDashboardCli
                               {new Date(item.ngayTao).toLocaleDateString('vi-VN')}
                           </TableCell>
                           <TableCell>
-                              {/* Logic hiển thị mã giảm giá */}
                               {item.maGiamGia ? (
                                   <Badge variant="default" className="bg-green-600 hover:bg-green-700 font-mono text-xs shadow-none">
                                       {item.maGiamGia.maGiamGia}
@@ -469,17 +485,17 @@ export function TeacherDashboardClient({ stats, chartData }: TeacherDashboardCli
                                   </Badge>
                               )}
                           </TableCell>
-                          <TableCell>
-                               {/* Hiển thị trạng thái */}
-                               <Badge variant="outline" className="border-green-600/30 text-green-700 bg-green-50 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/50">
-                                  Thành công
-                               </Badge>
-                          </TableCell>
-                          <TableCell className="text-right font-mono font-medium">
+                          <TableCell className="text-right text-muted-foreground">
                               {new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(item.soTien)}
                           </TableCell>
+                          <TableCell className="text-right text-rose-500 text-sm">
+                              -{new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(phiSan)}
+                          </TableCell>
+                          <TableCell className="text-right font-mono font-bold text-emerald-600">
+                              {new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(thanhToanThuc)}
+                          </TableCell>
                       </TableRow>
-                  ))}
+                  )})}
               </TableBody>
           </Table>
       )

@@ -141,6 +141,7 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
             id: true,
             trangThai: true,
             maGiamGiaId: true,
+            soTien: true,
             khoaHoc: {
               select: {
                 tenKhoaHoc: true,
@@ -157,11 +158,17 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
           if (isSuccess) {
             if (dangKyHoc.trangThai !== "DaThanhToan") {
               await prisma.$transaction(async (tx) => {
+                const PLATFORM_FEE_RATE = 0.05;
+                const phiSan = Math.round(dangKyHoc.soTien * PLATFORM_FEE_RATE);
+                const thanhToanThuc = dangKyHoc.soTien - phiSan;
+
                 await tx.dangKyHoc.update({
                   where: { id: dangKyHoc.id },
                   data: {
                     trangThai: "DaThanhToan",
                     ngayCapNhat: new Date(),
+                    phiSan,
+                    thanhToanThuc,
                   },
                 });
 

@@ -27,14 +27,43 @@ export const formatMessageTime = (date: Date | string) => {
   return format(d, "dd/MM", { locale: vi });
 };
 
-export const formatDuration = (seconds?: number) => {
-  if (!seconds) return "00:00:00";
+export const formatDuration = (seconds?: number | null) => {
+  // Handle null, undefined, or 0
+  if (!seconds || seconds <= 0) {
+    return "0p00s";
+  }
   
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
-  
-  return [hours, minutes, secs]
-    .map(val => val.toString().padStart(2, "0"))
-    .join(":");
+
+  // Format with Vietnamese labels: h = giờ, p = phút, s = giây
+  if (hours > 0) {
+    return `${hours}h${minutes.toString().padStart(2, "0")}p${secs.toString().padStart(2, "0")}s`;
+  }
+  return `${minutes}p${secs.toString().padStart(2, "0")}s`;
+};
+
+type CategoryWithParent = {
+  tenDanhMuc: string;
+  danhMucCha?: CategoryWithParent | null;
+} | null;
+
+export const formatCategoryPath = (
+  danhMuc: CategoryWithParent,
+  fallback: string | null = null
+): string => {
+  if (!danhMuc) {
+    return fallback || "Chưa phân loại";
+  }
+
+  // Recursively build path from parent to child
+  const buildPath = (category: CategoryWithParent): string[] => {
+    if (!category) return [];
+    const parentPath = category.danhMucCha ? buildPath(category.danhMucCha) : [];
+    return [...parentPath, category.tenDanhMuc];
+  };
+
+  const path = buildPath(danhMuc);
+  return path.join(" > ");
 };

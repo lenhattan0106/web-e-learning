@@ -1,5 +1,29 @@
 import { getUsers, type GetUsersParams } from "@/app/data/admin/get-users";
+import { prisma } from "@/lib/db";
 import { UsersClient } from "./_components/UsersClient";
+
+async function getUserStats() {
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  
+  const [totalUsers, totalTeachers, premiumActive, newUsers] = await Promise.all([
+    prisma.user.count(),
+    prisma.user.count({ where: { role: "teacher" } }),
+    prisma.user.count({ 
+      where: { 
+        isPremium: true, 
+        premiumExpires: { gt: now } 
+      } 
+    }),
+    prisma.user.count({ 
+      where: { 
+        createdAt: { gte: thirtyDaysAgo } 
+      } 
+    }),
+  ]);
+  
+  return { totalUsers, totalTeachers, premiumActive, newUsers };
+}
 
 export default async function AdminUsersPage({
   searchParams,
@@ -16,12 +40,15 @@ export default async function AdminUsersPage({
     premium: (params.premium as GetUsersParams["premium"]) || "all",
   };
   
-  const data = await getUsers(queryParams);
+  const [data, stats] = await Promise.all([
+    getUsers(queryParams),
+    getUserStats()
+  ]);
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Quản lý người dùng</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Quản lý người dùng</h1>
         <p className="text-muted-foreground">
           Quản lý tài khoản, vai trò và quyền Premium
         </p>
@@ -32,7 +59,9 @@ export default async function AdminUsersPage({
         total={data.total}
         totalPages={data.totalPages}
         currentPage={data.page}
+        stats={stats}
       />
     </div>
   );
 }
+

@@ -9,7 +9,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatDuration } from "@/lib/formatDuration";
+import { Badge } from "@/components/ui/badge";
+import { formatDuration } from "@/lib/format";
 import { useConstructUrl } from "@/hooks/use-contruct-url";
 import {
   ArrowRight,
@@ -22,15 +23,57 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 interface iAppProps {
   data: TeacherCourseType;
 }
 
+// Helper function to get status display info
+function getStatusInfo(data: TeacherCourseType) {
+  // Kiểm tra relation mới trước (trangThaiRef)
+  if (data.trangThaiRef) {
+    const code = data.trangThaiRef.maTrangThai || "";
+    const name = data.trangThaiRef.tenTrangThai;
+    
+    // Lưu trữ / Archived
+    if (code === "BanLuuTru" || code.toUpperCase().includes("LUU_TRU")) {
+      return { label: name, className: "bg-gray-500 text-white hover:bg-gray-600" };
+    }
+    // Đã xuất bản / Published
+    if (code === "BanChinhThuc" || code.toUpperCase().includes("CHINH_THUC")) {
+      return { label: name, className: "bg-emerald-600 text-white hover:bg-emerald-700" };
+    }
+    // Bản nháp / Draft (default)
+    return { label: name, className: "bg-amber-500 text-white hover:bg-amber-600" };
+  }
+  
+  // Fallback to enum cũ (trangThai)
+  switch (data.trangThai) {
+    case "BanChinhThuc":
+      return { label: "Đã xuất bản", className: "bg-emerald-600 text-white hover:bg-emerald-700" };
+    case "BanLuuTru":
+      return { label: "Đã lưu trữ", className: "bg-gray-500 text-white hover:bg-gray-600" };
+    case "BanNhap":
+    default:
+      return { label: "Bản nháp", className: "bg-amber-500 text-white hover:bg-amber-600" };
+  }
+}
+
 export function TeacherCourseCard({ data }: iAppProps) {
   const thumbnailUrl = useConstructUrl(data.tepKH);
+  const statusInfo = getStatusInfo(data);
+  
   return (
     <Card className="group relative py-0 gap-0">
+      {/* Status Badge - Top Left */}
+      <div className="absolute top-2 left-2 z-10">
+        <Badge className={cn("shadow-md", statusInfo.className)}>
+          {statusInfo.label}
+        </Badge>
+      </div>
+      
+      {/* Dropdown Menu - Top Right */}
       <div className="absolute top-2 right-2 z-10">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -128,3 +171,4 @@ export function TeacherCourseCardSkeleton() {
     </Card>
   );
 }
+

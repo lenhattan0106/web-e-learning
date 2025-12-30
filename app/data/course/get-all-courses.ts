@@ -21,6 +21,45 @@ export async function getAllCourses(){
       thoiLuong:true,
       danhMuc:true,
       tepKH:true,
+      // Category with parent hierarchy
+      danhMucRef: {
+        select: {
+          id: true,
+          tenDanhMuc: true,
+          danhMucCha: {
+            select: {
+              id: true,
+              tenDanhMuc: true,
+              danhMucCha: {
+                select: {
+                  id: true,
+                  tenDanhMuc: true,
+                },
+              },
+            },
+          },
+        },
+      },
+      // Level relation
+      capDoRef: {
+        select: {
+          id: true,
+          tenCapDo: true,
+        },
+      },
+      // Teacher info (only safe fields)
+      nguoiDung: {
+        select: {
+          id: true,
+          name: true,
+          image: true,
+        },
+      },
+      // Ratings for average calculation
+      danhGias: {
+        where: { trangThai: "HIEN" },
+        select: { diemDanhGia: true }
+      }
     }
   });
   return data;

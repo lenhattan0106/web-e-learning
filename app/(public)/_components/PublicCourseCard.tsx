@@ -1,14 +1,21 @@
 import { PublicCourseType } from "@/app/data/course/get-all-courses";
-import { formatDuration } from "@/lib/formatDuration";
+import { formatDuration, formatCategoryPath } from "@/lib/format";
 import { checkIfCourseBought } from "@/app/data/user/user-is-enrolled";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { School2, TimerIcon } from "lucide-react";
+import { School2, Star, TimerIcon, User } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { env } from "@/lib/env";
+
+// Helper to calculate average rating
+function calculateAverageRating(ratings: { diemDanhGia: number }[] | undefined) {
+  if (!ratings || ratings.length === 0) return { average: 0, total: 0 };
+  const sum = ratings.reduce((acc, r) => acc + r.diemDanhGia, 0);
+  return { average: sum / ratings.length, total: ratings.length };
+}
 
 interface iAppProps {
   data: PublicCourseType;
@@ -16,6 +23,8 @@ interface iAppProps {
 
 export async function PublicCourseCard({ data }: iAppProps) {
   const isEnrolled = await checkIfCourseBought(data.id);
+  // Calculate average rating from danhGias
+  const ratingData = calculateAverageRating(data.danhGias);
 
   return (
     <Card className="group relative py-0 gap-0">
@@ -39,15 +48,42 @@ export async function PublicCourseCard({ data }: iAppProps) {
         <p className="line-clamp-2 text-sm text-muted-foreground leading-tight mt-2">
           {data.moTaNgan}
         </p>
-        <div className="mt-4 flex items-center gap-x-5">
-          <div className="flex items-center gap-x-2">
-            <TimerIcon className="size-6 p-1 rounded-md text-primary bg-primary/10" />
-            <p className="text-sm text-muted-foreground">{formatDuration(data.thoiLuong)}</p>
+        {/* Teacher info - positioned separately */}
+        <div className="flex items-center gap-x-2 mt-3">
+          {data.nguoiDung?.image ? (
+            <Image
+              src={data.nguoiDung.image}
+              alt={data.nguoiDung.name || "Giảng viên"}
+              width={24}
+              height={24}
+              className="rounded-full object-cover"
+            />
+          ) : (
+            <User className="size-6 p-1 rounded-full text-primary bg-primary/10" />
+          )}
+          <p className="text-sm text-muted-foreground">
+            {data.nguoiDung?.name || "Giảng viên ẩn danh"}
+          </p>
+        </div>
+      
+        <div className="mt-4 flex items-center justify-between">
+          <div className="flex items-center gap-x-4">
+            <div className="flex items-center gap-x-2">
+              <TimerIcon className="size-6 p-1 rounded-md text-primary bg-primary/10" />
+              <p className="text-sm text-muted-foreground">{formatDuration(data.thoiLuong)}</p>
+            </div>
+            <div className="flex items-center gap-x-2">
+              <School2 className="size-6 p-1 rounded-md text-primary bg-primary/10" />
+              <p className="text-sm text-muted-foreground">{formatCategoryPath(data.danhMucRef, data.danhMuc)}</p>
+            </div>
           </div>
-          <div className="flex items-center gap-x-2">
-            <School2 className="size-6 p-1 rounded-md text-primary bg-primary/10" />
-            <p className="text-sm text-muted-foreground">{data.danhMuc}</p>
-          </div>
+          {ratingData.total > 0 && (
+            <div className="flex items-center gap-x-1">
+              <Star className="size-4 fill-yellow-400 stroke-yellow-400" />
+              <span className="text-sm font-medium">{ratingData.average.toFixed(1)}</span>
+              <span className="text-sm text-muted-foreground">({ratingData.total})</span>
+            </div>
+          )}
         </div>
         <div className="flex items-center mt-8 gap-2">
           {isEnrolled ? (

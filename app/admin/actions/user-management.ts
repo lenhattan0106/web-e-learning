@@ -147,3 +147,23 @@ export async function revokePremium(userId: string) {
     return { success: false, message: "Có lỗi xảy ra khi thu hồi Premium" };
   }
 }
+// Grant premium by email
+export async function grantPremiumByEmail(email: string, days: number = 30) {
+  await requireAdmin();
+  
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true }
+    });
+    
+    if (!user) {
+      return { success: false, message: "Không tìm thấy người dùng với email này" };
+    }
+    
+    return await grantPremium(user.id, days);
+  } catch (error) {
+    console.error("Grant premium by email error:", error);
+    return { success: false, message: "Có lỗi xảy ra khi cấp Premium" };
+  }
+}

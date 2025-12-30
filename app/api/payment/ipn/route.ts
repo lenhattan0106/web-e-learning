@@ -201,11 +201,18 @@ async function handleCourseEnrollment(enrollmentId: string, verify: VerifyIpnCal
 
   // Update enrollment and coupon in transaction
   await prisma.$transaction(async (tx) => {
+    // Calculate platform fee (5%)
+    const PLATFORM_FEE_RATE = 0.05;
+    const phiSan = Math.round(foundDangKy.soTien * PLATFORM_FEE_RATE);
+    const thanhToanThuc = foundDangKy.soTien - phiSan;
+
     await tx.dangKyHoc.update({
       where: { id: enrollmentId },
       data: {
         trangThai: "DaThanhToan",
         ngayCapNhat: new Date(),
+        phiSan: phiSan,
+        thanhToanThuc: thanhToanThuc,
       },
     });
 

@@ -7,6 +7,7 @@ import { ApiResponse } from "@/lib/types";
 import { khoaHocSchema, KhoaHocSchemaType } from "@/lib/zodSchemas";
 import { request } from "@arcjet/next";
 import { revalidatePath } from "next/cache";
+import { generateUniqueSlug, slugify } from "@/lib/slug-utils";
 
 const arcjet = aj.withRule(
   fixedWindow({
@@ -76,6 +77,10 @@ export async function CreateCourse(values: KhoaHocSchemaType): Promise<ApiRespon
        return { status: "error", message: "Danh mục, cấp độ hoặc trạng thái không hợp lệ" };
     }
 
+    // Generate unique slug from course title
+    const baseSlug = slugify(validation.data.tenKhoaHoc);
+    const uniqueSlug = await generateUniqueSlug(baseSlug);
+
     await prisma.khoaHoc.create({
       data: {
         tenKhoaHoc: validation.data.tenKhoaHoc,
@@ -84,7 +89,7 @@ export async function CreateCourse(values: KhoaHocSchemaType): Promise<ApiRespon
         gia: validation.data.gia,
         thoiLuong: validation.data.thoiLuong,
         moTaNgan: validation.data.moTaNgan,
-        duongDan: validation.data.duongDan,
+        duongDan: uniqueSlug, // Use auto-generated unique slug
         
         // New Relations (Vietnamese)
         idDanhMuc: existingCategory.id,
@@ -94,9 +99,12 @@ export async function CreateCourse(values: KhoaHocSchemaType): Promise<ApiRespon
         // Backward Compatibility (Best Effort - Deprecated fields)
         danhMuc: existingCategory.tenDanhMuc, 
         // Map to Enum if codes match known ones
-        capDo: (["NGUOI_MOI", "TRUNG_CAP", "NANG_CAO"].includes(existingLevel.maCapDo) ? existingLevel.maCapDo as any : undefined),
-        trangThai: (["BanNhap", "BanChinhThuc", "BanLuuTru"].includes(existingStatus.maTrangThai) ? 
-            existingStatus.maTrangThai as any : undefined),
+        // Map to Enum if codes match known ones
+        capDo: (existingLevel.maCapDo === "NGUOI_MOI" ? "NguoiMoi" : 
+                existingLevel.maCapDo === "TRUNG_CAP" ? "TrungCap" : 
+                existingLevel.maCapDo === "NANG_CAO" ? "NangCao" : undefined),
+        // Disable legacy enum mapping to avoid errors, rely on new relations and defaults
+        trangThai: undefined,
 
         idNguoiDung: session.user.id,
       },
@@ -113,5 +121,28 @@ export async function CreateCourse(values: KhoaHocSchemaType): Promise<ApiRespon
       status: "error",
       message: "Đã xảy ra lỗi khi tạo khóa học",
     };
+  }
+}
+
+
+
+export async function getTeacherCourseTitles(): Promise<string[]> {
+  try {
+    const session = await requireTeacher();
+    const courses = await prisma.khoaHoc.findMany({
+      where: {
+        idNguoiDung: session.user.id,
+      },
+      select: {
+        tenKhoaHoc: true,
+      },
+      orderBy: {
+        ngayTao: "desc",
+      },
+    });
+    return courses.map((course) => course.tenKhoaHoc);
+  } catch (error) {
+    console.error("Failed to fetch teacher course titles", error);
+    return [];
   }
 }

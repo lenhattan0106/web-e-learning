@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Input } from "@/components/ui/input";
+import { useEffect, useState } from "react";
+import { Check, AlertCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { getTeacherCourseTitles } from "@/app/teacher/courses/create/action";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface CourseTitleInputProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
-  excludeTitle?: string; // <-- new optional prop: tiêu đề cần loại trừ (ví dụ khi edit)
+  excludeTitle?: string;
 }
 
 export function CourseTitleInput({
@@ -17,120 +20,119 @@ export function CourseTitleInput({
   placeholder = "Tiêu đề khóa học",
   excludeTitle,
 }: CourseTitleInputProps) {
-  const [allTitles, setAllTitles] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
+  const [existingTitles, setExistingTitles] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isDuplicate, setIsDuplicate] = useState(false);
+  const [similarTitles, setSimilarTitles] = useState<string[]>([]);
 
   useEffect(() => {
-    let isMounted = true;
     const fetchTitles = async () => {
       try {
-        setIsLoading(true);
-        const res = await fetch("/api/teacher/course-titles");
-        if (!res.ok) return;
-        const data = await res.json();
-        if (isMounted && Array.isArray(data)) {
-          // Fix: API returns { id, title }[], need to map to strings or handle objects
-          // Assuming we just need titles for uniqueness check
-          const titles = data.map((item: any) => item.title || item); // Handle both for safety
-          setAllTitles(titles);
-        }
+        const titles = await getTeacherCourseTitles();
+        setExistingTitles(titles);
+      } catch (error) {
+        console.error("Failed to fetch course titles", error);
       } finally {
-        if (isMounted) setIsLoading(false);
+        setLoading(false);
       }
     };
+
     fetchTitles();
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
-  const suggestions = useMemo(() => {
-    if (!value) return [];
-    const lower = value.toLowerCase();
-    return allTitles.filter((title) =>
-      title.toLowerCase().includes(lower)
+  useEffect(() => {
+    if (loading || !value || value.trim().length < 3) {
+      setIsDuplicate(false);
+      setSimilarTitles([]);
+      return;
+    }
+
+    const normalizedValue = value.trim().toLowerCase();
+    const normalizedExclude = excludeTitle?.trim().toLowerCase();
+
+    // If matches excludeTitle (self), it's valid
+    if (normalizedExclude && normalizedValue === normalizedExclude) {
+      setIsDuplicate(false);
+      setSimilarTitles([]);
+      return;
+    }
+
+    // Check for exact duplicate (case-insensitive)
+    const duplicate = existingTitles.some(
+      (t) => t.trim().toLowerCase() === normalizedValue
     );
-  }, [allTitles, value]);
+    setIsDuplicate(duplicate);
 
-  const normalizedValue = value?.trim().toLowerCase() ?? "";
-  const normalizedExclude = excludeTitle?.trim().toLowerCase() ?? "";
+    // Find similar titles (partial match)
+    if (!duplicate) {
+      const similar = existingTitles
+        .filter((t) => t.toLowerCase().includes(normalizedValue))
+        .slice(0, 3); // Show max 3 similar titles
+      setSimilarTitles(similar);
+    } else {
+      setSimilarTitles([]);
+    }
+  }, [value, existingTitles, excludeTitle, loading]);
 
-  const isDuplicate =
-    !!value &&
-    allTitles.some((title) => {
-      const normalized = title.trim().toLowerCase();
-      if (normalized === normalizedExclude) return false; // ignore chính tiêu đề đang edit
-      return normalized === normalizedValue;
-    });
+  if (loading) {
+    return (
+      <div className="space-y-2">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-4 w-48" />
+      </div>
+    );
+  }
 
   return (
-    <div className="relative">
+    <div className="space-y-2">
       <Input
         placeholder={placeholder}
         value={value}
-        onChange={(e) => {
-          onChange(e.target.value);
-          setIsOpen(true);
-        }}
-        onFocus={() => {
-          if (suggestions.length > 0) setIsOpen(true);
-        }}
-        onBlur={() => {
-          // Delay closing to allow clicking on suggestions
-          setTimeout(() => setIsOpen(false), 200);
-        }}
-        className={cn(isDuplicate && "border-destructive ")}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn(
+          "transition-colors",
+          isDuplicate && "border-destructive focus-visible:ring-destructive"
+        )}
       />
 
-      {isOpen && suggestions.length > 0 && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2">
-          <div className="p-2 text-xs font-semibold text-muted-foreground bg-muted/50 border-b">
-            Các tiêu đề đã tồn tại (Nhấn để chọn kiểm tra):
-          </div>
-          <div className="max-h-[200px] overflow-y-auto">
-            {suggestions.map((title) => (
-              <button
-                key={title}
-                type="button"
-                className={cn(
-                  "relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
-                )}
-                onClick={() => {
-                  onChange(title);
-                  setIsOpen(false);
-                }}
-              >
-                {title}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Feedback Area */}
+      <div className="min-h-[20px]">
+        {value.trim().length < 3 && value.trim().length > 0 && (
+          <p className="text-sm text-muted-foreground">
+            Nhập ít nhất 3 ký tự để kiểm tra tiêu đề
+          </p>
+        )}
 
-      {isDuplicate && (
-        <div className="mt-2 flex items-center gap-2 text-sm text-destructive animate-in slide-in-from-top-1 fade-in-0">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="lucide lucide-circle-alert"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" x2="12" y1="8" y2="12" />
-            <line x1="12" x2="12.01" y1="16" y2="16" />
-          </svg>
-          <p>Tiêu đề này đã được sử dụng. Vui lòng đặt tên khác.</p>
-        </div>
-      )}
+        {value.trim().length >= 3 && isDuplicate && (
+          <div className="flex items-start gap-2 text-sm text-destructive animate-in slide-in-from-top-1 fade-in-0">
+            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <p>Bạn đã có khóa học với tiêu đề này. Vui lòng chọn tiêu đề khác.</p>
+          </div>
+        )}
+
+        {value.trim().length >= 3 && !isDuplicate && similarTitles.length > 0 && (
+          <div className="flex items-start gap-2 text-sm text-amber-600 animate-in slide-in-from-top-1 fade-in-0">
+            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-medium">Bạn đã có các khóa học tương tự:</p>
+              <ul className="mt-1 space-y-0.5 list-disc list-inside">
+                {similarTitles.map((title) => (
+                  <li key={title} className="truncate">
+                    {title}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {value.trim().length >= 3 && !isDuplicate && similarTitles.length === 0 && (
+          <div className="flex items-center gap-2 text-sm text-emerald-600 animate-in slide-in-from-top-1 fade-in-0">
+            <Check className="h-4 w-4 flex-shrink-0" />
+            <p>Tiêu đề mới và hợp lệ</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
-
-

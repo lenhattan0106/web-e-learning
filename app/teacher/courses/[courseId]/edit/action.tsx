@@ -16,6 +16,7 @@ import { request } from "@arcjet/next";
 import { revalidatePath } from "next/cache";
 import { generateEmbedding } from "@/lib/ai/embedding";
 import { cleanText } from "@/lib/utils/clean";
+import { generateUniqueSlug, slugify } from "@/lib/slug-utils";
 
 const arcjet = aj.withRule(
   fixedWindow({
@@ -68,10 +69,11 @@ export async function editCourse(
       };
     }
 
-    // Kiểm tra trùng tiêu đề với các khóa học khác
+    // Kiểm tra trùng tiêu đề với các khóa học khác của cùng giáo viên
     const existed = await prisma.khoaHoc.findFirst({
       where: {
         tenKhoaHoc: result.data.tenKhoaHoc,
+        idNguoiDung: user.user.id, // Check only teacher's own courses
         NOT: {
           id: idKhoaHoc,
         },
@@ -97,6 +99,20 @@ export async function editCourse(
       };
     }
 
+    // Check if title changed to regenerate slug
+    const currentCourse = await prisma.khoaHoc.findUnique({
+      where: { id: idKhoaHoc },
+      select: { tenKhoaHoc: true },
+    });
+
+    let slugToUse = result.data.duongDan; // Default to form value
+    
+    // If title changed, regenerate unique slug
+    if (currentCourse && currentCourse.tenKhoaHoc !== result.data.tenKhoaHoc) {
+      const baseSlug = slugify(result.data.tenKhoaHoc);
+      slugToUse = await generateUniqueSlug(baseSlug, idKhoaHoc);
+    }
+
     // Prepare update data
     const updateData: any = {
       tenKhoaHoc: result.data.tenKhoaHoc,
@@ -105,7 +121,7 @@ export async function editCourse(
       gia: result.data.gia,
       thoiLuong: result.data.thoiLuong,
       moTaNgan: result.data.moTaNgan,
-      duongDan: result.data.duongDan,
+      duongDan: slugToUse, // Use auto-generated slug if title changed
     };
 
     // Handle Relations if IDs are present

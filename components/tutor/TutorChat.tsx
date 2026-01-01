@@ -19,9 +19,7 @@ export function TutorChat({ isPremium = false, premiumExpires }: TutorChatProps)
       {
         id: "welcome",
         role: "assistant",
-        content: isPremium 
-          ? "Xin chào! 👋 Tôi là trợ lý AI của bạn. Hãy hỏi bất cứ điều gì về khóa học, và tôi sẽ giúp bạn học tập hiệu quả hơn!"
-          : "Xin chào! 👋 Tôi là trợ lý học tập của bạn. Nâng cấp lên AI Pro để tôi có thể giúp bạn tìm khóa học phù hợp nhé!",
+        content: "Xin chào! 👋 Tôi là trợ lý AI của bạn. Hãy hỏi bất cứ điều gì về khóa học, và tôi sẽ giúp bạn học tập hiệu quả hơn!",
       } as any,
     ],
 

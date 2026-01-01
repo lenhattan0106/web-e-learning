@@ -13,7 +13,7 @@ import { authClient } from "@/lib/auth-client";
 import { ArrowLeft, GithubIcon, Loader, LogInIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 export function LoginForm() {
@@ -21,6 +21,7 @@ export function LoginForm() {
   const params = useSearchParams();
   const [githubPending, startGithubTransition] = useTransition();
   const [passwordPending, startPassWordTransition] = useTransition();
+  const hasShownToast = useRef(false);
   
   // Khởi tạo email từ URL params nếu có (khi user vừa verify email)
   const emailFromParams = params.get("email") || "";
@@ -29,9 +30,21 @@ export function LoginForm() {
 
   // Kiểm tra nếu user vừa verify email và được redirect đến đây
   useEffect(() => {
+    if (hasShownToast.current) return;
+    
     const verified = params.get("verified");
+    const alreadyVerified = params.get("already_verified");
+    
     if (verified === "true") {
-      toast.success("Email đã được xác minh thành công! Bạn có thể đăng nhập ngay.");
+      hasShownToast.current = true;
+      toast.success("Email đã được xác minh thành công! Bạn có thể đăng nhập ngay.", {
+        duration: 5000,
+      });
+    } else if (alreadyVerified === "true") {
+      hasShownToast.current = true;
+      toast.info("Email này đã được xác minh trước đó. Bạn có thể đăng nhập ngay.", {
+        duration: 5000,
+      });
     }
   }, [params]);
 

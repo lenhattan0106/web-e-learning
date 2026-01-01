@@ -62,6 +62,7 @@ export function RenderUploadedState({
         alt="Tệp đã tải lên"
         fill
         className="object-contain p-2"
+        unoptimized={process.env.NODE_ENV === "development"}
       ></Image>
      )}
       <Button

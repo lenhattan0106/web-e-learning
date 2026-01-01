@@ -67,7 +67,7 @@ export function SignUpForm() {
         email: email,
         password: password,
         image: avatarUrl,
-        callbackURL: `/verify-email?email=${encodeURIComponent(email)}`,
+        callbackURL: `/login?verified=true`,
         fetchOptions: {
           onSuccess: () => {
             toast.success("Đăng ký thành công! Vui lòng kiểm tra email để xác minh tài khoản.");

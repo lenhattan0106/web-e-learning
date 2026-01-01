@@ -11,7 +11,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { formatDuration } from "@/lib/format";
-import { useConstructUrl } from "@/hooks/use-contruct-url";
 import {
   ArrowRight,
   Eye,
@@ -24,6 +23,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { env } from "@/lib/env";
 
 interface iAppProps {
   data: TeacherCourseType;
@@ -61,7 +61,7 @@ function getStatusInfo(data: TeacherCourseType) {
 }
 
 export function TeacherCourseCard({ data }: iAppProps) {
-  const thumbnailUrl = useConstructUrl(data.tepKH);
+  const thumbnailUrl = `https://${env.NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES}.t3.storage.dev/${data.tepKH}`;
   const statusInfo = getStatusInfo(data);
   
   return (
@@ -110,6 +110,7 @@ export function TeacherCourseCard({ data }: iAppProps) {
         width={600}
         height={400}
         className="w-full rounded-t-lg aspect-video h-full object-cover"
+        unoptimized={process.env.NODE_ENV === "development"}
       />
       <CardContent className="p-4">
         <Link
@@ -171,4 +172,3 @@ export function TeacherCourseCardSkeleton() {
     </Card>
   );
 }
-

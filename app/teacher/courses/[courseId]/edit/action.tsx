@@ -17,6 +17,10 @@ import { revalidatePath } from "next/cache";
 import { generateEmbedding } from "@/lib/ai/embedding";
 import { cleanText } from "@/lib/utils/clean";
 import { generateUniqueSlug, slugify } from "@/lib/slug-utils";
+import {
+  notifyEnrolledStudents,
+  NOTIFICATION_TEMPLATES,
+} from "@/app/services/notification-service";
 
 const arcjet = aj.withRule(
   fixedWindow({
@@ -99,10 +103,15 @@ export async function editCourse(
       };
     }
 
-    // Check if title changed to regenerate slug
+    // Get current course data to detect status change
     const currentCourse = await prisma.khoaHoc.findUnique({
       where: { id: idKhoaHoc },
-      select: { tenKhoaHoc: true },
+      select: {
+        tenKhoaHoc: true,
+        duongDan: true,
+        idTrangThai: true,
+        nguoiDung: { select: { name: true } },
+      },
     });
 
     let slugToUse = result.data.duongDan; // Default to form value
@@ -165,6 +174,11 @@ export async function editCourse(
       }
     }
 
+    // Detect status change for notifications
+    const oldStatusId = currentCourse?.idTrangThai;
+    const newStatusId = result.data.trangThai;
+    const statusChanged = newStatusId && oldStatusId !== newStatusId;
+
     await prisma.khoaHoc.update({
       where: {
         id: idKhoaHoc,
@@ -173,9 +187,43 @@ export async function editCourse(
       data: updateData,
     });
 
+    // Send notifications if status changed
+    if (statusChanged && newStatusId) {
+      const newStatus = await prisma.trangThaiKhoaHoc.findUnique({
+        where: { id: newStatusId },
+        select: { maTrangThai: true },
+      });
+
+      if (newStatus?.maTrangThai === "BanLuuTru") {
+        // Course archived - notify enrolled students
+        const template = NOTIFICATION_TEMPLATES.COURSE_ARCHIVED(result.data.tenKhoaHoc);
+        await notifyEnrolledStudents({
+          courseId: idKhoaHoc,
+          title: template.title,
+          message: template.message,
+          metadata: {
+            url: `/courses/${slugToUse}`,
+            courseId: idKhoaHoc,
+          },
+        });
+      } else if (newStatus?.maTrangThai === "BanChinhThuc") {
+        // Course published - notify enrolled students about update
+        const template = NOTIFICATION_TEMPLATES.COURSE_UPDATED(result.data.tenKhoaHoc);
+        await notifyEnrolledStudents({
+          courseId: idKhoaHoc,
+          title: template.title,
+          message: template.message,
+          metadata: {
+            url: `/courses/${slugToUse}`,
+            courseId: idKhoaHoc,
+          },
+        });
+      }
+    }
+
     revalidatePath(`/teacher/courses/${idKhoaHoc}/edit`);
     revalidatePath("/teacher/courses");
-    
+
     return {
       status: "success",
       message: "Khóa học đã được cập nhật thành công",

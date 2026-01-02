@@ -39,6 +39,9 @@ model User {
   
   // Rating relations
   danhGias          DanhGia[]
+  
+  // Notification relations
+  thongBaos         ThongBao[]
 
   @@map("nguoiDung")
 }
@@ -445,7 +448,6 @@ model BaoCaoBinhLuan {
   @@map("baoCaoBinhLuan")
 }
 
-// ==================== ĐÁNH GIÁ KHÓA HỌC ====================
 
 enum TrangThaiDanhGia {
   HIEN       // Visible (default)
@@ -472,4 +474,29 @@ model DanhGia {
   @@index([idKhoaHoc])
   @@index([idNguoiDung])
   @@map("danhGia")
+}
+
+
+enum LoaiThongBao {
+  HE_THONG     // Thông báo chung từ hệ thống
+  KIEM_DUYET   // Xóa bình luận, cấm người dùng
+  KHOA_HOC     // Cấm chat, cập nhật khóa học
+}
+
+model ThongBao {
+  id           String       @id @default(uuid())
+  tieuDe       String       @map("tieu_de")
+  noiDung      String       @db.Text @map("noi_dung")
+  loai         LoaiThongBao @default(HE_THONG)
+  daXem        Boolean      @default(false) @map("da_xem")
+  metadata     Json?        @map("metadata") // { url, courseId, lessonId, etc. }
+
+  idNguoiDung  String       @map("id_nguoi_dung")
+  nguoiDung    User         @relation(fields: [idNguoiDung], references: [id], onDelete: Cascade)
+
+  ngayTao      DateTime     @default(now()) @map("ngay_tao")
+
+  @@index([idNguoiDung])
+  @@index([ngayTao])
+  @@map("thong_bao")
 }

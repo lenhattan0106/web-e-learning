@@ -1,6 +1,9 @@
 "use client";
 
+import { motion } from "framer-motion";
+import { usePathname } from "next/navigation";
 import { MessageCircle, Sparkles, PanelRightClose, Crown } from "lucide-react";
+import { useRef } from "react";
 import { TutorChat } from "./TutorChat";
 import { TutorProvider, useTutor } from "./TutorContext";
 
@@ -11,6 +14,30 @@ interface TutorPanelProps {
 
 function TutorPanel({ isPremium, premiumExpires }: TutorPanelProps) {
   const { isOpen, closeChat, toggleChat } = useTutor();
+  const pathname = usePathname();
+  const isDraggingRef = useRef(false);
+
+  // Only hide on Banned page
+  if (pathname === "/banned") return null;
+
+  const handleDragStart = () => {
+    isDraggingRef.current = true;
+  };
+
+  const handleDragEnd = () => {
+    setTimeout(() => {
+      isDraggingRef.current = false;
+    }, 200);
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (isDraggingRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    toggleChat();
+  };
 
   return (
     <>
@@ -99,41 +126,46 @@ function TutorPanel({ isPremium, premiumExpires }: TutorPanelProps) {
         </div>
       </div>
 
-      {/* Floating Action Button */}
-      <button
-        type="button"
-        onClick={toggleChat}
-        className={`
-          fixed bottom-28 right-6 z-50
-          w-16 h-16
-          bg-gradient-to-br from-cyan-400 to-blue-600
-          hover:from-cyan-300 hover:to-blue-500
-          rounded-full
-          shadow-lg shadow-cyan-500/30
-          hover:shadow-xl hover:shadow-cyan-500/40
-          transition-all duration-300
-          flex items-center justify-center
-          group
-          ${isOpen ? "scale-0 opacity-0" : "scale-100 opacity-100"}
-        `}
-        aria-label="Open AI tutor"
-      >
-        <div
-          className="
-            absolute inset-0 rounded-full
+      {/* Floating Action Button - Draggable */}
+      {!isOpen && (
+        <motion.button
+          drag
+          dragMomentum={false}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onClick={handleClick}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          type="button"
+          className={`
+            fixed bottom-28 right-6 z-50
+            w-16 h-16
             bg-gradient-to-br from-cyan-400 to-blue-600
-            animate-ping opacity-30
-          "
-        />
-        <MessageCircle className="w-7 h-7 text-white transition-transform group-hover:scale-110" />
-        
-        {/* Premium Badge on FAB */}
-        {isPremium && (
-          <span className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
-            <Crown className="w-3 h-3 text-white" />
-          </span>
-        )}
-      </button>
+            rounded-full
+            shadow-lg shadow-cyan-500/30
+            cursor-move
+            flex items-center justify-center
+            group
+          `}
+          aria-label="Open AI tutor"
+        >
+          <div
+            className="
+              absolute inset-0 rounded-full
+              bg-gradient-to-br from-cyan-400 to-blue-600
+              animate-ping opacity-30
+            "
+          />
+          <MessageCircle className="w-7 h-7 text-white" />
+          
+          {/* Premium Badge on FAB */}
+          {isPremium && (
+            <span className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
+              <Crown className="w-3 h-3 text-white" />
+            </span>
+          )}
+        </motion.button>
+      )}
     </>
   );
 }

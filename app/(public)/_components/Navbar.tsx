@@ -8,6 +8,10 @@ import { authClient } from "@/lib/auth-client";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { UserMenu } from "@/components/shared/UserMenu";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  NotificationBell,
+  NotificationProvider,
+} from "@/components/notifications";
 
 export function Navbar() {
   const { data: session, isPending } = authClient.useSession();
@@ -28,7 +32,7 @@ export function Navbar() {
       return [
         { name: "Trang chủ", href: "/" },
         { name: "Quản lý khóa học", href: "/teacher/courses" },
-          { name: "Khóa học hiện tại", href: "/courses" },
+        { name: "Khóa học hiện tại", href: "/courses" },
         { name: "Bảng điều khiển", href: "/teacher" },
       ];
     }
@@ -40,7 +44,6 @@ export function Navbar() {
   };
 
   const navigationItems = getNavigationItems();
-
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur-[backdrop-filter]:bg-background/60">
@@ -67,7 +70,12 @@ export function Navbar() {
             {isPending ? (
               <Skeleton className="h-10 w-10 rounded-full" />
             ) : session ? (
-              <UserMenu variant="navbar" />
+              <NotificationProvider userId={session.user.id}>
+                <div className="flex items-center gap-2">
+                  <NotificationBell />
+                  <UserMenu variant="navbar" />
+                </div>
+              </NotificationProvider>
             ) : (
               <>
                 <Button variant="ghost" asChild>
@@ -84,3 +92,4 @@ export function Navbar() {
     </header>
   );
 }
+

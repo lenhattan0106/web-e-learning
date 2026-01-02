@@ -4,7 +4,11 @@ import { requireUser } from "@/app/data/user/require-user";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
 import { revalidatePath } from "next/cache";
-import Pusher from "pusher"; // Import Pusher server SDK
+import Pusher from "pusher";
+import {
+  sendNotification,
+  NOTIFICATION_TEMPLATES,
+} from "@/app/services/notification-service";
 
 
 /**
@@ -289,6 +293,25 @@ export async function toggleChatBan(chatRoomId: string, memberId: string) {
 
         await pusher.trigger('nt-elearning', 'event', systemMessage);
         await pusher.trigger('nt-elearning', 'member-updated', { userId: memberId, camChat: newStatus });
+
+        // Send notification to the affected member
+        const courseName = chatRoom.khoaHoc.tenKhoaHoc;
+        const courseSlug = chatRoom.khoaHoc.duongDan;
+        const template = newStatus
+          ? NOTIFICATION_TEMPLATES.CHAT_BANNED(courseName)
+          : NOTIFICATION_TEMPLATES.CHAT_UNBANNED(courseName);
+
+        await sendNotification({
+          userId: memberId,
+          title: template.title,
+          message: template.message,
+          type: "KHOA_HOC",
+          metadata: {
+            url: `/courses/${courseSlug}`,
+            courseId: chatRoom.khoaHocId,
+            chatRoomId: chatRoomId,
+          },
+        });
 
         return { success: true, isBanned: newStatus };
     } catch (error) {

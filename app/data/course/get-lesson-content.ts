@@ -41,6 +41,11 @@ export async function getLessonContent(idBaiHoc: string) {
   if (!baiHoc) {
     return notFound();
   }
+  // Allow admin to bypass enrollment check
+  if (session.role === "admin") {
+      return baiHoc;
+  }
+
   const dangKyHoc = await prisma.dangKyHoc.findUnique({
     where: {
       idNguoiDung_idKhoaHoc: {

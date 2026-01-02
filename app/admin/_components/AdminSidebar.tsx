@@ -7,6 +7,7 @@ import {
   IconSettings,
   IconSparkles,
   IconMessageReport,
+  IconBooks,
 } from "@tabler/icons-react";
 
 import Logo from "@/public/logo e-learning.png";
@@ -36,6 +37,11 @@ const data = {
       title: "Quản lý người dùng",
       url: "/admin/users",
       icon: IconUsers,
+    },
+    {
+      title: "Khóa học hiện tại",
+      url: "/courses",
+      icon: IconBooks,
     },
     {
       title: "Quản lý AI Premium",

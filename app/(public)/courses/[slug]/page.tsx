@@ -60,6 +60,8 @@ export default async function SlugPage({ params }: { params: Params }) {
     headers: await headers()
   });
   const currentUserId = session?.user?.id;
+  const userRole = session?.user?.role as "user" | "teacher" | "admin" | undefined;
+  const isOwner = currentUserId && khoaHoc.nguoiDung ? khoaHoc.nguoiDung.id === currentUserId : false;
   
   // Get user's existing rating if logged in
   const userRating = currentUserId ? await getUserRating(khoaHoc.id) : null;
@@ -210,6 +212,8 @@ export default async function SlugPage({ params }: { params: Params }) {
           courseId={khoaHoc.id}
           price={khoaHoc.gia}
           isEnrolled={isEnrolled}
+          isOwner={isOwner}
+          userRole={userRole}
         >
           {/* Children passed to Sidebar */}
           <div className="mb-6 space-y-3 rounded-lg bg-muted p-4">

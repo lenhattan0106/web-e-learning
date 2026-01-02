@@ -449,7 +449,7 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
               ) : (
                 // Course: Go to learning
                 <Link
-                  href={courseSlug ? `/courses/${courseSlug}/learn` : "/courses"}
+                  href={courseSlug ? `/dashboard/${courseSlug}` : "/courses"}
                   className="flex-1 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl font-medium hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg hover:shadow-xl"
                 >
                   <BookOpen className="w-5 h-5" />

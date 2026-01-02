@@ -98,7 +98,12 @@ export function LoginForm() {
               // Lỗi 403 khác (có thể là banned, invalid credentials, etc.)
               toast.error(ctx.error?.message || "Tài khoản của bạn không có quyền truy cập. Vui lòng liên hệ hỗ trợ.");
             } else {
-              toast.error(ctx.error?.message || "Vui lòng kiểm tra lại mật khẩu và tài khoản của bạn");
+              const msg = ctx.error?.message || "";
+              if (msg.includes("Invalid email or password") || msg.includes("Invalid password")) {
+                toast.error("Email hoặc mật khẩu không chính xác");
+              } else {
+                toast.error(msg || "Vui lòng kiểm tra lại mật khẩu và tài khoản của bạn");
+              }
             }
           },
         },

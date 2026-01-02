@@ -2,7 +2,7 @@
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { BookOpen, Gamepad, TrendingUp, User } from "lucide-react";
+import { BookOpen, Bot, TrendingUp, User } from "lucide-react";
 import Link from "next/link";
 
 interface featureProps {
@@ -19,10 +19,10 @@ const features: featureProps[] = [
     icon: BookOpen,
   },
   {
-    title: "Học Tập Tương Tác",
+    title: "Trợ Lý AI Thông Minh",
     description:
-      "Tham gia với nội dung tương tác, bài kiểm tra và bài tập để nâng cao trải nghiệm học tập của bạn.",
-    icon: Gamepad,
+      "Giải đáp thắc mắc tức thì, hỗ trợ học tập 24/7 với trợ lý ảo AI thông minh được tích hợp ngay trong hệ thống.",
+    icon: Bot,
   },
   {
     title: "Theo Dõi Tiến Độ",
@@ -41,8 +41,8 @@ const features: featureProps[] = [
 export default function Home() {
   return (
     <>
-      <section className="relative py-20">
-        <div className="flex flex-col items-center text-center space-y-8">
+      <section className="relative py-16">
+        <div className="flex flex-col items-center text-center space-y-6">
           <Badge variant={"outline"}>Tương Lai Của Giáo Dục Trực Tuyến</Badge>
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
             Nâng Tầm Trải Nghiệm Học Tập Của Bạn
@@ -51,7 +51,7 @@ export default function Home() {
             Khám phá cách học mới với hệ thống quản lý học tập hiện đại, tương tác.
             Truy cập các khóa học chất lượng cao mọi lúc, mọi nơi.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 mt-8">
+          <div className="flex flex-col sm:flex-row gap-3 mt-6">
             <Link
               className={buttonVariants({
                 size: "lg",
@@ -60,19 +60,10 @@ export default function Home() {
             >
               Khám Phá Khóa Học
             </Link>
-            <Link
-              className={buttonVariants({
-                size: "lg",
-                variant: "outline",
-              })}
-              href="/login"
-            >
-              Đăng Nhập
-            </Link>
           </div>
         </div>
       </section>
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-20 px-4 max-w-7xl mx-auto mb-32">
+      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-12 px-4 max-w-7xl mx-auto mb-20">
         {features.map((feature, index) => {
           const Icon = feature.icon;
           return (

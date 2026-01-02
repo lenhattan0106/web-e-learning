@@ -1,11 +1,11 @@
-import { PublicCourseType } from "@/app/data/course/get-all-courses";
+import { CourseWithOwnership } from "@/app/data/course/get-all-courses-with-ownership";
 import { formatDuration, formatCategoryPath } from "@/lib/format";
 import { checkIfCourseBought } from "@/app/data/user/user-is-enrolled";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { School2, Star, TimerIcon, User } from "lucide-react";
+import { School2, Star, TimerIcon, User, FileEdit, Crown } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { env } from "@/lib/env";
@@ -17,35 +17,47 @@ function calculateAverageRating(ratings: { diemDanhGia: number }[] | undefined) 
   return { average: sum / ratings.length, total: ratings.length };
 }
 
+type Role = "user" | "teacher" | "admin";
+
 interface iAppProps {
-  data: PublicCourseType;
+  data: CourseWithOwnership;
+  isOwner?: boolean;
+  userRole?: Role;
 }
 
-export async function PublicCourseCard({ data }: iAppProps) {
+export async function PublicCourseCard({ data, isOwner = false, userRole }: iAppProps) {
   const isEnrolled = await checkIfCourseBought(data.id);
   // Calculate average rating from danhGias
   const ratingData = calculateAverageRating(data.danhGias);
 
   return (
-    <Card className="group relative py-0 gap-0">
+    <Card className="group relative py-0 gap-0 flex flex-col h-full">
+      {isOwner && (
+        <Badge variant="secondary" className="absolute top-2 left-2 z-20 rounded flex items-center gap-1 bg-yellow-500/90 text-white border-0">
+          <Crown className="h-3 w-3" />
+          Khóa học của bạn
+        </Badge>
+      )}
       <Badge className="absolute top-2 right-2 z-10 rounded">
         {data.capDo}
       </Badge>
-      <Image
-        width={600}
-        height={400}
-        className="w-full rounded-t-xl aspect-video h-full object-cover"
-        src={`https://${env.NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES}.t3.storage.dev/${data.tepKH}`}
-        alt="Ảnh khóa học"
-      />
-      <CardContent className="p-4">
+      <div className="relative w-full aspect-video overflow-hidden rounded-t-xl">
+        <Image
+          width={600}
+          height={400}
+          className="w-full h-full object-cover"
+          src={`https://${env.NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES}.t3.storage.dev/${data.tepKH}`}
+          alt="Ảnh khóa học"
+        />
+      </div>
+      <CardContent className="p-4 flex flex-col flex-1">
         <Link
-          className="font-medium text-lg line-clamp-2 hover:underline group-hover:text-primary transition-colors"
+          className="font-medium text-lg line-clamp-2 hover:underline group-hover:text-primary transition-colors min-h-[3.5rem]"
           href={`/courses/${data.duongDan}`}
         >
           {data.tenKhoaHoc}
         </Link>
-        <p className="line-clamp-2 text-sm text-muted-foreground leading-tight mt-2">
+        <p className="line-clamp-2 text-sm text-muted-foreground leading-tight mt-2 min-h-[2.5rem]">
           {data.moTaNgan}
         </p>
         {/* Teacher info - positioned separately */}
@@ -85,36 +97,39 @@ export async function PublicCourseCard({ data }: iAppProps) {
             </div>
           )}
         </div>
-        <div className="flex items-center mt-8 gap-2">
-          {isEnrolled ? (
-            <>
-              <span className="text-lg font-medium">Giá:</span>
-              <span className="text-xl font-bold text-primary">
-                Đã mua
-              </span>
-            </>
-          ) : (
-            <>
-              <span className="text-lg font-medium">Giá:</span>
-              <span className="text-2xl font-bold text-primary">
-                {new Intl.NumberFormat("vi-VN", {
-                  style: "currency",
-                  currency: "VND",
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 0,
-                }).format(data.gia)}
-              </span>
-            </>
-          )}
+        {/* Action Button - Show details for everyone, including owners */}
+        <div className="mt-auto pt-4">
+          <div className="flex items-center gap-2 mb-4">
+            {isEnrolled ? (
+              <>
+                <span className="text-lg font-medium">Giá:</span>
+                <span className="text-xl font-bold text-primary">
+                  Đã mua
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="text-lg font-medium">Giá:</span>
+                <span className="text-2xl font-bold text-primary">
+                  {new Intl.NumberFormat("vi-VN", {
+                    style: "currency",
+                    currency: "VND",
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  }).format(data.gia)}
+                </span>
+              </>
+            )}
+          </div>
+          <Link
+            href={`/courses/${data.duongDan}`}
+            className={buttonVariants({
+              className: "w-full",
+            })}
+          >
+            {isEnrolled ? "Xem khóa học của bạn" : "Xem chi tiết"}
+          </Link>
         </div>
-        <Link
-          href={`/courses/${data.duongDan}`}
-          className={buttonVariants({
-            className: "w-full mt-4",
-          })}
-        >
-          {isEnrolled ? "Xem khóa học của bạn":"Xem chi tiết"}
-        </Link>
       </CardContent>
     </Card>
   );

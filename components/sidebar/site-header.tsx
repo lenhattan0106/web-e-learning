@@ -1,6 +1,10 @@
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { ThemeToggle } from "../ui/themeToggle"
+import { UserMenu } from "../shared/UserMenu"
+import Link from "next/link"
+import { BookOpen } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 export function SiteHeader() {
   return (
@@ -14,6 +18,7 @@ export function SiteHeader() {
         <h1 className="text-base font-medium">NT E-Learning</h1>
         <div className="ml-auto flex items-center gap-2">
           <ThemeToggle></ThemeToggle>
+          <UserMenu variant="dashboard" />
         </div>
       </div>
     </header>

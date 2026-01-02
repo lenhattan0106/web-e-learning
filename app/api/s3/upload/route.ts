@@ -13,6 +13,7 @@ export const fileUploadSchema = z.object({
   contentType: z.string().min(1, { message: "Loại nội dung là bắt buộc" }),
   size: z.number().min(1, { message: "Kích thước là bắt buộc" }),
   isImage: z.boolean(),
+  folder: z.string().optional(), // Optional S3 folder prefix
 });
 
 const arcjet = aj.withRule(
@@ -35,8 +36,11 @@ export async function POST(request: Request) {
     if (!validation.success) {
       return NextResponse.json({ error: "Dữ liệu yêu cầu không hợp lệ" }, { status: 400 });
     }
-    const { fileName, contentType, size } = validation.data;
-    const uniqueKey = `${uuidv4()}-${fileName}`;
+    const { fileName, contentType, size, folder } = validation.data;
+    
+    // Construct key with optional folder prefix
+    const folderPrefix = folder ? `${folder}/` : "";
+    const uniqueKey = `${folderPrefix}${uuidv4()}-${fileName}`;
     const command = new PutObjectCommand({
       Bucket: env.NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES,
       ContentType: contentType,
@@ -44,7 +48,7 @@ export async function POST(request: Request) {
       Key: uniqueKey,
     });
     const presignedURL = await getSignedUrl(S3, command, {
-      expiresIn: 360, // url expires in 6 minutes
+      expiresIn: 3600, // 1 hour (was 360s = 6 min) - supports large video uploads
     });
     const response = {
       // 👇 Frontend Uploader.tsx đang expect field "presignedURL"

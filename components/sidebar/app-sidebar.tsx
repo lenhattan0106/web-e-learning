@@ -10,6 +10,7 @@ import {
   IconSettings,
   IconUsers,
   IconMessage,
+  IconBooks,
 } from "@tabler/icons-react"
 
 import Logo from "@/public/logo e-learning.png"
@@ -36,9 +37,14 @@ const data = {
       icon: IconDashboard,
     },
     {
-      title: "Khóa học",
+      title: "Quản lý khóa học",
       url: "/teacher/courses",
       icon: IconListDetails,
+    },
+    {
+      title: "Khóa học hiện tại",
+      url: "/courses",
+      icon: IconBooks,
     },
      {
       title: "Mã giảm giá",

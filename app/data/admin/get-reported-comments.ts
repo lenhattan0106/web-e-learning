@@ -51,6 +51,7 @@ export async function getReportedComments() {
             select: {
               id: true,
               name: true,
+              image: true,
             },
           },
         },

@@ -3,7 +3,8 @@
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/app/data/admin/require-admin";
 import { revalidatePath } from "next/cache";
-
+import { sendNotification } from "@/app/services/notification-service";
+import { triggerUserNotification } from "@/lib/pusher";
 // Ban user - kick immediately by clearing sessions
 export async function banUser(
   userId: string, 
@@ -37,7 +38,7 @@ export async function banUser(
   }
 }
 
-// Unban user
+
 export async function unbanUser(userId: string) {
   await requireAdmin();
   
@@ -50,6 +51,17 @@ export async function unbanUser(userId: string) {
         banExpires: null
       }
     });
+
+    // Notify user - Persistent & Realtime
+    await sendNotification({
+      userId,
+      title: "Tài khoản của bạn đã được mở khóa",
+      message: "Tài khoản của bạn đã được quản trị viên mở khóa. Bạn có thể truy cập lại bình thường.",
+      type: "HE_THONG"
+    });
+    await triggerUserNotification(userId, "user:unbanned", {
+       message: "Tài khoản của bạn đã được mở khóa!"
+    });
     
     revalidatePath("/admin/users");
     return { success: true, message: "Đã bỏ cấm người dùng thành công" };
@@ -58,6 +70,8 @@ export async function unbanUser(userId: string) {
     return { success: false, message: "Có lỗi xảy ra khi bỏ cấm người dùng" };
   }
 }
+
+
 
 // Change user role
 export async function changeUserRole(
@@ -83,7 +97,6 @@ export async function changeUserRole(
   }
 }
 
-// Grant premium days
 export async function grantPremium(userId: string, days: number = 30) {
   await requireAdmin();
   

@@ -6,6 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { ArrowLeft, Settings as SettingsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { checkBanStatus } from "@/app/data/user/check-ban-status";
 
 export default async function SettingsPage() {
   const session = await auth.api.getSession({
@@ -16,12 +17,13 @@ export default async function SettingsPage() {
     redirect("/login");
   }
 
+
+  await checkBanStatus(session.user.id);
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto py-6 px-4 md:px-6 lg:px-8 max-w-5xl">
-        {/* Header với breadcrumb */}
         <div className="mb-6 space-y-4">
-          {/* Breadcrumb Navigation */}
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Link 
               href="/" 
@@ -32,8 +34,6 @@ export default async function SettingsPage() {
             <span>/</span>
             <span className="text-foreground font-medium">Cài đặt</span>
           </div>
-
-          {/* Page Header */}
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <div className="flex items-center gap-3">

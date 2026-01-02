@@ -36,7 +36,6 @@ export async function purchasePremiumAction() {
         trangThai: "DangXuLy"
       }
     });
-
     // Get IP address
     const headersList = await headers();
     const clientIP =
@@ -44,7 +43,6 @@ export async function purchasePremiumAction() {
       headersList.get("x-real-ip") ||
       "127.0.0.1";
 
-    // Build VNPay URL with PREMIUM_ prefix to distinguish from course payments
     paymentUrl = vnpay.buildPaymentUrl({
       vnp_Amount: PREMIUM_PRICE,
       vnp_TxnRef: `PREMIUM_${payment.id}`,
@@ -69,7 +67,6 @@ export async function purchasePremiumAction() {
   redirect(paymentUrl);
 }
 
-// Get current premium status
 export async function getPremiumStatus() {
   const user = await requireUser();
   

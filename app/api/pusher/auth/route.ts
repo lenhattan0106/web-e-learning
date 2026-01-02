@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import Pusher from "pusher";
 import { env } from "@/lib/env";
-import { auth } from "@/lib/auth"; // Assuming auth setup
+import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
 export async function POST(req: Request) {
@@ -25,6 +25,21 @@ export async function POST(req: Request) {
     useTLS: true,
   });
 
+  // Handle private user channels for notifications
+  if (channelName.startsWith("private-user-")) {
+    const userId = channelName.replace("private-user-", "");
+    
+    // Security: Only authorize if channel matches user's ID
+    if (userId !== session.user.id) {
+      return new NextResponse("Forbidden", { status: 403 });
+    }
+    
+    // For private channels, no presence data needed
+    const authResponse = pusher.authorizeChannel(socketId, channelName);
+    return NextResponse.json(authResponse);
+  }
+
+  // Handle presence channels (for chat)
   const presenceData = {
     user_id: session.user.id,
     user_info: {
@@ -34,6 +49,6 @@ export async function POST(req: Request) {
   };
 
   const authResponse = pusher.authorizeChannel(socketId, channelName, presenceData);
-
   return NextResponse.json(authResponse);
 }
+

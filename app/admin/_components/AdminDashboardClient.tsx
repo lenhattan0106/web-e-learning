@@ -65,6 +65,7 @@ import {
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, Legend } from "recharts";
 
 import { fetchRevenueDetails, fetchPremiumDetails, fetchReportsDetails } from "@/app/admin/actions/admin-dashboard";
+import { ReportsTable } from "@/app/admin/reports/_components/ReportsTable";
 
 interface AdminDashboardStats {
   totalUsers: number;
@@ -204,7 +205,7 @@ export function AdminDashboardClient({ stats }: AdminDashboardClientProps) {
           result = result.filter(item => {
               if (activeTab === "revenue") return item.user?.name?.toLowerCase().includes(lower) || item.itemName?.toLowerCase().includes(lower);
               if (activeTab === "premium") return item.name?.toLowerCase().includes(lower) || item.email?.toLowerCase().includes(lower);
-              if (activeTab === "reports") return item.nguoiDung?.email?.toLowerCase().includes(lower) || item.binhLuan?.noiDung?.toLowerCase().includes(lower);
+              if (activeTab === "reports") return item.nguoiDung?.name?.toLowerCase().includes(lower) || item.noiDung?.toLowerCase().includes(lower);
               return true;
           });
       }
@@ -358,7 +359,7 @@ export function AdminDashboardClient({ stats }: AdminDashboardClientProps) {
                     >
                        {activeTab === "revenue" && <RevenueTable data={paginatedData} />}
                        {activeTab === "premium" && <PremiumTable data={paginatedData} />}
-                       {activeTab === "reports" && <ReportsTable data={paginatedData} />}
+                       {activeTab === "reports" && <ReportsTable reports={paginatedData} />}
                     </motion.div>
                  </AnimatePresence>
                )}
@@ -570,54 +571,8 @@ function PremiumTable({ data }: { data: any[] }) {
 }
 
 // Table: Reports
-function ReportsTable({ data }: { data: any[] }) {
-   if (!data.length) return <EmptyResult />;
-   return (
-      <Table>
-         <TableHeader>
-            <TableRow className="select-none">
-               <TableHead>Người báo cáo</TableHead>
-               <TableHead>Nội dung bị báo cáo</TableHead>
-               <TableHead>Lý do</TableHead>
-               <TableHead className="text-right">Thao tác</TableHead>
-            </TableRow>
-         </TableHeader>
-         <TableBody>
-            {data.map((report, idx) => (
-               <TableRow key={report.id || idx} className="select-none cursor-default">
-                  <TableCell>
-                     <div className="flex flex-col select-text cursor-text">
-                        <span className="font-medium text-sm">{report.nguoiDung?.name}</span>
-                        <span className="text-xs text-muted-foreground">{report.nguoiDung?.email}</span>
-                     </div>
-                  </TableCell>
-                  <TableCell className="max-w-[200px]">
-                     <div className="flex flex-col gap-1">
-                        <div className="text-xs text-muted-foreground">
-                           Bình luận của <span className="font-medium text-foreground select-text cursor-text">{report.binhLuan?.nguoiDung?.name}</span>:
-                        </div>
-                        <p className="text-sm italic border-l-2 pl-2 border-muted">
-                           "{report.binhLuan?.noiDung}"
-                        </p>
-                        <div className="text-[10px] text-muted-foreground">
-                           tại: {report.binhLuan?.baiHoc?.tenBaiHoc}
-                        </div>
-                     </div>
-                  </TableCell>
-                  <TableCell>
-                     <Badge variant="outline" className="text-rose-600 border-rose-200 bg-rose-50 cursor-default select-none">
-                        {report.lyDo}
-                     </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                     <Button size="sm" variant="secondary">Chi tiết</Button>
-                  </TableCell>
-               </TableRow>
-            ))}
-         </TableBody>
-      </Table>
-   )
-}
+// Replaced by shared component from @/app/admin/reports/_components/ReportsTable
+// Function definition removed.
 
 function EmptyResult() {
    return (

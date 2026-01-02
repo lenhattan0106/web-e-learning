@@ -4,8 +4,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EnrollmentButton } from "./EnrollmentButton";
 import { useState, useTransition } from "react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Loader2, Tag, X } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Loader2, Tag, X, FileEdit } from "lucide-react";
+import Link from "next/link";
 import { verifyCoupon } from "../_actions/coupon";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -14,13 +15,17 @@ interface CourseSidebarProps {
   courseId: string;
   price: number;
   isEnrolled: boolean;
-  children?: React.ReactNode; // For passing other info if needed
+  isOwner?: boolean;
+  userRole?: "user" | "teacher" | "admin";
+  children?: React.ReactNode;
 }
 
 export function CourseSidebar({
   courseId,
   price,
   isEnrolled,
+  isOwner = false,
+  userRole,
   children,
 }: CourseSidebarProps) {
   const [couponCode, setCouponCode] = useState("");
@@ -170,12 +175,22 @@ export function CourseSidebar({
 
           {/* Action Button */}
           <div className="mt-6">
-            {isEnrolled ? (
+            {isOwner && userRole === "teacher" ? (
+              <Link
+                href={`/teacher/courses/${courseId}/edit`}
+                className={buttonVariants({
+                  className: "w-full",
+                })}
+              >
+                <FileEdit className="mr-2 h-4 w-4" />
+                Chỉnh sửa khóa học
+              </Link>
+            ) : isEnrolled ? (
               <EnrollmentButton courseId={courseId} isEnrolled={true} />
             ) : (
               <EnrollmentButton
                 courseId={courseId}
-                couponCode={appliedCoupon?.code} // Truyền mã coupon đã apply xuống button mua
+                couponCode={appliedCoupon?.code}
               />
             )}
           </div>

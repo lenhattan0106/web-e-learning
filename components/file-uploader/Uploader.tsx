@@ -10,9 +10,21 @@ import {
   RenderUploadedState,
   RenderUploadingState,
 } from "./RenderState";
+import { env } from "@/lib/env";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import { useConstructUrl } from "@/hooks/use-contruct-url";
+
+// File size limits
+const MAX_FILE_SIZE_MB = 1024; // 1GB
+const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
+
+const MULTIPART_THRESHOLD_MB = 100; // Switch to multipart at 100MB
+const MULTIPART_THRESHOLD = MULTIPART_THRESHOLD_MB * 1024 * 1024;
+
+const CHUNK_SIZE_MB = 20; // 20MB per part (optimized for performance)
+const CHUNK_SIZE = CHUNK_SIZE_MB * 1024 * 1024;
+
 
 interface UpLoaderState {
   id: string | null;
@@ -30,10 +42,11 @@ interface iAppProps {
   value?: string;
   onChange?: (value: string) => void;
   onDurationChange?: (duration: number) => void;
-  fileTypeAccepted:"image"|"video"; 
+  fileTypeAccepted:"image"|"video";
+  folder?: string; // Optional: S3 folder prefix (e.g., "videos", "thumbnails", "chat-messages")
 }
 
-export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted }: iAppProps) {
+export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, folder }: iAppProps) {
   const fileUrl = useConstructUrl(value || '')
   const [fileState, setFileState] = useState<UpLoaderState>({
     error: false,
@@ -46,7 +59,195 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted }
     key: value,
     objectUrl:value ? fileUrl:undefined,
   });
-  const upLoadFile = useCallback(
+  
+  // Multipart upload for large files
+  const upLoadMultipart = useCallback(
+    async (file: File) => {
+      let uploadId: string | undefined;
+      let key: string | undefined;
+      
+      // Set uploading state to show progress UI
+      setFileState((prev) => ({
+        ...prev,
+        uploading: true,
+        progress: 0,
+      }));
+      
+      try {
+        // Step 1: Initiate multipart upload
+        const initResponse = await fetch("/api/s3/multipart/initiate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: file.name,
+            contentType: file.type,
+            size: file.size,
+            folder: folder, // S3 folder prefix
+          }),
+        });
+
+        if (!initResponse.ok) {
+          throw new Error("Không thể khởi tạo upload");
+        }
+
+        const initData = await initResponse.json();
+        uploadId = initData.uploadId;
+        key = initData.key;
+
+        // Step 2: Split file into chunks
+        const chunks: Blob[] = [];
+        for (let start = 0; start < file.size; start += CHUNK_SIZE) {
+          chunks.push(file.slice(start, start + CHUNK_SIZE));
+        }
+
+        const totalParts = chunks.length;
+        toast.info(`Đang upload ${totalParts} phần... (${Math.round(file.size / 1024 / 1024)}MB)`);
+
+        // Step 3: Upload parts in parallel (5 concurrent uploads)
+        const uploadedParts: Array<{ PartNumber: number; ETag: string }> = [];
+        const PARALLEL_UPLOADS = 5; // Upload 5 parts at once
+        
+        // Helper function to upload single part
+        const uploadPart = async (partNumber: number, chunk: Blob) => {
+          // Get presigned URL for this part
+          const signResponse = await fetch("/api/s3/multipart/sign-part", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              uploadId,
+              key,
+              partNumber,
+            }),
+          });
+
+          if (!signResponse.ok) {
+            throw new Error(`Không thể lấy URL cho phần ${partNumber}`);
+          }
+
+          const { presignedUrl } = await signResponse.json();
+
+          // Upload chunk
+          const uploadResponse = await fetch(presignedUrl, {
+            method: "PUT",
+            body: chunk,
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error(`Upload phần ${partNumber} thất bại`);
+          }
+
+          // Get ETag from response header (REQUIRED for S3 multipart)
+          const etag = uploadResponse.headers.get("ETag");
+          
+          if (!etag) {
+            throw new Error(
+              `Không nhận được ETag cho phần ${partNumber}. ` +
+              `Vui lòng cấu hình CORS cho S3 bucket để expose header "ETag". ` +
+              `Chi tiết: https://docs.aws.amazon.com/AmazonS3/latest/userguide/cors.html`
+            );
+          }
+
+          // Remove quotes from ETag
+          const cleanETag = etag.replace(/"/g, "");
+
+          return {
+            PartNumber: partNumber,
+            ETag: cleanETag,
+          };
+        };
+
+        // Upload in batches of PARALLEL_UPLOADS
+        for (let i = 0; i < chunks.length; i += PARALLEL_UPLOADS) {
+          const batchEnd = Math.min(i + PARALLEL_UPLOADS, chunks.length);
+          const batchPromises = [];
+
+          // Update progress immediately when batch starts (optimistic update)
+          const estimatedProgress = Math.round((i / totalParts) * 100);
+          setFileState((prev) => ({ ...prev, progress: estimatedProgress }));
+
+          // Create promises for this batch
+          for (let j = i; j < batchEnd; j++) {
+            const partNumber = j + 1;
+            const chunk = chunks[j];
+            batchPromises.push(uploadPart(partNumber, chunk));
+          }
+
+          // Upload batch in parallel
+          const batchResults = await Promise.all(batchPromises);
+          uploadedParts.push(...batchResults);
+
+          // Update progress after batch completes
+          const actualProgress = Math.round((uploadedParts.length / totalParts) * 100);
+          setFileState((prev) => ({ ...prev, progress: actualProgress }));
+          
+          console.log(`[Multipart] Batch ${Math.floor(i / PARALLEL_UPLOADS) + 1} complete: ${uploadedParts.length}/${totalParts} parts uploaded (${actualProgress}%)`);
+        }
+
+        // Step 4: Complete upload
+        toast.info("Đang hoàn tất tệp...");
+        
+        const completeResponse = await fetch("/api/s3/multipart/complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            uploadId,
+            key,
+            parts: uploadedParts,
+          }),
+        });
+
+        if (!completeResponse.ok) {
+          throw new Error("Không thể hoàn tất upload");
+        }
+
+        const { success } = await completeResponse.json();
+
+        if (success) {
+          const uploadedUrl = `https://${env.NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES}.t3.storage.dev/${key}`;
+
+          setFileState((prev) => ({
+            ...prev,
+            progress: 100,
+            uploading: false,
+            key: key,
+            objectUrl: uploadedUrl,
+          }));
+
+          if (key) {
+            onChange?.(key);
+          }
+          toast.success("Tải lên video thành công!");
+        }
+      } catch (error) {
+        console.error("Multipart upload error:", error);
+        toast.error(error instanceof Error ? error.message : "Upload thất bại");
+
+        // Abort incomplete upload
+        if (uploadId && key) {
+          try {
+            await fetch("/api/s3/multipart/abort", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ uploadId, key }),
+            });
+            console.log("Aborted incomplete upload");
+          } catch (abortError) {
+            console.error("Failed to abort upload:", abortError);
+          }
+        }
+
+        setFileState((prev) => ({
+          ...prev,
+          uploading: false,
+          error: true,
+        }));
+      }
+    },
+    [onChange, folder]
+  );
+  
+  // Single-part upload for small files (existing logic)
+  const upLoadSinglePart = useCallback(
     async (file: File) => {
       setFileState((prev) => ({
         ...prev,
@@ -63,6 +264,7 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted }
             contentType: file.type,
             size: file.size,
             isImage: fileTypeAccepted ==="image"? true: false,
+            folder: folder, // S3 folder prefix
           }),
         });
         if (!presignedResponse.ok) {
@@ -89,11 +291,15 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted }
           };
           xhr.onload = () => {
             if (xhr.status === 200 || xhr.status === 204) {
+              // Construct S3 URL for preview
+              const uploadedUrl = `https://${env.NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES}.t3.storage.dev/${key}`;
+              
               setFileState((prev) => ({
                 ...prev,
                 progress: 100,
                 uploading: false,
                 key: key,
+                objectUrl: uploadedUrl, // ✅ Update objectUrl to trigger preview
               }));
               onChange?.(key);
               toast.success("Tải lên tệp thành công");
@@ -119,8 +325,48 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted }
         }));
       }
     },
-    [onChange,fileTypeAccepted]
+    [onChange, fileTypeAccepted, folder]
   );
+  
+  // Router: Choose upload strategy based on file size
+  const upLoadFile = useCallback(
+    async (file: File) => {
+      // Validate file size
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(
+          `File quá lớn! Vui lòng upload video dưới ${MAX_FILE_SIZE_MB}MB. ` +
+          `(Video của bạn: ${Math.round(file.size / 1024 / 1024)}MB)`,
+          { duration: 5000 }
+        );
+        setFileState((prev) => ({
+          ...prev,
+          error: true,
+        }));
+        return;
+      }
+
+      // Warning for large files
+      if (file.size > 500 * 1024 * 1024) {
+        // > 500MB
+        toast.warning(
+          `Video lớn (${Math.round(file.size / 1024 / 1024)}MB). ` +
+          `Khuyến nghị video dưới 500MB để tải nhanh hơn.`,
+          { duration: 5000 }
+        );
+      }
+
+      // Route to appropriate upload strategy
+      if (file.size >= MULTIPART_THRESHOLD) {
+        console.log(`[Upload] Using multipart for ${file.name} (${Math.round(file.size / 1024 / 1024)}MB)`);
+        await upLoadMultipart(file);
+      } else {
+        console.log(`[Upload] Using single-part for ${file.name} (${Math.round(file.size / 1024 / 1024)}MB)`);
+        await upLoadSinglePart(file);
+      }
+    },
+    [upLoadMultipart, upLoadSinglePart]
+  );
+
 
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
@@ -132,24 +378,56 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted }
         if (fileTypeAccepted === "video" && onDurationChange) {
             const video = document.createElement("video");
             video.preload = "metadata";
+            
+            // ⚠️ Critical: Add timeout to prevent hanging if metadata never loads
+            let metadataLoaded = false;
+            const METADATA_TIMEOUT = 10000; // 10 seconds
+            
+            const timeoutId = setTimeout(() => {
+              if (!metadataLoaded) {
+                console.warn("Video metadata timeout - proceeding with upload anyway");
+                window.URL.revokeObjectURL(video.src);
+                onDurationChange(0); // Default to 0 if can't extract
+              }
+            }, METADATA_TIMEOUT);
+            
             video.onloadedmetadata = function() {
+              metadataLoaded = true;
+              clearTimeout(timeoutId);
               window.URL.revokeObjectURL(video.src);
-              onDurationChange(Math.round(video.duration));
-            }
+              
+              if (!isNaN(video.duration) && isFinite(video.duration)) {
+                onDurationChange(Math.round(video.duration));
+              } else {
+                console.warn("Invalid video duration, setting to 0");
+                onDurationChange(0);
+              }
+            };
+            
+            // ⚠️ Critical: Handle errors when video metadata can't be loaded
+            video.onerror = function(e) {
+              metadataLoaded = true;
+              clearTimeout(timeoutId);
+              console.error("Failed to load video metadata:", e);
+              window.URL.revokeObjectURL(video.src);
+              onDurationChange(0); // Proceed with upload even if duration extraction fails
+              toast.warning("Không thể đọc thời lượng video, nhưng vẫn tiếp tục tải lên");
+            };
+            
             video.src = objectUrl;
         }
 
         setFileState((prev) => {
-          // ✅ Dùng prev.objectUrl thay vì fileState.objectUrl
+          // ✅ Revoke previous blob URL if exists
           if (prev.objectUrl && !prev.objectUrl.startsWith("http")) {
             URL.revokeObjectURL(prev.objectUrl);
           }
 
           return {
             file: file,
-            uploading: false,
+            uploading: false, // Will be set to true by upLoadFile
             progress: 0,
-            objectUrl: objectUrl,
+            objectUrl: undefined, // ❌ DO NOT show preview until upload complete
             error: false,
             id: uuidv4(),
             isDeleting: false,
@@ -228,6 +506,16 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted }
     }
   }
 
+  // Handle click to reset error state
+  const handleClick = () => {
+    if (fileState.error) {
+      setFileState((prev) => ({
+        ...prev,
+        error: false,
+      }));
+    }
+  };
+
   function renderContent() {
     if (fileState.uploading) {
       return (
@@ -259,12 +547,27 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted }
       }
     };
   }, [fileState.objectUrl]);
+  
+  // Prevent accidental tab close during upload
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (fileState.uploading) {
+        e.preventDefault();
+        e.returnValue = "Upload đang diễn ra. Bạn có chắc muốn rời khỏi?";
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [fileState.uploading]);
+  
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: fileTypeAccepted ==="video"?{'video/*':[]}:{"image/*":[]},
     maxFiles: 1,
     multiple: false,
-    maxSize: fileTypeAccepted === "video" ? 4000 * 1024 * 1024 : 5 * 1024 * 1024, // Video: 100MB, Image: 5MB
+    maxSize: fileTypeAccepted === "video" ? 400 * 1024 * 1024 : 10 * 1024 * 1024, // Video: 400MB, Image: 10MB
     onDropRejected: rejectedFiles,
     disabled: fileState.uploading || !!fileState.objectUrl,
   });
@@ -273,7 +576,8 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted }
     <Card
       {...getRootProps()}
       className={cn(
-        "relative border-2 border-dashed transition-colors duration-200 ease-in-out w-full h-64",
+        "relative border-2 border-dashed transition-colors duration-200 ease-in-out w-full",
+        fileTypeAccepted === "video" ? "h-96" : "h-64", // Video: taller preview
         isDragActive
           ? "border-primary bg-primary/10 border-solid"
           : "border-border hover:border-primary"

@@ -125,7 +125,6 @@ export default function NewCouponForm({ initialData, couponId }: NewCouponFormPr
              const res = await CheckCouponCode(debouncedCode);
              if (res.exists) {
                  setCodeCheckStatus("exists");
-                 form.setError("maGiamGia", { message: "Mã này đã tồn tại" });
              } else {
                  setCodeCheckStatus("available");
                  form.clearErrors("maGiamGia");
@@ -204,8 +203,8 @@ export default function NewCouponForm({ initialData, couponId }: NewCouponFormPr
                                         {...field} 
                                         className={cn(
                                             "uppercase",
-                                            codeCheckStatus === "exists" && "border-red-500 focus-visible:ring-red-500",
-                                            codeCheckStatus === "available" && "border-green-500 focus-visible:ring-green-500"
+                                            codeCheckStatus === "exists" && "border-red-500",
+                                            codeCheckStatus === "available" && "border-green-500"
                                         )}
                                         onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                                     />

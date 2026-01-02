@@ -52,7 +52,8 @@ export async function deleteReportedComment(idBinhLuan: string): Promise<ApiResp
 export async function deleteAndBanUser(
   idBinhLuan: string,
   idNguoiDung: string,
-  banReason: string = "Vi phạm quy định bình luận"
+  banReason: string = "Vi phạm quy định bình luận",
+  banExpires?: Date | null // null = permanent, Date = temporary
 ): Promise<ApiResponse> {
   await requireAdmin();
 
@@ -68,13 +69,18 @@ export async function deleteAndBanUser(
       data: {
         banned: true,
         banReason,
-        banExpires: null, // Permanent ban
+        banExpires: banExpires === undefined ? null : banExpires,
       },
     });
 
     revalidatePath("/admin/reports");
     revalidatePath("/admin/users");
-    return { status: "success", message: "Đã xóa bình luận và cấm người dùng" };
+    
+    const banMessage = banExpires 
+      ? `Đã xóa bình luận và cấm người dùng đến ${new Date(banExpires).toLocaleDateString('vi-VN')}`
+      : "Đã xóa bình luận và cấm người dùng vĩnh viễn";
+    
+    return { status: "success", message: banMessage };
   } catch (error) {
     console.error("Error banning user:", error);
     return { status: "error", message: "Không thể xử lý yêu cầu" };

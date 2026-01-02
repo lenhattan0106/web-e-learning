@@ -1,12 +1,19 @@
 import { EmptyState } from "@/components/general/EmtyState";
-import { getAllCourses } from "../data/course/get-all-courses";
+import { getAllCoursesWithOwnership } from "../data/course/get-all-courses-with-ownership";
 import { getEnrolledCourses } from "../data/user/get-enrolled-courses";
 import { PublicCourseCard } from "../(public)/_components/PublicCourseCard";
 import { CourseProgressCard } from "./_components/CourseProgressCard";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export default async function DashboardPage() {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  const userRole = session?.user?.role as "user" | "teacher" | "admin" | undefined;
+
   const [courses, enrolledCourses] = await Promise.all([
-    getAllCourses(),
+    getAllCoursesWithOwnership(),
     getEnrolledCourses(),
   ]);
 
@@ -38,7 +45,7 @@ export default async function DashboardPage() {
           ))}
         </div>
       )}
-      <section className="mt-10">
+      <section className="mt-8">
         <div className="flex flex-col gap-2 mb-2">
           <h1 className="text-xl font-bold">Khóa học có sẵn</h1>
           <p className="text-muted-foreground text-sm">
@@ -58,6 +65,8 @@ export default async function DashboardPage() {
               <PublicCourseCard
                 key={course.id}
                 data={course}
+                isOwner={course.isOwner}
+                userRole={userRole}
               ></PublicCourseCard>
             ))}
           </div>

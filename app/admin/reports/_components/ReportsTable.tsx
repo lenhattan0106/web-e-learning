@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Image from "next/image";
 import { formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 import {
@@ -13,7 +12,9 @@ import {
   AlertTriangle,
   MessageSquare,
   Eye,
+  ExternalLink,
 } from "lucide-react";
+import Link from "next/link";
 import {
   Table,
   TableBody,
@@ -45,6 +46,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { tryCatch } from "@/hooks/try-catch";
 import { ReportedComment } from "@/app/data/admin/get-reported-comments";
@@ -62,6 +66,11 @@ export function ReportsTable({ reports }: ReportsTableProps) {
   const [selectedComment, setSelectedComment] = useState<ReportedComment | null>(null);
   const [actionType, setActionType] = useState<"view" | "delete" | "ban" | null>(null);
   const [pending, startTransition] = useTransition();
+  const [isContentRevealed, setIsContentRevealed] = useState(false);
+  
+  // Ban form state
+  const [banDuration, setBanDuration] = useState<string>("permanent");
+  const [banReason, setBanReason] = useState("Vi phạm quy định bình luận");
 
   const handleAction = (action: "approve" | "delete" | "ban") => {
     if (!selectedComment) return;
@@ -77,11 +86,20 @@ export function ReportsTable({ reports }: ReportsTableProps) {
           result = await tryCatch(deleteReportedComment(selectedComment.id));
           break;
         case "ban":
+          // Calculate ban expiration based on duration
+          let banExpires: Date | null = null;
+          if (banDuration !== "permanent") {
+            const days = parseInt(banDuration);
+            banExpires = new Date();
+            banExpires.setDate(banExpires.getDate() + days);
+          }
+          
           result = await tryCatch(
             deleteAndBanUser(
               selectedComment.id,
               selectedComment.idNguoiDung,
-              "Vi phạm quy định bình luận"
+              banReason,
+              banExpires
             )
           );
           break;
@@ -133,20 +151,11 @@ export function ReportsTable({ reports }: ReportsTableProps) {
               <TableRow key={report.id}>
                 {/* User */}
                 <TableCell>
-                  <div className="flex items-center gap-2">
-                    {report.nguoiDung.image ? (
-                      <Image
-                        src={report.nguoiDung.image}
-                        alt={report.nguoiDung.name}
-                        width={32}
-                        height={32}
-                        className="rounded-full"
-                      />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                        <User className="w-4 h-4" />
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                       <Avatar className="h-8 w-8">
+                        <AvatarImage src={report.nguoiDung.image || ""} alt={report.nguoiDung.name || "User"} />
+                        <AvatarFallback>{report.nguoiDung.name?.[0]?.toUpperCase()}</AvatarFallback>
+                      </Avatar>
                     <div>
                       <p className="font-medium text-sm">{report.nguoiDung.name}</p>
                       {report.nguoiDung.banned && (
@@ -263,45 +272,132 @@ export function ReportsTable({ reports }: ReportsTableProps) {
         onOpenChange={() => {
           setActionType(null);
           setSelectedComment(null);
+          setIsContentRevealed(false);
         }}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Chi tiết bình luận</DialogTitle>
           </DialogHeader>
           {selectedComment && (
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Nội dung</p>
-                <p className="mt-1 p-3 bg-muted rounded-lg whitespace-pre-wrap">
-                  {selectedComment.noiDung}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-2">
-                  Lý do báo cáo ({selectedComment.baoCaos.length})
-                </p>
-                <div className="space-y-2">
-                  {selectedComment.baoCaos.map((bc) => (
-                    <div key={bc.id} className="p-2 bg-muted/50 rounded text-sm">
-                      <p className="font-medium">{bc.nguoiDung.name}</p>
-                      <p className="text-muted-foreground">{bc.lyDo}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {formatDistanceToNow(new Date(bc.ngayTao), {
-                          addSuffix: true,
-                          locale: vi,
-                        })}
+            <div className="space-y-6">
+              {/* Content Section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-muted-foreground">Nội dung bị báo cáo</p>
+                  <div className="flex items-center gap-2">
+                    <Link 
+                      href={`/dashboard/${selectedComment.baiHoc.chuong.khoaHoc.duongDan}/${selectedComment.baiHoc.id}`}
+                      target="_blank"
+                      className="text-xs flex items-center text-blue-600 hover:underline"
+                    >
+                      Xem ngữ cảnh <ExternalLink className="w-3 h-3 ml-1" />
+                    </Link>
+                    <Badge variant={selectedComment._count.baoCaos >= 3 ? "destructive" : "secondary"}>
+                      {selectedComment._count.baoCaos} báo cáo
+                    </Badge>
+                  </div>
+                </div>
+                
+                {selectedComment._count.baoCaos > 3 && !isContentRevealed ? (
+                  <div className="bg-destructive/5 border-2 border-dashed border-destructive/20 p-8 rounded-xl text-center space-y-4">
+                    <div className="flex justify-center">
+                      <div className="p-3 bg-white rounded-full shadow-sm">
+                        <AlertTriangle className="w-8 h-8 text-destructive" />
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-destructive text-lg">
+                        Nội dung nhạy cảm
+                      </h4>
+                      <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
+                        Hệ thống đã tự động ẩn nội dung này vì có số lượng báo cáo vượt ngưỡng an toàn.
                       </p>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="mt-2"
+                      onClick={() => setIsContentRevealed(true)}
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Xem nội dung gốc
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary/20 rounded-full" />
+                    <blockquote className="pl-4 py-2 text-lg italic text-foreground/90 bg-muted/30 rounded-r-lg">
+                      "{selectedComment.noiDung}"
+                    </blockquote>
+                  </div>
+                )}
+              </div>
+
+              {/* Reporters Section */}
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-3">
+                  Danh sách báo cáo ({selectedComment.baoCaos.length})
+                </p>
+                <div className="grid gap-2 max-h-[300px] overflow-y-auto pr-1">
+                  {selectedComment.baoCaos.map((bc) => (
+                    <div key={bc.id} className="flex items-start gap-3 p-3 bg-muted/40 rounded-lg border border-transparent hover:border-border transition-colors">
+                      <Avatar className="h-8 w-8 shrink-0 border">
+                        <AvatarImage src={bc.nguoiDung.image || ""} alt={bc.nguoiDung.name || "User"} />
+                        <AvatarFallback>{bc.nguoiDung.name?.[0]?.toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-medium text-sm truncate">{bc.nguoiDung.name}</p>
+                          <span className="text-[10px] text-muted-foreground whitespace-nowrap bg-background px-1.5 py-0.5 rounded border">
+                            {formatDistanceToNow(new Date(bc.ngayTao), {
+                              addSuffix: true,
+                              locale: vi,
+                            })}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-0.5">{bc.lyDo}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setActionType(null)}>
+          
+          <DialogFooter className="flex-col sm:flex-row gap-3 sm:gap-0 sm:justify-between items-center sm:items-center mt-6 pt-6 border-t">
+            <Button variant="ghost" onClick={() => setActionType(null)} className="w-full sm:w-auto">
               Đóng
             </Button>
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <Button
+                variant="outline"
+                onClick={() => handleAction("approve")}
+                disabled={pending}
+                className="w-full sm:w-auto text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 transition-colors"
+              >
+                <Check className="w-4 h-4 mr-2" />
+                Khôi phục hiển thị
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setActionType("delete")}
+                disabled={pending}
+                className="w-full sm:w-auto text-orange-600 border-orange-200 hover:bg-orange-50 hover:text-orange-700 hover:border-orange-300 transition-colors"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Xóa
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => setActionType("ban")}
+                disabled={pending}
+                className="w-full sm:w-auto shadow-sm hover:shadow transition-all"
+              >
+                <Ban className="w-4 h-4 mr-2" />
+                Xóa & Cấm
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -342,25 +438,62 @@ export function ReportsTable({ reports }: ReportsTableProps) {
         onOpenChange={() => {
           setActionType(null);
           setSelectedComment(null);
+          setBanDuration("permanent");
+          setBanReason("Vi phạm quy định bình luận");
         }}
       >
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Xác nhận cấm người dùng</DialogTitle>
+            <DialogTitle>Cấm người dùng</DialogTitle>
             <DialogDescription>
-              Bình luận sẽ bị xóa và người dùng <strong>{selectedComment?.nguoiDung.name}</strong> sẽ bị cấm vĩnh viễn.
+              Bình luận sẽ bị xóa và người dùng <strong>{selectedComment?.nguoiDung.name}</strong> sẽ bị cấm.
             </DialogDescription>
           </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Ban Duration */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Thời hạn cấm</label>
+              <Select value={banDuration} onValueChange={setBanDuration}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7">7 ngày</SelectItem>
+                  <SelectItem value="30">30 ngày</SelectItem>
+                  <SelectItem value="90">90 ngày</SelectItem>
+                  <SelectItem value="permanent">Vĩnh viễn</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Ban Reason */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Lý do cấm</label>
+              <Textarea 
+                value={banReason}
+                onChange={(e) => setBanReason(e.target.value)}
+                placeholder="Nhập lý do cấm..."
+                rows={3}
+                className="resize-none"
+              />
+            </div>
+          </div>
+          
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setActionType(null)}>
+            <Button variant="ghost" onClick={() => {
+              setActionType(null);
+              setBanDuration("permanent");
+              setBanReason("Vi phạm quy định bình luận");
+            }}>
               Hủy
             </Button>
             <Button
               variant="destructive"
               onClick={() => handleAction("ban")}
-              disabled={pending}
+              disabled={pending || !banReason.trim()}
             >
-              {pending ? "Đang xử lý..." : "Xóa và cấm"}
+              {pending ? "Đang xử lý..." : "Xác nhận cấm"}
             </Button>
           </DialogFooter>
         </DialogContent>

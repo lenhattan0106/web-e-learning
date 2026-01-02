@@ -1,6 +1,7 @@
 "use server";
 
-import { getUserDetails, getRevenueDetails, getPremiumDetails, getReportsDetails, getCourseDetailsForAdmin } from "@/app/data/admin/get-admin-dashboard-details";
+import { getUserDetails, getRevenueDetails, getPremiumDetails, getCourseDetailsForAdmin } from "@/app/data/admin/get-admin-dashboard-details";
+import { getReportedComments } from "@/app/data/admin/get-reported-comments";
 
 export async function fetchUserDetails() {
   return await getUserDetails();
@@ -15,7 +16,7 @@ export async function fetchPremiumDetails() {
 }
 
 export async function fetchReportsDetails() {
-  return await getReportsDetails();
+  return await getReportedComments();
 }
 
 export async function fetchCourseDetails() {

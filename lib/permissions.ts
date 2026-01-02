@@ -10,15 +10,16 @@ export const statement = {
 
 export const ac = createAccessControl(statement);
 
-// Định nghĩa role teacher với đầy đủ quyền quản lý khóa học
 export const teacher = ac.newRole({
   course: ["create", "update", "delete", "view"],
   enrollment: ["view"],
 });
 
-// Định nghĩa role admin với đầy đủ quyền của better-auth
+
 export const admin = ac.newRole({
   ...adminAc.statements, 
+  course: ["view"], // Admin chỉ xem courses như user
+  enrollment: ["view"], // Admin xem enrollments để track doanh thu và phí sàn
 });
 
 export const user = ac.newRole({

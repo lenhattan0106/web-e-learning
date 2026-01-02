@@ -39,6 +39,7 @@ import {
   deleteComment,
   updateComment,
   reportComment,
+  getComments,
 } from "@/app/dashboard/[slug]/[lessonId]/_actions/comment-actions";
 
 // Types
@@ -126,9 +127,16 @@ export function CommentSection({
   const [comments, setComments] = useState(initialComments);
   const router = useRouter();
 
-  const handleCommentAdded = () => {
-    // Soft refresh - refetch server data without full page reload
-    router.refresh();
+  // Sync props to state (in case parent updates)
+  useEffect(() => {
+    setComments(initialComments);
+  }, [initialComments]);
+
+  const handleCommentAdded = async () => {
+    // Client-side refresh to avoid page reload (video interruption)
+    const newComments = await getComments(idBaiHoc);
+    // Cast to compatible type if needed, effectively it matches
+    setComments(newComments as unknown as Comment[]);
   };
 
   return (

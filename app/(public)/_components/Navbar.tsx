@@ -5,8 +5,9 @@ import Link from "next/link";
 import Logo from "@/public/logo e-learning.png";
 import { ThemeToggle } from "@/components/ui/themeToggle";
 import { authClient } from "@/lib/auth-client";
-import { buttonVariants } from "@/components/ui/button";
-import { UserDropDown } from "./UserDropdown";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { UserMenu } from "@/components/shared/UserMenu";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function Navbar() {
   const { data: session, isPending } = authClient.useSession();
@@ -19,14 +20,15 @@ export function Navbar() {
       // Admin: quản lý users + Premium, không quản lý khóa học
       return [
         { name: "Trang chủ", href: "/" },
-        { name: "Khóa học", href: "/courses" },
+        { name: "Khóa học hiện tại", href: "/courses" },
         { name: "Bảng điều khiển", href: "/admin" },
       ];
     }
     if (role === "teacher") {
       return [
         { name: "Trang chủ", href: "/" },
-        { name: "Khóa học", href: "/teacher/courses" },
+        { name: "Quản lý khóa học", href: "/teacher/courses" },
+          { name: "Khóa học hiện tại", href: "/courses" },
         { name: "Bảng điều khiển", href: "/teacher" },
       ];
     }
@@ -62,33 +64,18 @@ export function Navbar() {
           </div>
           <div className="flex items-center space-x-4">
             <ThemeToggle></ThemeToggle>
-            {isPending ? null : session ? (
-              <UserDropDown
-                email={session.user.email}
-                image={
-                  session?.user.image ??
-                  `https://avatar.vercel.sh/${session?.user.email}`
-                }
-                name={
-                  session?.user.name && session.user.name.length > 0
-                    ? session.user.name
-                    : session?.user.email.split("@")[0]
-                }
-                role={role ?? "user"}
-              ></UserDropDown>
+            {isPending ? (
+              <Skeleton className="h-10 w-10 rounded-full" />
+            ) : session ? (
+              <UserMenu variant="navbar" />
             ) : (
               <>
-                <Link
-                  href="/login"
-                  className={buttonVariants({
-                    variant: "secondary",
-                  })}
-                >
-                  Đăng nhập
-                </Link>
-                <Link href="/login" className={buttonVariants({})}>
-                  Bắt đầu
-                </Link>
+                <Button variant="ghost" asChild>
+                  <Link href="/login">Đăng nhập</Link>
+                </Button>
+                <Button asChild>
+                  <Link href="/login">Đăng ký ngay</Link>
+                </Button>
               </>
             )}
           </div>

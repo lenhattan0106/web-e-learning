@@ -18,6 +18,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { tryCatch } from "@/hooks/try-catch";
@@ -127,6 +128,7 @@ export function LessonForm({ data, idBaiHoc, idChuong, idKhoaHoc }: iAppProps) {
                         fileTypeAccepted="image"
                         onChange={field.onChange}
                         value={field.value}
+                        folder="thumbnails"
                       />
                     </FormControl>
                     <FormMessage />
@@ -148,12 +150,42 @@ export function LessonForm({ data, idBaiHoc, idChuong, idKhoaHoc }: iAppProps) {
                           form.setValue("thoiLuong", duration);
                         }}
                         value={field.value}
+                        folder="videos"
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+              
+              {form.watch("maVideo") && form.watch("thoiLuong") === 0 && (
+                <FormField
+                  control={form.control}
+                  name="thoiLuong"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-amber-600 font-medium">
+                         Nhập thời lượng video (giây)
+                      </FormLabel>
+                      <FormDescription className="text-sm">
+                        Hệ thống không thể tự động đọc thời lượng video. Vui lòng nhập số giây của video.
+                        <br />
+                        <span className="text-muted-foreground">Ví dụ: 2 phút = 120 giây, 5 phút 30 giây = 330 giây</span>
+                      </FormDescription>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="Nhập số giây (ví dụ: 120)"
+                          {...field}
+                          onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                          className="border-amber-300 focus:border-amber-500"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               
               <Button disabled={pending} type="submit">
                 {pending ? (

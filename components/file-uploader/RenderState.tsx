@@ -55,7 +55,14 @@ export function RenderUploadedState({
   return (
     <div className="relative group w-full h-full flex items-center justify-center">
      {fileType === "video" ? (
-       <video src={previewUrl} controls className="rounded-md w-full h-full"></video>
+       <video 
+         src={previewUrl} 
+         controls 
+         className="rounded-md w-full max-h-full object-contain"
+         crossOrigin="anonymous"
+         preload="metadata"
+         controlsList="nodownload"
+       ></video>
      ):(
         <Image
         src={previewUrl}
@@ -89,13 +96,67 @@ export function RenderUploadingState({
   progress: number;
   file: File;
 }) {
+  const fileSizeMB = (file.size / 1024 / 1024).toFixed(1);
+  
   return (
-    <div className="text-center flex justify-center items-center flex-col">
-      <p>{progress}%</p>
-      <p className="mt-2 text-sm font-medium text-foreground">Đang tải lên...</p>
-      <p className="mt-1 text-xs text-muted-foreground truncate max-w-xs">
-        {file.name}
-      </p>
+    <div className="text-center flex justify-center items-center flex-col space-y-4">
+      {/* Circular Progress */}
+      <div className="relative w-24 h-24">
+        <svg className="w-24 h-24 transform -rotate-90">
+          {/* Background circle */}
+          <circle
+            cx="48"
+            cy="48"
+            r="40"
+            stroke="currentColor"
+            strokeWidth="8"
+            fill="none"
+            className="text-muted"
+          />
+          {/* Progress circle */}
+          <circle
+            cx="48"
+            cy="48"
+            r="40"
+            stroke="currentColor"
+            strokeWidth="8"
+            fill="none"
+            strokeDasharray={`${2 * Math.PI * 40}`}
+            strokeDashoffset={`${2 * Math.PI * 40 * (1 - progress / 100)}`}
+            className="text-primary transition-all duration-300"
+            strokeLinecap="round"
+          />
+        </svg>
+        {/* Percentage */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-2xl font-bold text-foreground">{progress}%</span>
+        </div>
+      </div>
+
+      {/* Status Text */}
+      <div className="space-y-1">
+        <p className="text-base font-semibold text-foreground">
+          {progress === 0 ? "Đang chuẩn bị..." : progress === 100 ? "Đang hoàn tất..." : "Đang tải lên..."}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {fileSizeMB} MB • {file.name}
+        </p>
+        {progress > 0 && progress < 100 && (
+          <p className="text-xs text-muted-foreground">
+            Vui lòng không đóng trình duyệt
+          </p>
+        )}
+      </div>
+
+      {/* Linear Progress Bar */}
+      <div className="w-full max-w-xs">
+        <div className="h-2 bg-muted rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-primary transition-all duration-300 ease-out"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
     </div>
   );
 }

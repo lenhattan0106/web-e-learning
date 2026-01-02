@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { MessageSquare, ImageIcon, FileText } from "lucide-react";
 import Pusher from "pusher-js";
 import { env } from "@/lib/env";
@@ -90,10 +91,17 @@ export const SidebarItem = ({ course, baseUrl }: SidebarItemProps) => {
 
         <div className="flex flex-col flex-1 overflow-hidden gap-0.5">
             <div className="flex justify-between items-baseline">
-                 <span className={cn(
-                    "truncate text-sm font-semibold transition-colors",
-                    isActive ? "text-primary" : "text-foreground"
-                )}>{course.tenKhoaHoc}</span>
+                 <Tooltip>
+                   <TooltipTrigger asChild>
+                     <span className={cn(
+                        "truncate text-sm font-semibold transition-colors cursor-pointer",
+                        isActive ? "text-primary" : "text-foreground"
+                     )}>{course.tenKhoaHoc}</span>
+                   </TooltipTrigger>
+                   <TooltipContent side="right" className="max-w-xs">
+                     <p>{course.tenKhoaHoc}</p>
+                   </TooltipContent>
+                 </Tooltip>
                 {lastMessage && (
                   <span className="text-[10px] text-muted-foreground ml-2 whitespace-nowrap">
                     {formatMessageTime(lastMessage.createdAt)}

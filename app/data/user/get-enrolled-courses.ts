@@ -19,6 +19,7 @@ export async function getEnrolledCourses() {
           capDo: true,
           duongDan: true,
           thoiLuong: true,
+          trangThai: true, 
           chuongs: {
             select: {
               id: true,

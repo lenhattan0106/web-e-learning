@@ -8,6 +8,7 @@ import {
   IconSparkles,
   IconMessageReport,
   IconBooks,
+  IconHistory,
 } from "@tabler/icons-react";
 
 import Logo from "@/public/logo e-learning.png";
@@ -49,9 +50,14 @@ const data = {
       icon: IconSparkles,
     },
     {
-      title: "Quản lý báo cáo",
-      url: "/admin/reports",
+      title: "Quản lý chất lượng",
+      url: "/admin/quality-control",
       icon: IconMessageReport,
+    },
+    {
+      title: "Nhật ký xử lý",
+      url: "/admin/activity-logs",
+      icon: IconHistory,
     },
   ],
   navSecondary: [

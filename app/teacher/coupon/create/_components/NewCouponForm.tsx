@@ -36,6 +36,7 @@ import {
   FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -71,6 +72,7 @@ export default function NewCouponForm({ initialData, couponId }: NewCouponFormPr
     resolver: zodResolver(couponFormSchema),
     defaultValues: {
       tieuDe: initialData?.tieuDe || "",
+      moTa: initialData?.moTa || "", // Mô tả chiến dịch cho AI tìm kiếm
       maGiamGia: initialData?.maGiamGia || "",
       ngayBatDau: initialData?.ngayBatDau || null,
       ngayKetThuc: initialData?.ngayKetThuc || null,
@@ -215,6 +217,29 @@ export default function NewCouponForm({ initialData, couponId }: NewCouponFormPr
                                 </FormControl>
                                 {codeCheckStatus === "exists" && <p className="text-xs text-red-500 mt-1">Mã này đã được sử dụng.</p>}
                                 {codeCheckStatus === "available" && <p className="text-xs text-green-500 mt-1">Mã hợp lệ.</p>}
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+
+                        {/* Mô tả chiến dịch (AI Semantic Search) */}
+                        <FormField
+                            control={form.control}
+                            name="moTa"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Mô tả chiến dịch</FormLabel>
+                                <FormControl>
+                                <Textarea 
+                                    placeholder="Ví dụ: Ưu đãi dành cho sinh viên, giảm 50% cho khóa học React..." 
+                                    className="resize-none"
+                                    rows={3}
+                                    {...field} 
+                                />
+                                </FormControl>
+                                <FormDescription>
+                                    Giúp AI tư vấn mã giảm giá phù hợp cho người dùng.
+                                </FormDescription>
                                 <FormMessage />
                             </FormItem>
                             )}

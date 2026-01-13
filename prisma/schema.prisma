@@ -39,9 +39,13 @@ model User {
   
   // Rating relations
   danhGias          DanhGia[]
+  baoCaoKhoaHocs    BaoCaoKhoaHoc[]
   
   // Notification relations
   thongBaos         ThongBao[]
+  
+  // Admin logs
+  adminLogs         NhatKyXuLy[]   @relation("AdminLogs")
 
   @@map("nguoiDung")
 }
@@ -94,6 +98,7 @@ model Verification {
   identifier String   @map("maDinhDanh")
   value      String   @map("giaTri")
   expiresAt  DateTime @map("hetHan")
+  daSuDung   Boolean  @default(false) @map("da_su_dung")
   createdAt  DateTime @default(now()) @map("ngayTao")
   updatedAt  DateTime @updatedAt @map("ngayCapNhat")
 
@@ -102,34 +107,30 @@ model Verification {
 }
 
 model KhoaHoc {
-  id                String             @id @default(uuid())
+  id                String                  @id @default(uuid())
   tenKhoaHoc        String
   moTa              String
   tepKH             String
   gia               Int
   thoiLuong         Int
-  // Old fields (will be deprecated after migration)
-  capDo             CapDoKhoaHocEnum?       @default(NguoiMoi)
+  capDo             CapDoKhoaHocEnum        @default(NguoiMoi)
   danhMuc           String?
-  trangThai         TrangThaiKhoaHocEnum?   @default(BanNhap) @map("trangThai") // Renamed enum to avoid conflict with model
+  trangThai         TrangThaiKhoaHocEnum    @default(BanNhap) @map("trangThai")
   
-  // New Vietnamese relations
-  idDanhMuc         String?             @map("id_danh_muc")
-  danhMucRef        DanhMuc?            @relation(fields: [idDanhMuc], references: [id])
+  // Vietnamese relations
+  idDanhMuc         String?                 @map("id_danh_muc")
+  danhMucRef        DanhMuc?                @relation(fields: [idDanhMuc], references: [id])
   
-  idCapDo           String?             @map("id_cap_do")
-  capDoRef          CapDo?              @relation(fields: [idCapDo], references: [id])
-  
-  idTrangThai       String?             @map("id_trang_thai")
-  trangThaiRef      TrangThaiKhoaHoc?   @relation(fields: [idTrangThai], references: [id])
+  idCapDo           String?                 @map("id_cap_do")
+  capDoRef          CapDo?                  @relation(fields: [idCapDo], references: [id])
 
   moTaNgan          String
-  duongDan          String             @unique
-  ngayTao           DateTime           @default(now())
-  ngayCapNhat       DateTime           @updatedAt
+  duongDan          String                  @unique
+  ngayTao           DateTime                @default(now())
+  ngayCapNhat       DateTime                @updatedAt
   dangKyHocs        DangKyHoc[]
   idNguoiDung       String
-  nguoiDung         User               @relation(fields: [idNguoiDung], references: [id], onDelete: Cascade)
+  nguoiDung         User                    @relation(fields: [idNguoiDung], references: [id], onDelete: Cascade)
   chuongs           Chuong[]
   maGiamGiaKhoaHocs MaGiamGiaKhoaHoc[]
   
@@ -137,11 +138,14 @@ model KhoaHoc {
   
   // Rating relations
   danhGias          DanhGia[]
+  baoCaos           BaoCaoKhoaHoc[]
+  
+  // AI Semantic Search (Vector Embedding)
+  embedding         Unsupported("vector(768)")?
 
   @@map("khoaHoc")
   @@index([idDanhMuc])
   @@index([idCapDo])
-  @@index([idTrangThai])
 }
 
 enum CapDoKhoaHocEnum {
@@ -154,6 +158,7 @@ enum TrangThaiKhoaHocEnum {
   BanNhap
   BanChinhThuc
   BanLuuTru
+  BiChan
 }
 
 model DanhMuc {
@@ -184,17 +189,7 @@ model CapDo {
   @@map("cap_do")
 }
 
-model TrangThaiKhoaHoc {
-  id            String     @id @default(uuid())
-  tenTrangThai  String     @map("ten_trang_thai")
-  maTrangThai   String     @unique @map("ma_trang_thai") 
-  khoaHocs      KhoaHoc[]
-  
-  ngayTao       DateTime   @default(now()) @map("ngay_tao")
-  ngayCapNhat   DateTime   @updatedAt @map("ngay_cap_nhat")
 
-  @@map("trang_thai_khoa_hoc")
-}
 
 model Chuong {
   id          String   @id @default(uuid())
@@ -291,17 +286,21 @@ model TienTrinhHoc {
 }
 
 model maGiamGia {
-  id         String    @id @default(uuid())
-  ngayTao    DateTime  @default(now())
-  ngayBatDau DateTime? 
+  id          String    @id @default(uuid())
+  ngayTao     DateTime  @default(now())
+  ngayBatDau  DateTime? 
   ngayKetThuc DateTime?
   tieuDe      String
+  moTa        String?   @db.Text  // Mô tả chiến dịch cho AI tư vấn
   soLuong     Int
-  maGiamGia   String      @unique
+  maGiamGia   String    @unique
   hoatDong    Boolean
-  daSuDung    Int         @default(0)
+  daSuDung    Int       @default(0)
   loai        LoaiGiamGia
   giaTri      Int
+  
+  // AI Semantic Search (Vector Embedding)
+  embedding   Unsupported("vector(768)")?
 
   maGiamGiaKhoaHocs MaGiamGiaKhoaHoc[]
   dangKyHocs        DangKyHoc[]
@@ -323,7 +322,6 @@ model MaGiamGiaKhoaHoc {
 model PhongChat {
   id        String   @id @default(uuid())
   tenPhong  String?
-  maMoi     String   @unique @default(uuid())
   
   khoaHocId String   @unique
   khoaHoc   KhoaHoc  @relation(fields: [khoaHocId], references: [id], onDelete: Cascade)
@@ -407,9 +405,7 @@ model BinhLuan {
   
   idBaiHoc      String             @map("idBH")
   baiHoc        BaiHoc             @relation(fields: [idBaiHoc], references: [id], onDelete: Cascade)
-  
-  idKhoaHoc     String             @map("idKH")
-  
+    
   idCha         String?            @map("idCha")
   parent        BinhLuan?          @relation("BinhLuanReplies", fields: [idCha], references: [id], onDelete: Cascade)
   replies       BinhLuan[]         @relation("BinhLuanReplies")
@@ -422,7 +418,6 @@ model BinhLuan {
   
   @@index([idBaiHoc])
   @@index([idNguoiDung])
-  @@index([idKhoaHoc])
   @@index([idCha])
   @@map("binhLuan")
 }
@@ -440,6 +435,9 @@ model BaoCaoBinhLuan {
   binhLuan      BinhLuan         @relation(fields: [idBinhLuan], references: [id], onDelete: Cascade)
   
   trangThai     TrangThaiBaoCao  @default(ChoXuLy)
+  
+  nhatKyXuLys   NhatKyXuLy[]
+
   ngayTao       DateTime         @default(now())
   
   // User can only report a comment once
@@ -499,4 +497,75 @@ model ThongBao {
   @@index([idNguoiDung])
   @@index([ngayTao])
   @@map("thong_bao")
+}
+
+model BaoCaoKhoaHoc {
+  id            String           @id @default(uuid())
+  lyDo          String           @db.Text
+  
+  // Reporter
+  idNguoiDung   String           @map("idND")
+  nguoiDung     User             @relation(fields: [idNguoiDung], references: [id], onDelete: Cascade)
+  
+  // Reported course
+  idKhoaHoc     String           @map("idKH")
+  khoaHoc       KhoaHoc          @relation(fields: [idKhoaHoc], references: [id], onDelete: Cascade)
+  
+  trangThai     TrangThaiBaoCao  @default(ChoXuLy)
+
+  nhatKyXuLys   NhatKyXuLy[]
+
+  ngayTao       DateTime         @default(now())
+  
+  @@unique([idNguoiDung, idKhoaHoc])
+  @@index([idKhoaHoc])
+  @@map("baoCaoKhoaHoc")
+}
+
+// ========== AUDIT LOG FOR MODERATION ==========
+
+enum LoaiBaoCaoEnum {
+  BINH_LUAN
+  KHOA_HOC
+}
+
+enum HanhDongXuLy {
+  XOA_NOI_DUNG   // Xóa bình luận/khóa học
+  CAM_USER       // Cấm người dùng
+  BO_QUA         // Bỏ qua báo cáo
+  CHAN_KHOA_HOC  // Chặn khóa học (BiChan)
+}
+
+model NhatKyXuLy {
+  id            String         @id @default(uuid())
+  
+  // Admin thực hiện
+  idAdmin       String?        @map("id_admin")
+  admin         User?          @relation("AdminLogs", fields: [idAdmin], references: [id], onDelete: SetNull)
+  
+  // Loại và ID báo cáo
+  loaiBaoCao    LoaiBaoCaoEnum @map("loai_bao_cao")
+  
+  // Quan hệ đa hình (Polymorphic)
+  idBaoCaoBinhLuan String?     @map("id_bao_cao_binh_luan")
+  baoCaoBinhLuan   BaoCaoBinhLuan? @relation(fields: [idBaoCaoBinhLuan], references: [id], onDelete: SetNull)
+
+  idBaoCaoKhoaHoc  String?     @map("id_bao_cao_khoa_hoc")
+  baoCaoKhoaHoc    BaoCaoKhoaHoc? @relation(fields: [idBaoCaoKhoaHoc], references: [id], onDelete: SetNull)
+  
+  // Hành động
+  hanhDong      HanhDongXuLy   @map("hanh_dong")
+  lyDoXuLy      String?        @db.Text @map("ly_do_xu_ly")
+  
+  // Thời hạn cấm (nếu cấm user)
+  thoiHanCam    Int?           @map("thoi_han_cam") // null = vĩnh viễn
+  
+  ngayTao       DateTime       @default(now()) @map("ngay_tao")
+  
+  @@index([idAdmin])
+  @@index([loaiBaoCao])
+  @@index([ngayTao])
+  @@index([idBaoCaoBinhLuan])
+  @@index([idBaoCaoKhoaHoc])
+  @@map("nhat_ky_xu_ly")
 }

@@ -60,7 +60,7 @@ export function EditCourseForm({ data, categories, levels, statuses }: iAppProps
       thoiLuong: calculatedDuration,
       capDo: data.idCapDo || "",
       danhMuc: data.idDanhMuc || "",
-      trangThai: data.idTrangThai || "",
+      trangThai: data.trangThai || "BanNhap",
       duongDan: data.duongDan,
       moTaNgan: data.moTaNgan,
     },

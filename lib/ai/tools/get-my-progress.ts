@@ -3,16 +3,10 @@ import { tool } from "ai";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 
-// NOTE: In a real app, userId should be passed dynamically or verified securely.
-// For this 'PhD-level' demo, we accept userId as a parameter often injected by the system prompt or caller,
-// OR we use a hardcoded test ID if not provided, to simulate the functionality.
-// In the route.ts, we will inject the userId into the tool context if possible, 
-// or simpler: we define the tool to take userId as input (which the agent fills from context).
-
 export const getMyProgressTool = tool({
-  description: "Check the current user's learning progress. Returns list of purchased courses and completion percentage. Use this when user asks 'my progress' or 'what am I learning'.",
+  description: "Kiểm tra tiến độ học tập của người dùng. Trả về danh sách khóa học đã mua và phần trăm hoàn thành. SỬ DỤNG KHI user hỏi: 'tiến độ của tôi', 'đã học được bao nhiêu', 'hoàn thành bao nhiêu phần trăm'.",
   inputSchema: z.object({
-     userId: z.string().describe("The ID of the user to check progress for. Provided by system context."),
+     userId: z.string().describe("ID người dùng (lấy từ system context)"),
   }),
   execute: async ({ userId }) => {
     if (!userId || userId === 'guest') return { error: "User is not logged in." };

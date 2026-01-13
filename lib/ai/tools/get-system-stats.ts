@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 
 export const getSystemStatsTool = tool({
-  description: "Get general statistics about the system, such as total number of courses and categories. Use this when the user asks 'how many courses do you have?' or 'what topics are available?'.",
+  description: "Lấy thống kê chung về hệ thống: tổng số khóa học, danh mục. SỬ DỤNG KHI user hỏi: 'có bao nhiêu khóa học', 'có những chủ đề gì'.",
   inputSchema: z.object({}),
   execute: async () => {
     try {
@@ -17,7 +17,7 @@ export const getSystemStatsTool = tool({
       };
     } catch (error) {
       console.error("System stats error:", error);
-      return { error: "Failed to retrieve system stats." };
+      return { error: "Không thể lấy thống kê hệ thống." };
     }
   },
 });

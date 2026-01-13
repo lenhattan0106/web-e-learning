@@ -1,10 +1,11 @@
 "use client";
 
 import { CourseSideBarDataType } from "@/app/data/course/get-course-sidebar-data";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, ChevronDown, Play, MessageSquare } from "lucide-react";
+import { Archive, ArrowLeft, ChevronDown, Play, MessageSquare } from "lucide-react";
 import { LessonItem } from "./LessonItem";
 import { usePathname, useRouter } from "next/navigation";
 import { useCourseProgress } from "@/hooks/use-course-progress";
@@ -22,6 +23,7 @@ export function CourseSidebar({ course }: iAppProps) {
 
   // Check if chat enabled (schema-wise)
   const hasChat = !!course.phongChat;
+  const isArchived = course.trangThai === "BanLuuTru";
 
   return (
     <div className="flex flex-col h-full">
@@ -37,6 +39,18 @@ export function CourseSidebar({ course }: iAppProps) {
           <span>Quay lại</span>
         </Button>
       </div>
+
+      {/* Thông báo khóa học đã lưu trữ */}
+      {isArchived && (
+        <div className="pr-4 py-3 border-b border-border">
+          <Alert className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/20 py-2">
+            <Archive className="size-3 text-amber-600" />
+            <AlertDescription className="text-amber-700 dark:text-amber-300 text-xs">
+              Khóa học đã ngừng kinh doanh nhưng bạn vẫn có quyền truy cập.
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
 
       <div className="pb-4 pr-4 border-b border-border pt-3">
         <div className="flex items-center gap-3 mb-3">

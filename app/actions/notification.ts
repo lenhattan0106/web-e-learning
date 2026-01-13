@@ -52,6 +52,36 @@ export async function getNotifications(
   };
 }
 
+/**
+ * Lấy chỉ thông báo chưa đọc (dành cho dropdown)
+ */
+export async function getUnreadNotifications(
+  limit: number = 5
+): Promise<{ notifications: NotificationItem[] }> {
+  const session = await requireUser();
+
+  const notifications = await prisma.thongBao.findMany({
+    where: { 
+      idNguoiDung: session.id,
+      daXem: false,
+    },
+    take: limit,
+    orderBy: { ngayTao: "desc" },
+  });
+
+  return {
+    notifications: notifications.map((n) => ({
+      id: n.id,
+      tieuDe: n.tieuDe,
+      noiDung: n.noiDung,
+      loai: n.loai,
+      daXem: n.daXem,
+      metadata: n.metadata,
+      ngayTao: n.ngayTao,
+    })),
+  };
+}
+
 export async function markAsRead(notificationId: string) {
   const session = await requireUser();
 

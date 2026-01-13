@@ -20,9 +20,18 @@ export function CourseProgressCard({ data }: iAppProps) {
   const { totalLessons, completedLessons, progressPercentage } = useCourseProgress({
     courseData: data.khoaHoc as any,
   });
+  const isArchived = data.khoaHoc.trangThai === "BanLuuTru";
+  
   return (
     <Card className="group relative py-0 gap-0">
-      <Badge className="absolute top-2 right-2 z-10 rounded">{data.khoaHoc.capDo}</Badge>
+      <div className="absolute top-2 right-2 z-10 flex gap-2">
+        {isArchived && (
+          <Badge variant="secondary" className="rounded bg-amber-100 text-amber-800 border-amber-300">
+            Đã lưu trữ
+          </Badge>
+        )}
+        <Badge className="rounded">{data.khoaHoc.capDo}</Badge>
+      </div>
       <Image
         width={600}
         height={400}

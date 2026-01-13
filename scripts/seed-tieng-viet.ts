@@ -16,11 +16,12 @@ const defaultCapDos = [
   { name: "Nâng cao", code: "NANG_CAO" },   // Maps to NangCao
 ];
 
-const defaultTrangThais = [
-  { name: "Bản nháp", code: "BanNhap" },           // Maps to BanNhap
-  { name: "Đã xuất bản", code: "BanChinhThuc" },    // Maps to BanChinhThuc
-  { name: "Lưu trữ", code: "BanLuuTru" },         // Maps to BanLuuTru
-];
+// ❌ REMOVED: TrangThaiKhoaHoc model no longer exists - using enum only
+// const defaultTrangThais = [
+//   { name: "Bản nháp", code: "BanNhap" },
+//   { name: "Đã xuất bản", code: "BanChinhThuc" },
+//   { name: "Lưu trữ", code: "BanLuuTru" },
+// ];
 
 function slugify(text: string): string {
   return text
@@ -61,26 +62,12 @@ async function main() {
         capDoMap.set(item.code, capDo.id);
       }
 
-      // 2. Seed Trạng Thái
-      console.log("📦 Seeding Trạng thái...");
-      const trangThaiMap = new Map<string, string>(); // code -> id
+      // 2. Seed Trạng Thái - REMOVED
+      // console.log("📦 Seeding Trạng thái...");
+      // const trangThaiMap = new Map<string, string>();
+      // Model TrangThaiKhoaHoc no longer exists - using enum only
+      // Skipping this section...
 
-      for (const item of defaultTrangThais) {
-        let tt = await tx.trangThaiKhoaHoc.findUnique({
-          where: { maTrangThai: item.code }
-        });
-
-        if (!tt) {
-          tt = await tx.trangThaiKhoaHoc.create({
-            data: {
-              tenTrangThai: item.name,
-              maTrangThai: item.code
-            }
-          });
-          console.log(`  + Đã tạo trạng thái: ${item.name}`);
-        }
-        trangThaiMap.set(item.code, tt.id);
-      }
 
       // 3. Seed Danh Mục (Có đệ quy cha-con)
       console.log("📦 Seeding Danh mục...");
@@ -137,11 +124,10 @@ async function main() {
         else if (course.capDo === "TrungCap") updateData.idCapDo = capDoMap.get("TRUNG_CAP");
         else if (course.capDo === "NangCao") updateData.idCapDo = capDoMap.get("NANG_CAO");
 
-        // === Trạng Thái ===
-        // Map old Enum to new ID
-        if (course.trangThai === "BanNhap") updateData.idTrangThai = trangThaiMap.get("BanNhap");
-        else if (course.trangThai === "BanChinhThuc") updateData.idTrangThai = trangThaiMap.get("BanChinhThuc");
-        else if (course.trangThai === "BanLuuTru") updateData.idTrangThai = trangThaiMap.get("BanLuuTru");
+        // === Trạng Thái === REMOVED
+        // idTrangThai field no longer exists - trangThai enum is used directly
+        // No migration needed
+
 
         // === Danh Mục ===
         // Map string string to ID. If not found, create new root category

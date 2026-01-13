@@ -1,6 +1,7 @@
-import { getIndivialCourse } from "@/app/data/course/get-course";
+import { getCourseForUser } from "@/app/data/course/get-course";
 import { checkIfCourseBought } from "@/app/data/user/user-is-enrolled";
 import { RenderDescription } from "@/components/rich-text-editor/RenderDescription";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,6 +21,7 @@ import {
   Play,
   Check,
   User,
+  Archive,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -52,8 +54,9 @@ function createDistribution(ratings: { diemDanhGia: number }[] | undefined): Rec
 
 export default async function SlugPage({ params }: { params: Params }) {
   const { slug } = await params;
-  const khoaHoc = await getIndivialCourse(slug);
+  const khoaHoc = await getCourseForUser(slug);
   const isEnrolled = await checkIfCourseBought(khoaHoc.id);
+  const isArchived = khoaHoc.isArchived === true;
   
   // Get current user ID for rating section
   const session = await auth.api.getSession({
@@ -74,6 +77,19 @@ export default async function SlugPage({ params }: { params: Params }) {
   return (
     <div className="grid grid-cols-1  gap-8 lg:grid-cols-3 mt-5">
       <div className="order-1 lg:col-span-2">
+        {/* Thông báo khóa học đã lưu trữ */}
+        {isArchived && (
+          <Alert className="mb-6 border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+            <Archive className="size-4 text-amber-600" />
+            <AlertTitle className="text-amber-800 dark:text-amber-200">
+              Khóa học đã ngừng kinh doanh
+            </AlertTitle>
+            <AlertDescription className="text-amber-700 dark:text-amber-300">
+              Khóa học này hiện đã ngừng kinh doanh nhưng bạn vẫn có quyền truy cập đầy đủ nội dung vì đã mua trước đó.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <div className="relative aspect-video w-full overflow-hidden rounded-xl shadow-lg">
           <Image
             src={`https://${env.NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES}.t3.storage.dev/${khoaHoc.tepKH}`}

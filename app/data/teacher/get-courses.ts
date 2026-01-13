@@ -20,12 +20,6 @@ export async function teacherGetCourses() {
       thoiLuong: true,
       capDo: true,
       trangThai: true,
-      trangThaiRef: {
-        select: {
-          tenTrangThai: true,
-          maTrangThai: true,
-        },
-      },
       danhMuc: true,
       gia: true,
       tepKH: true,

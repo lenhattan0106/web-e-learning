@@ -8,6 +8,7 @@ import { ApiResponse } from "@/lib/types";
 import { couponFormSchema, CouponFormType } from "@/lib/zodSchemas";
 import { request } from "@arcjet/next";
 import { revalidatePath } from "next/cache";
+import { embedMaGiamGia } from "@/lib/ai/auto-embed";
 
 const arcjet = aj.withRule(
   fixedWindow({
@@ -63,6 +64,7 @@ export async function CreateCoupon(values: CouponFormType): Promise<ApiResponse>
   // 4. Chuẩn hóa dữ liệu tạo
   const createData: Prisma.maGiamGiaCreateInput = {
     tieuDe: data.tieuDe,
+    moTa: data.moTa || undefined, // Mô tả chiến dịch cho AI semantic search
     maGiamGia: data.maGiamGia,
     ngayBatDau: data.ngayBatDau ? new Date(data.ngayBatDau) : undefined,
     ngayKetThuc: data.ngayKetThuc ? new Date(data.ngayKetThuc) : undefined,
@@ -75,7 +77,7 @@ export async function CreateCoupon(values: CouponFormType): Promise<ApiResponse>
 
   // 5. Transaction: tạo mã + liên kết khóa học (nếu có)
   try {
-    await prisma.$transaction(async (tx) => {
+    const createdId = await prisma.$transaction(async (tx) => {
       const created = await tx.maGiamGia.create({ data: createData });
 
       const courseIds: string[] = Array.isArray(data.idKhoaHoc) ? data.idKhoaHoc : [];
@@ -100,7 +102,13 @@ export async function CreateCoupon(values: CouponFormType): Promise<ApiResponse>
           skipDuplicates: true,
         });
       }
+      return created.id;
     });
+
+    // Auto-generate embedding for AI semantic search
+    if (data.moTa) {
+      embedMaGiamGia(createdId, data.tieuDe, data.moTa);
+    }
 
     revalidatePath("/teacher/coupon");
     return {
@@ -187,6 +195,7 @@ export async function UpdateCoupon(id: string, values: CouponFormType): Promise<
 
     const updateData: Prisma.maGiamGiaUpdateInput = {
       tieuDe: updateFields.tieuDe,
+      moTa: updateFields.moTa || null, // Mô tả chiến dịch cho AI semantic search
       maGiamGia: updateFields.maGiamGia,
       ngayBatDau: updateFields.ngayBatDau ? new Date(updateFields.ngayBatDau) : null,
       ngayKetThuc: updateFields.ngayKetThuc ? new Date(updateFields.ngayKetThuc) : null,
@@ -231,6 +240,11 @@ export async function UpdateCoupon(id: string, values: CouponFormType): Promise<
          await tx.maGiamGiaKhoaHoc.createMany({ data: links });
       }
     });
+
+    // Auto-update embedding for AI semantic search
+    if (data.moTa) {
+      embedMaGiamGia(id, data.tieuDe, data.moTa);
+    }
 
     revalidatePath("/teacher/coupon");
     return {

@@ -4,9 +4,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 
 export const getStudentProgressTool = tool({
-  description: "Get the current student's learning progress. Lists completed lessons and next lessons to learn. Use this when a student asks 'my progress', 'what have I learned', or 'where did I stop'.",
+  description: "Lấy tiến độ học tập chi tiết của học viên. Liệt kê bài học đã hoàn thành và bài học tiếp theo. SỬ DỤNG KHI học viên hỏi: 'tiến độ của tôi', 'tôi đã học gì', 'tôi dừng ở đâu'.",
   inputSchema: z.object({
-    userId: z.string().describe("The ID of the student."),
+    userId: z.string().describe("ID học viên (lấy từ system context)"),
   }),
   execute: async ({ userId }) => {
     try {

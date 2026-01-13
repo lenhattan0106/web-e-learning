@@ -4,9 +4,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 
 export const getRevenueAnalyticsTool = tool({
-  description: "Calculate total revenue and revenue per course for the instructor. Use this when a teacher asks about 'revenue', 'earnings', or 'how much money I made'.",
+  description: "Tính toán doanh thu theo từng khóa học cho Giảng viên. SỬ DỤNG KHI giảng viên hỏi: 'doanh thu', 'thu nhập', 'kiếm được bao nhiêu', 'phân tích doanh thu'.",
   inputSchema: z.object({
-    instructorId: z.string().describe("The ID of the instructor."),
+    instructorId: z.string().describe("ID của giảng viên (lấy từ system context)"),
   }),
   execute: async ({ instructorId }) => {
     try {

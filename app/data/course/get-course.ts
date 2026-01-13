@@ -2,14 +2,21 @@ import "server-only";
 
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
-export async function getIndivialCourse(slug: string) {
+export async function getCourseForUser(slug: string) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  
+  const currentUserId = session?.user?.id;
+  const currentUserRole = session?.user?.role;
+
+  // Lấy khóa học mà không filter theo trạng thái
   const khoaHoc = await prisma.khoaHoc.findUnique({
     where: {
       duongDan: slug,
-      // Chỉ cho phép xem khóa học đã xuất bản (BanChinhThuc)
-      // Khóa học bản nháp hoặc lưu trữ sẽ không hiển thị cho public
-      trangThai: "BanChinhThuc",
     },
     select: {
       id: true,
@@ -21,7 +28,8 @@ export async function getIndivialCourse(slug: string) {
       capDo: true,
       danhMuc: true,
       moTaNgan: true,
-      // Category with parent hierarchy
+      trangThai: true, 
+      idNguoiDung: true, 
       danhMucRef: {
         select: {
           id: true,
@@ -47,7 +55,6 @@ export async function getIndivialCourse(slug: string) {
           tenCapDo: true,
         },
       },
-      // Teacher info (only safe fields)
       nguoiDung: {
         select: {
           id: true,
@@ -73,7 +80,6 @@ export async function getIndivialCourse(slug: string) {
           thuTu: "asc",
         },
       },
-      // Ratings with user info for display
       danhGias: {
         where: { trangThai: "HIEN" },
         orderBy: { ngayTao: "desc" },
@@ -92,10 +98,65 @@ export async function getIndivialCourse(slug: string) {
           },
         },
       },
+      dangKyHocs: currentUserId ? {
+        where: {
+          idNguoiDung: currentUserId,
+          trangThai: "DaThanhToan",
+        },
+        select: {
+          id: true,
+        },
+        take: 1,
+      } : false,
     },
   });
-  if(!khoaHoc){
+
+  if (!khoaHoc) {
     return notFound();
   }
-  return khoaHoc; 
+
+  const isAdmin = currentUserRole === "admin";
+  const isOwner = currentUserId === khoaHoc.idNguoiDung;
+  const isEnrolled = Array.isArray(khoaHoc.dangKyHocs) && khoaHoc.dangKyHocs.length > 0;
+
+  if (khoaHoc.trangThai === "BanChinhThuc") {
+    return {
+      ...khoaHoc,
+      isArchived: false,
+    };
+  }
+  
+  if (khoaHoc.trangThai === "BanLuuTru") {
+    if (isEnrolled || isAdmin || isOwner) {
+      return {
+        ...khoaHoc,
+        isArchived: true, // Flag để hiển thị thông báo
+      };
+    }
+    return notFound();
+  }
+  
+  if (khoaHoc.trangThai === "BanNhap") {
+    if (isOwner || isAdmin) {
+      return {
+        ...khoaHoc,
+        isArchived: false,
+        isDraft: true,
+      };
+    }
+    return notFound();
+  }
+
+  if (khoaHoc.trangThai === "BiChan") {
+    if (isOwner || isAdmin) {
+      return {
+        ...khoaHoc,
+        isArchived: false,
+        isBanned: true,
+      };
+    }
+    return notFound();
+  }
+
+  return notFound();
 }

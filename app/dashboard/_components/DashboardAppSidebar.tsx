@@ -2,13 +2,7 @@
 
 import * as React from "react"
 import {
-  IconCamera,
   IconDashboard,
-  IconFileAi,
-  IconFileDescription,
-  IconHelp,
-  IconSearch,
-  IconUsers,
   IconMessage,
   IconSettings,
 } from "@tabler/icons-react"
@@ -39,6 +33,11 @@ const data = {
     {
       title: "Tin nhắn",
       url: "/dashboard/chat",
+      icon: IconMessage,
+    },
+      {
+      title: "Khóa học",
+      url: "/courses",
       icon: IconMessage,
     },
   ],

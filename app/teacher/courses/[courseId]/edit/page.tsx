@@ -7,6 +7,7 @@ import { CourseStructure } from "./_components/CourseStructure";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import { trangThaiKhoaHoc } from "@/lib/zodSchemas";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ type Params = Promise<{ courseId: string }>;
 export default async function EditRoute({ params }: { params: Params }) {
   const { courseId } = await params;
   
-  const [data, categories, levels, statuses] = await Promise.all([
+  const [data, categories, levels] = await Promise.all([
     TeacherEditCourse(courseId),
     prisma.danhMuc.findMany({
       where: { idDanhMucCha: null },
@@ -24,10 +25,14 @@ export default async function EditRoute({ params }: { params: Params }) {
     prisma.capDo.findMany({
       orderBy: { tenCapDo: "asc" },
     }),
-    prisma.trangThaiKhoaHoc.findMany({
-      orderBy: { tenTrangThai: "asc" },
-    }),
   ]);
+  
+  // Use constant status values for teacher (excludes BiChan)
+  const statuses = trangThaiKhoaHoc.map((code, idx) => ({
+    id: code,
+    maTrangThai: code,
+    tenTrangThai: code === "BanNhap" ? "Bản nháp" : code === "BanChinhThuc" ? "Đã xuất bản" : "Lưu trữ"
+  }));
   
   return (
     <div>

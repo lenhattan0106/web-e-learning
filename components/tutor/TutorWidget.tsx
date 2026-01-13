@@ -10,9 +10,10 @@ import { TutorProvider, useTutor } from "./TutorContext";
 interface TutorPanelProps {
   isPremium?: boolean;
   premiumExpires?: Date | null;
+  userId?: string;
 }
 
-function TutorPanel({ isPremium, premiumExpires }: TutorPanelProps) {
+function TutorPanel({ isPremium, premiumExpires, userId }: TutorPanelProps) {
   const { isOpen, closeChat, toggleChat } = useTutor();
   const pathname = usePathname();
   const isDraggingRef = useRef(false);
@@ -121,7 +122,7 @@ function TutorPanel({ isPremium, premiumExpires }: TutorPanelProps) {
 
           {/* Chat Content - Takes remaining space */}
           <div className="flex-1 overflow-hidden">
-            <TutorChat isPremium={isPremium} premiumExpires={premiumExpires} />
+            <TutorChat isPremium={isPremium} premiumExpires={premiumExpires} userId={userId} />
           </div>
         </div>
       </div>
@@ -173,12 +174,13 @@ function TutorPanel({ isPremium, premiumExpires }: TutorPanelProps) {
 interface TutorWidgetProps {
   isPremium?: boolean;
   premiumExpires?: Date | null;
+  userId?: string;
 }
 
-export function TutorWidget({ isPremium = false, premiumExpires }: TutorWidgetProps) {
+export function TutorWidget({ isPremium = false, premiumExpires, userId }: TutorWidgetProps) {
   return (
     <TutorProvider>
-      <TutorPanel isPremium={isPremium} premiumExpires={premiumExpires} />
+      <TutorPanel isPremium={isPremium} premiumExpires={premiumExpires} userId={userId} />
     </TutorProvider>
   );
 }

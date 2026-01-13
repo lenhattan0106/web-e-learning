@@ -17,6 +17,8 @@ export async function getCourseSideBarData(slug: string) {
       thoiLuong: true,
       danhMuc: true,
       duongDan: true,
+      trangThai: true, // Thêm trạng thái để hiển thị thông báo nếu đã lưu trữ
+      idNguoiDung: true, // Thêm để kiểm tra ownership
       chuongs: {
         orderBy: {
           thuTu: "asc",
@@ -51,7 +53,6 @@ export async function getCourseSideBarData(slug: string) {
       phongChat: {
         select: {
           id: true,
-          maMoi: true,
         },
       },
     },

@@ -1,66 +1,115 @@
+/**
+ * Generate Embeddings Script - Tri-Layer RAG
+ * 
+ * Chạy: npx tsx scripts/generate-embeddings.ts
+ * 
+ * Script này tạo embeddings cho:
+ * 1. BaiHoc - Mentoring (đã có từ trước)
+ * 2. KhoaHoc - Course Discovery (mới)
+ * 3. maGiamGia - Sales Assistant (mới)
+ */
 
-import { PrismaClient } from "@prisma/client"; // Use direct import for script
+import { PrismaClient } from "@prisma/client";
 import { generateEmbedding } from "../lib/ai/embedding";
 
 const prisma = new PrismaClient();
 
-async function main() {
-  console.log("🚀 Starting embedding generation...");
+async function generateBaiHocEmbeddings() {
+  console.log("📖 Generating embeddings for BaiHoc (Lessons)...");
+  
+  const lessons = await prisma.baiHoc.findMany({
+    select: { id: true, tenBaiHoc: true, moTa: true }
+  });
 
-  try {
-    // 1. Fetch all lessons (baiHoc)
-    const lessons = await prisma.baiHoc.findMany({
-      select: {
-        id: true,
-        tenBaiHoc: true,
-        moTa: true,
-      },
-      // You can optimize by filtering those without embeddings if needed:
-      // where: { embedding: null } 
-    });
-
-    console.log(`Found ${lessons.length} lessons.`);
-
-    let successCount = 0;
-    let skipCount = 0;
-
-    for (const lesson of lessons) {
-      // Logic to decide if we regenerate. 
-      // For now, let's regenerate only if embedding is missing or to force update, uncomment line below
-      // if (lesson.embedding) { skipCount++; continue; } 
-
-      const textToEmbed = `${lesson.tenBaiHoc}. ${lesson.moTa || ""}`;
-      
-      try {
-        console.log(`Processing: ${lesson.tenBaiHoc}`);
-        const embeddingVector = await generateEmbedding(textToEmbed);
-        
-        // Update database using raw SQL because Prisma doesn't fully support vector write types natively in clean string format sometimes
-        // But let's try raw update for the vector column specifically
-        await prisma.$executeRaw`
-          UPDATE "baiHoc"
-          SET "embedding" = ${JSON.stringify(embeddingVector)}::vector
-          WHERE "id" = ${lesson.id}
-        `;
-
-        successCount++;
-        // Small delay to avoid rate limits if many items
-        await new Promise(r => setTimeout(r, 200)); 
-
-      } catch (err) {
-        console.error(`Failed to process lesson ${lesson.id}:`, err);
-      }
+  let count = 0;
+  for (const lesson of lessons) {
+    const text = `${lesson.tenBaiHoc}. ${lesson.moTa || ""}`;
+    if (text.trim().length < 10) continue;
+    
+    try {
+      const embedding = await generateEmbedding(text);
+      await prisma.$executeRaw`
+        UPDATE "baiHoc" SET "embedding" = ${JSON.stringify(embedding)}::vector WHERE "id" = ${lesson.id}
+      `;
+      count++;
+      console.log(`   ✅ ${lesson.tenBaiHoc}`);
+    } catch (err) {
+      console.error(`   ❌ ${lesson.tenBaiHoc}:`, err);
     }
-
-    console.log(`\n✅ Finished!`);
-    console.log(`Processed: ${successCount}`);
-    console.log(`Skipped: ${skipCount}`);
-
-  } catch (error) {
-    console.error("Script error:", error);
-  } finally {
-    await prisma.$disconnect();
+    await new Promise(r => setTimeout(r, 100));
   }
+  console.log(`✅ BaiHoc: ${count}/${lessons.length}\n`);
 }
 
-main();
+async function generateKhoaHocEmbeddings() {
+  console.log("📚 Generating embeddings for KhoaHoc (Courses)...");
+  
+  const courses = await prisma.khoaHoc.findMany({
+    select: { id: true, tenKhoaHoc: true, moTaNgan: true, moTa: true }
+  });
+
+  let count = 0;
+  for (const course of courses) {
+    const text = `${course.tenKhoaHoc}. ${course.moTaNgan}. ${course.moTa || ""}`;
+    if (text.trim().length < 10) continue;
+    
+    try {
+      const embedding = await generateEmbedding(text);
+      await prisma.$executeRaw`
+        UPDATE "khoaHoc" SET embedding = ${JSON.stringify(embedding)}::vector WHERE id = ${course.id}
+      `;
+      count++;
+      console.log(`   ✅ ${course.tenKhoaHoc}`);
+    } catch (err) {
+      console.error(`   ❌ ${course.tenKhoaHoc}:`, err);
+    }
+    await new Promise(r => setTimeout(r, 100));
+  }
+  console.log(`✅ KhoaHoc: ${count}/${courses.length}\n`);
+}
+
+async function generateMaGiamGiaEmbeddings() {
+  console.log("🎟️ Generating embeddings for maGiamGia (Discounts)...");
+  
+  const discounts = await prisma.maGiamGia.findMany({
+    select: { id: true, tieuDe: true, moTa: true }
+  });
+
+  let count = 0;
+  for (const discount of discounts) {
+    const text = `${discount.tieuDe}. ${discount.moTa || ""}`;
+    if (text.trim().length < 10) {
+      console.log(`   ⏭️ Skip: ${discount.tieuDe} (no description)`);
+      continue;
+    }
+    
+    try {
+      const embedding = await generateEmbedding(text);
+      await prisma.$executeRaw`
+        UPDATE "maGiamGia" SET embedding = ${JSON.stringify(embedding)}::vector WHERE id = ${discount.id}
+      `;
+      count++;
+      console.log(`   ✅ ${discount.tieuDe}`);
+    } catch (err) {
+      console.error(`   ❌ ${discount.tieuDe}:`, err);
+    }
+    await new Promise(r => setTimeout(r, 100));
+  }
+  console.log(`✅ maGiamGia: ${count}/${discounts.length}\n`);
+}
+
+async function main() {
+  console.log("🚀 Tri-Layer RAG Embedding Generation\n");
+  console.log("=====================================\n");
+  
+  await generateBaiHocEmbeddings();
+  await generateKhoaHocEmbeddings();
+  await generateMaGiamGiaEmbeddings();
+  
+  console.log("=====================================");
+  console.log("🎉 Done! AI is now smarter.\n");
+}
+
+main()
+  .catch(console.error)
+  .finally(() => prisma.$disconnect());

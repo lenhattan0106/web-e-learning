@@ -99,7 +99,6 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
             newExpiry.setDate(newExpiry.getDate() + payment.soNgay);
             premiumExpires = newExpiry;
 
-            // Update in transaction
             await prisma.$transaction([
               prisma.thanhToanPremium.update({
                 where: { id: paymentId },
@@ -118,6 +117,9 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
                 }
               })
             ]);
+            
+            // Note: Không cần revalidatePath vì API chat đã fetch isPremium từ DB trực tiếp
+            
             displayStatus = "DaThanhToan";
           } else if (!isSuccess && payment.trangThai !== "DaHuy") {
             await prisma.thanhToanPremium.update({

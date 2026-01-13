@@ -4,9 +4,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 
 export const getTeacherDashboardTool = tool({
-  description: "Get a complete dashboard overview for a teacher in ONE Data Call. Returns statistics, revenue, recent enrollments, and course list. Use this for ANY general query like 'dashboard', 'my stats', 'overview', or 'how am I doing'.",
+  description: "Lấy tổng quan dashboard cho Giảng viên trong MỘT lần gọi. Trả về thống kê, doanh thu, học viên gần đây, danh sách khóa học. SỬ DỤNG KHI giảng viên hỏi: 'dashboard', 'thống kê của tôi', 'tổng quan', 'tình hình như thế nào'.",
   inputSchema: z.object({
-    instructorId: z.string().describe("The ID of the instructor."),
+    instructorId: z.string().describe("ID của giảng viên (lấy từ system context)"),
   }),
   execute: async ({ instructorId }) => {
     if (!instructorId || instructorId === 'guest') {

@@ -113,7 +113,6 @@ function TimeAgo({ date }: { date: Date }) {
 interface CommentSectionProps {
   comments: Comment[];
   idBaiHoc: string;
-  idKhoaHoc: string;
   currentUserId: string;
 }
 
@@ -121,7 +120,6 @@ interface CommentSectionProps {
 export function CommentSection({
   comments: initialComments,
   idBaiHoc,
-  idKhoaHoc,
   currentUserId,
 }: CommentSectionProps) {
   const [comments, setComments] = useState(initialComments);
@@ -154,7 +152,6 @@ export function CommentSection({
       {/* Comment Form */}
       <CommentForm
         idBaiHoc={idBaiHoc}
-        idKhoaHoc={idKhoaHoc}
         onSuccess={handleCommentAdded}
       />
 
@@ -170,7 +167,6 @@ export function CommentSection({
               key={comment.id}
               comment={comment}
               idBaiHoc={idBaiHoc}
-              idKhoaHoc={idKhoaHoc}
               currentUserId={currentUserId}
               onUpdate={handleCommentAdded}
             />
@@ -184,7 +180,6 @@ export function CommentSection({
 // Comment Form Component
 interface CommentFormProps {
   idBaiHoc: string;
-  idKhoaHoc: string;
   idCha?: string;
   onSuccess: () => void;
   onCancel?: () => void;
@@ -193,7 +188,6 @@ interface CommentFormProps {
 
 function CommentForm({
   idBaiHoc,
-  idKhoaHoc,
   idCha,
   onSuccess,
   onCancel,
@@ -210,7 +204,6 @@ function CommentForm({
         createComment({
           noiDung: content,
           idBaiHoc,
-          idKhoaHoc,
           idCha,
         })
       );
@@ -261,7 +254,6 @@ function CommentForm({
 interface CommentItemProps {
   comment: Comment | CommentReply;
   idBaiHoc: string;
-  idKhoaHoc: string;
   currentUserId: string;
   onUpdate: () => void;
   isReply?: boolean;
@@ -270,7 +262,6 @@ interface CommentItemProps {
 function CommentItem({
   comment,
   idBaiHoc,
-  idKhoaHoc,
   currentUserId,
   onUpdate,
   isReply = false,
@@ -446,7 +437,6 @@ function CommentItem({
             <div className="pt-2">
               <CommentForm
                 idBaiHoc={idBaiHoc}
-                idKhoaHoc={idKhoaHoc}
                 idCha={comment.id}
                 onSuccess={() => {
                   setShowReplyForm(false);
@@ -486,7 +476,6 @@ function CommentItem({
                   key={reply.id}
                   comment={reply}
                   idBaiHoc={idBaiHoc}
-                  idKhoaHoc={idKhoaHoc}
                   currentUserId={currentUserId}
                   onUpdate={onUpdate}
                   isReply

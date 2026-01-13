@@ -4,9 +4,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 
 export const getInstructorStatsTool = tool({
-  description: "Get statistics for an instructor (teacher). Returns total students enrolled in their courses. Use this when a teacher asks 'how many students do I have' or 'my stats'.",
+  description: "Lấy thống kê cho Giảng viên. Trả về tổng số học viên đã đăng ký khóa học. SỬ DỤNG KHI giảng viên hỏi: 'tôi có bao nhiêu học viên', 'thống kê của tôi', 'số học viên'.",
   inputSchema: z.object({
-    instructorId: z.string().describe("The ID of the instructor/teacher."),
+    instructorId: z.string().describe("ID của giảng viên (lấy từ system context)"),
   }),
   execute: async ({ instructorId }) => {
     if (!instructorId || instructorId === 'user_id_test') {

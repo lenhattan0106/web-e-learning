@@ -31,7 +31,6 @@ const AUTO_HIDE_REPORT_THRESHOLD = 3;
 interface CreateCommentInput {
   noiDung: string;
   idBaiHoc: string;
-  idKhoaHoc: string;
   idCha?: string; // Parent comment ID for replies
 }
 
@@ -76,7 +75,6 @@ export async function createComment(
         capDo,
         idNguoiDung: session.id,
         idBaiHoc: input.idBaiHoc,
-        idKhoaHoc: input.idKhoaHoc,
         idCha: input.idCha || null,
       },
     });

@@ -24,7 +24,7 @@ export async function TeacherEditCourse(id: string) {
       // Use new relation IDs
       idDanhMuc: true,
       idCapDo: true,
-      idTrangThai: true,
+      trangThai: true,
       
       chuongs: {
         orderBy: {

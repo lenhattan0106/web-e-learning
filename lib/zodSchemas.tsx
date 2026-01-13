@@ -84,6 +84,7 @@ export const updateLessonFormSchema = z.object({
 
 export const couponFormSchema = z.object({
   tieuDe: z.string().min(1, "Tiêu đề không được để trống"),
+  moTa: z.string().max(500, "Mô tả không được vượt quá 500 ký tự").optional(), // Mô tả chiến dịch cho AI semantic search
   maGiamGia: z.string().min(1, "Mã giảm giá không được để trống"),
   ngayBatDau: z.string().nullable().optional(),
   ngayKetThuc: z.string().nullable().optional(),

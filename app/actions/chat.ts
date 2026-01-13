@@ -10,15 +10,9 @@ import {
   NOTIFICATION_TEMPLATES,
 } from "@/app/services/notification-service";
 
-
-/**
- * Get the Chat Room ID and user role for a given Course.
- * Verifies access rights.
- */
 export async function getChatRoom(courseId: string) {
   const session = await requireUser();
 
-  // 1. Get Course to check Owner (Teacher)
   const course = await prisma.khoaHoc.findUnique({
     where: { id: courseId },
     include: { phongChat: true },
@@ -28,9 +22,7 @@ export async function getChatRoom(courseId: string) {
     return { error: "Không tìm thấy khóa học" };
   }
 
-  // Ensure Chat Room exists
   if (!course.phongChat) {
-    // Attempt to backfill if missing (Unexpected but safe)
     const newChat = await prisma.phongChat.create({
       data: {
         tenPhong: course.tenKhoaHoc,
@@ -40,12 +32,10 @@ export async function getChatRoom(courseId: string) {
     course.phongChat = newChat;
   }
 
-  // Check Role
   let role = "student";
   if (course.idNguoiDung === session.id) {
     role = "admin"; // Teacher/Owner
   } else {
-    // Check Enrollment for Student
     const enrollment = await prisma.dangKyHoc.findUnique({
       where: {
         idNguoiDung_idKhoaHoc: {
@@ -63,7 +53,6 @@ export async function getChatRoom(courseId: string) {
 
   return {
     chatRoomId: course.phongChat.id,
-    maMoi: course.phongChat.maMoi,
     role: role,
     currentUserId: session.id,
   };
@@ -203,7 +192,6 @@ export async function getChatMembers(chatRoomId: string) {
         }));
 
         if (teacher) {
-            // Check if teacher is already in list (unlikely but possible if they bought their own course for testing)
             const exists = members.find(m => m.userId === teacher.id);
             if (!exists) {
                 members.unshift({

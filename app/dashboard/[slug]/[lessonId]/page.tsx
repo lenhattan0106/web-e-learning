@@ -37,7 +37,6 @@ async function LessonContentLoader({ lessonId }: { lessonId: string }) {
         <CommentSection
           comments={comments}
           idBaiHoc={lessonId}
-          idKhoaHoc={data.chuong.idKhoaHoc}
           currentUserId={session.id}
         />
       </div>

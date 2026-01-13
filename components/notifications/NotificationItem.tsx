@@ -32,10 +32,16 @@ const ICON_MAP: Record<string, typeof Ban> = {
   HE_THONG: Bell,
 };
 
+const ICON_BG_MAP: Record<string, string> = {
+  KIEM_DUYET: "bg-red-100 dark:bg-red-950/50",
+  KHOA_HOC: "bg-orange-100 dark:bg-orange-950/50",
+  HE_THONG: "bg-blue-100 dark:bg-blue-950/50",
+};
+
 const ICON_COLOR_MAP: Record<string, string> = {
-  KIEM_DUYET: "text-red-500",
-  KHOA_HOC: "text-orange-500",
-  HE_THONG: "text-blue-500",
+  KIEM_DUYET: "text-red-600 dark:text-red-400",
+  KHOA_HOC: "text-orange-600 dark:text-orange-400",
+  HE_THONG: "text-blue-600 dark:text-blue-400",
 };
 
 // ==================== COMPONENT ====================
@@ -52,6 +58,7 @@ export function NotificationItem({
   const router = useRouter();
   const Icon = ICON_MAP[notification.loai] || Bell;
   const iconColor = ICON_COLOR_MAP[notification.loai] || "text-muted-foreground";
+  const iconBg = ICON_BG_MAP[notification.loai] || "bg-muted";
 
   const handleClick = () => {
     if (!notification.daXem) {
@@ -66,15 +73,15 @@ export function NotificationItem({
   };
 
   const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent navigation/read
+    e.stopPropagation();
     onDelete();
   };
 
   return (
     <div
       className={cn(
-        "group relative p-4 hover:bg-accent cursor-pointer transition-colors pr-10", // Added padding-right for delete button
-        !notification.daXem && "bg-blue-50/50 dark:bg-blue-950/20"
+        "group relative px-4 py-3 hover:bg-accent/50 cursor-pointer transition-colors",
+        !notification.daXem && "bg-primary/5"
       )}
       onClick={handleClick}
     >
@@ -82,41 +89,37 @@ export function NotificationItem({
         {/* Icon */}
         <div
           className={cn(
-            "h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0",
-            !notification.daXem ? "bg-primary/10" : "bg-muted"
+            "h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0",
+            iconBg
           )}
         >
           <Icon className={cn("h-4 w-4", iconColor)} />
         </div>
 
         {/* Content */}
-        <div className="flex-1 min-w-0">
-          <p
-            className={cn(
-              "text-sm",
-              !notification.daXem ? "font-semibold" : "font-medium"
+        <div className="flex-1 min-w-0 pr-6">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-medium line-clamp-1">
+              {notification.tieuDe}
+            </p>
+            {/* Unread indicator */}
+            {!notification.daXem && (
+              <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0 mt-1.5" />
             )}
-          >
-            {notification.tieuDe}
-          </p>
-          <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">
             {notification.noiDung}
           </p>
-          <p className="text-xs text-muted-foreground mt-1.5">
+          <p className="text-[10px] text-muted-foreground/70 mt-1.5 font-medium">
             {formatDistanceToNow(new Date(notification.ngayTao), {
               addSuffix: true,
               locale: vi,
             })}
           </p>
         </div>
-
-        {/* Unread indicator */}
-        {!notification.daXem && (
-          <div className="h-2.5 w-2.5 rounded-full bg-blue-500 flex-shrink-0 mt-1" />
-        )}
       </div>
 
-      {/* Delete Button - Visible on hover or always if mobile */}
+      {/* Delete Button */}
       <button
         className="absolute top-2 right-2 p-1.5 hover:bg-background/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
         onClick={handleDelete}

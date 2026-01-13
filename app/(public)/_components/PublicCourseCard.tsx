@@ -5,10 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { School2, Star, TimerIcon, User, FileEdit, Crown } from "lucide-react";
+import { School2, Star, TimerIcon, User, FileEdit, Crown, Archive } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { env } from "@/lib/env";
+import { cn } from "@/lib/utils";
 
 // Helper to calculate average rating
 function calculateAverageRating(ratings: { diemDanhGia: number }[] | undefined) {
@@ -27,17 +28,30 @@ interface iAppProps {
 
 export async function PublicCourseCard({ data, isOwner = false, userRole }: iAppProps) {
   const isEnrolled = await checkIfCourseBought(data.id);
+  const isArchived = data.isArchived === true;
   // Calculate average rating from danhGias
   const ratingData = calculateAverageRating(data.danhGias);
 
   return (
-    <Card className="group relative py-0 gap-0 flex flex-col h-full">
-      {isOwner && (
-        <Badge variant="secondary" className="absolute top-2 left-2 z-20 rounded flex items-center gap-1 bg-yellow-500/90 text-white border-0">
-          <Crown className="h-3 w-3" />
-          Khóa học của bạn
-        </Badge>
-      )}
+    <Card className={cn(
+      "group relative py-0 gap-0 flex flex-col h-full",
+      isArchived && "opacity-90"
+    )}>
+      {/* Badges container */}
+      <div className="absolute top-2 left-2 z-20 flex flex-col gap-1">
+        {isArchived && (
+          <Badge variant="secondary" className="rounded flex items-center gap-1 bg-amber-500/90 text-white border-0">
+            <Archive className="h-3 w-3" />
+            Đã lưu trữ
+          </Badge>
+        )}
+        {isOwner && (
+          <Badge variant="secondary" className="rounded flex items-center gap-1 bg-yellow-500/90 text-white border-0">
+            <Crown className="h-3 w-3" />
+            Khóa học của bạn
+          </Badge>
+        )}
+      </div>
       <Badge className="absolute top-2 right-2 z-10 rounded">
         {data.capDo}
       </Badge>

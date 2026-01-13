@@ -17,6 +17,7 @@ import { revalidatePath } from "next/cache";
 import { generateEmbedding } from "@/lib/ai/embedding";
 import { cleanText } from "@/lib/utils/clean";
 import { generateUniqueSlug, slugify } from "@/lib/slug-utils";
+import { embedKhoaHoc } from "@/lib/ai/auto-embed";
 import {
   notifyEnrolledStudents,
   NOTIFICATION_TEMPLATES,
@@ -109,7 +110,7 @@ export async function editCourse(
       select: {
         tenKhoaHoc: true,
         duongDan: true,
-        idTrangThai: true,
+        trangThai: true,
         nguoiDung: { select: { name: true } },
       },
     });
@@ -159,25 +160,14 @@ export async function editCourse(
     }
 
     if (result.data.trangThai) {
-      const status = await prisma.trangThaiKhoaHoc.findUnique({ where: { id: result.data.trangThai } });
-      if (status) {
-        updateData.idTrangThai = status.id;
-        // Map Status Enum (Usually matches but explicit is safer)
-        const mapStatus: Record<string, string> = {
-          "BanNhap": "BanNhap",
-          "BanChinhThuc": "BanChinhThuc", 
-          "BanLuuTru": "BanLuuTru"
-        };
-        if (status.maTrangThai && mapStatus[status.maTrangThai]) {
-           updateData.trangThai = mapStatus[status.maTrangThai] as any;
-        }
-      }
+      // Use enum value directly from form
+      updateData.trangThai = result.data.trangThai as any;
     }
 
     // Detect status change for notifications
-    const oldStatusId = currentCourse?.idTrangThai;
-    const newStatusId = result.data.trangThai;
-    const statusChanged = newStatusId && oldStatusId !== newStatusId;
+    const oldStatus = currentCourse?.trangThai;
+    const newStatus = result.data.trangThai;
+    const statusChanged = newStatus && oldStatus !== newStatus;
 
     await prisma.khoaHoc.update({
       where: {
@@ -188,13 +178,8 @@ export async function editCourse(
     });
 
     // Send notifications if status changed
-    if (statusChanged && newStatusId) {
-      const newStatus = await prisma.trangThaiKhoaHoc.findUnique({
-        where: { id: newStatusId },
-        select: { maTrangThai: true },
-      });
-
-      if (newStatus?.maTrangThai === "BanLuuTru") {
+    if (statusChanged && newStatus) {
+      if (newStatus === "BanLuuTru") {
         // Course archived - notify enrolled students
         const template = NOTIFICATION_TEMPLATES.COURSE_ARCHIVED(result.data.tenKhoaHoc);
         await notifyEnrolledStudents({
@@ -206,7 +191,7 @@ export async function editCourse(
             courseId: idKhoaHoc,
           },
         });
-      } else if (newStatus?.maTrangThai === "BanChinhThuc") {
+      } else if (newStatus === "BanChinhThuc") {
         // Course published - notify enrolled students about update
         const template = NOTIFICATION_TEMPLATES.COURSE_UPDATED(result.data.tenKhoaHoc);
         await notifyEnrolledStudents({
@@ -220,6 +205,14 @@ export async function editCourse(
         });
       }
     }
+
+    // Auto-update embedding for AI search
+    embedKhoaHoc(
+      idKhoaHoc,
+      result.data.tenKhoaHoc,
+      result.data.moTaNgan,
+      result.data.moTa
+    );
 
     revalidatePath(`/teacher/courses/${idKhoaHoc}/edit`);
     revalidatePath("/teacher/courses");

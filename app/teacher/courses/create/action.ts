@@ -8,6 +8,7 @@ import { khoaHocSchema, KhoaHocSchemaType } from "@/lib/zodSchemas";
 import { request } from "@arcjet/next";
 import { revalidatePath } from "next/cache";
 import { generateUniqueSlug, slugify } from "@/lib/slug-utils";
+import { embedKhoaHoc } from "@/lib/ai/auto-embed";
 
 const arcjet = aj.withRule(
   fixedWindow({
@@ -66,22 +67,21 @@ export async function CreateCourse(values: KhoaHocSchemaType): Promise<ApiRespon
       };
     }
     
-    // Check existence
-    const [existingCategory, existingLevel, existingStatus] = await Promise.all([
+    // Check existence - only category and level
+    const [existingCategory, existingLevel] = await Promise.all([
       prisma.danhMuc.findUnique({ where: { id: validation.data.danhMuc } }),
       prisma.capDo.findUnique({ where: { id: validation.data.capDo } }),
-      prisma.trangThaiKhoaHoc.findUnique({ where: { id: validation.data.trangThai } }),
     ]);
 
-    if (!existingCategory || !existingLevel || !existingStatus) {
-       return { status: "error", message: "Danh mục, cấp độ hoặc trạng thái không hợp lệ" };
+    if (!existingCategory || !existingLevel) {
+       return { status: "error", message: "Danh mục hoặc cấp độ không hợp lệ" };
     }
 
     // Generate unique slug from course title
     const baseSlug = slugify(validation.data.tenKhoaHoc);
     const uniqueSlug = await generateUniqueSlug(baseSlug);
 
-    await prisma.khoaHoc.create({
+    const createdCourse = await prisma.khoaHoc.create({
       data: {
         tenKhoaHoc: validation.data.tenKhoaHoc,
         moTa: validation.data.moTa,
@@ -91,24 +91,28 @@ export async function CreateCourse(values: KhoaHocSchemaType): Promise<ApiRespon
         moTaNgan: validation.data.moTaNgan,
         duongDan: uniqueSlug, // Use auto-generated unique slug
         
-        // New Relations (Vietnamese)
+        // Relations
         idDanhMuc: existingCategory.id,
         idCapDo: existingLevel.id,
-        idTrangThai: existingStatus.id,
+        trangThai: validation.data.trangThai as any, // Use enum directly from form
 
         // Backward Compatibility (Best Effort - Deprecated fields)
         danhMuc: existingCategory.tenDanhMuc, 
-        // Map to Enum if codes match known ones
-        // Map to Enum if codes match known ones
         capDo: (existingLevel.maCapDo === "NGUOI_MOI" ? "NguoiMoi" : 
                 existingLevel.maCapDo === "TRUNG_CAP" ? "TrungCap" : 
                 existingLevel.maCapDo === "NANG_CAO" ? "NangCao" : undefined),
-        // Disable legacy enum mapping to avoid errors, rely on new relations and defaults
-        trangThai: undefined,
 
         idNguoiDung: session.user.id,
       },
     });
+    
+    // Auto-generate embedding for AI search
+    embedKhoaHoc(
+      createdCourse.id,
+      validation.data.tenKhoaHoc,
+      validation.data.moTaNgan,
+      validation.data.moTa
+    );
     
     revalidatePath("/teacher/courses");
     return {

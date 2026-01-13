@@ -18,7 +18,6 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  // Check if user is banned - will redirect to /banned if true
   await checkBanStatus(session.user.id);
 
   return <DashboardLayoutClient>{children}</DashboardLayoutClient>;

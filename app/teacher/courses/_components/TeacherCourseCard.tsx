@@ -31,29 +31,13 @@ interface iAppProps {
 
 // Helper function to get status display info
 function getStatusInfo(data: TeacherCourseType) {
-  // Kiểm tra relation mới trước (trangThaiRef)
-  if (data.trangThaiRef) {
-    const code = data.trangThaiRef.maTrangThai || "";
-    const name = data.trangThaiRef.tenTrangThai;
-    
-    // Lưu trữ / Archived
-    if (code === "BanLuuTru" || code.toUpperCase().includes("LUU_TRU")) {
-      return { label: name, className: "bg-gray-500 text-white hover:bg-gray-600" };
-    }
-    // Đã xuất bản / Published
-    if (code === "BanChinhThuc" || code.toUpperCase().includes("CHINH_THUC")) {
-      return { label: name, className: "bg-emerald-600 text-white hover:bg-emerald-700" };
-    }
-    // Bản nháp / Draft (default)
-    return { label: name, className: "bg-amber-500 text-white hover:bg-amber-600" };
-  }
-  
-  // Fallback to enum cũ (trangThai)
   switch (data.trangThai) {
     case "BanChinhThuc":
       return { label: "Đã xuất bản", className: "bg-emerald-600 text-white hover:bg-emerald-700" };
     case "BanLuuTru":
       return { label: "Đã lưu trữ", className: "bg-gray-500 text-white hover:bg-gray-600" };
+    case "BiChan":
+      return { label: "Bị chặn", className: "bg-red-600 text-white hover:bg-red-700" };
     case "BanNhap":
     default:
       return { label: "Bản nháp", className: "bg-amber-500 text-white hover:bg-amber-600" };

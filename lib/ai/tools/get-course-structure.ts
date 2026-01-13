@@ -4,9 +4,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 
 export const getCourseStructureTool = tool({
-  description: "Get the detailed structure (chapters and lessons) of a specific course. Use this when user asks 'what is in course X' or 'show me the curriculum of X'.",
+  description: "Lấy cấu trúc chi tiết (chương và bài học) của một khóa học. SỬ DỤNG KHI user hỏi: 'khóa học X có gì', 'nội dung khóa học', 'chương trình học', 'bài học trong khóa'.",
   inputSchema: z.object({
-    courseNameOrSlug: z.string().describe("The name or slug of the course to find."),
+    courseNameOrSlug: z.string().describe("Tên hoặc slug của khóa học"),
   }),
   execute: async ({ courseNameOrSlug }) => {
     try {

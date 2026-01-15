@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { DateRange } from "react-day-picker";
 import { 
   Search, 
   UserX, 
@@ -59,8 +60,14 @@ import {
   grantPremium,
   revokePremium 
 } from "@/app/admin/actions/user-management";
+import { fetchUserGrowthData } from "@/app/admin/actions/user-growth";
 import type { UserWithStats } from "@/app/data/admin/get-users";
 import { StatsCard } from "../../_components/StatsCard";
+import { UserGrowthChart } from "../../_components/charts/UserGrowthChart";
+import { UserDistributionChart } from "../../_components/charts/UserDistributionChart";
+import { DateFilter } from "../../_components/DateFilter";
+import { UserDetailSheet } from "../../_components/UserDetailSheet";
+import { getUserDetailsByDateRange } from "@/app/admin/actions/user-details";
 
 interface UserStats {
   totalUsers: number;
@@ -69,17 +76,40 @@ interface UserStats {
   newUsers: number;
 }
 
+interface UserGrowthChartData {
+  label: string;
+  month: string;
+  newUsers: number;
+  newPremium: number;
+  details?: {
+    userId: string;
+    name: string;
+    email: string;
+    image?: string | null;
+    createdAt: string;
+    isPremium: boolean;
+  }[];
+}
+
+interface UserDistribution {
+  freeUsers: number;
+  premiumUsers: number;
+  total: number;
+}
+
 interface UsersClientProps {
   users: UserWithStats[];
   total: number;
   totalPages: number;
   currentPage: number;
   stats: UserStats;
+  growthData: UserGrowthChartData[];
+  distribution: UserDistribution;
 }
 
 type FilterType = "all" | "teacher" | "premium" | "new";
 
-export function UsersClient({ users, total, totalPages, currentPage, stats }: UsersClientProps) {
+export function UsersClient({ users, total, totalPages, currentPage, stats, growthData, distribution }: UsersClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -90,7 +120,34 @@ export function UsersClient({ users, total, totalPages, currentPage, stats }: Us
   const [banModalOpen, setBanModalOpen] = useState(false);
   const [premiumDialogOpen, setPremiumDialogOpen] = useState(false);
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
+  const activeFilter = useMemo(() => {
+    const role = searchParams.get("role");
+    const premium = searchParams.get("premium");
+    const status = searchParams.get("status");
+
+    if (role === "teacher") return "teacher";
+    if (premium === "premium") return "premium";
+    if (status === "active") return "new";
+    return "all";
+  }, [searchParams]);
+
+  // Date filter state for charts
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const to = new Date();
+    const from = new Date();
+    from.setDate(to.getDate() - 30);
+    return { from, to };
+  });
+  const [currentDuration, setCurrentDuration] = useState(30);
+  const [isCustomRange, setIsCustomRange] = useState(false);
+  const [chartData, setChartData] = useState<UserGrowthChartData[]>(growthData);
+  const [chartLoading, setChartLoading] = useState(false);
+
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetUsers, setSheetUsers] = useState<any[]>([]);
+  const [sheetTitle, setSheetTitle] = useState("");
+  const [sheetDescription, setSheetDescription] = useState("");
+  const [sheetLoading, setSheetLoading] = useState(false);
 
   const updateUrl = (key: string, value: string | null) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -99,9 +156,9 @@ export function UsersClient({ users, total, totalPages, currentPage, stats }: Us
     } else {
       params.delete(key);
     }
-    params.delete("page"); // Reset page when filters change
+    params.delete("page"); 
     startTransition(() => {
-      router.push(`${pathname}?${params.toString()}`);
+      router.push(`${pathname}?${params.toString()}`, { scroll: false });
     });
   };
 
@@ -110,11 +167,90 @@ export function UsersClient({ users, total, totalPages, currentPage, stats }: Us
     updateUrl("search", searchValue || null);
   };
 
+  const handleDurationChange = (days: number) => {
+    setIsCustomRange(false);
+    setCurrentDuration(days);
+    const to = new Date();
+    const from = new Date();
+    from.setDate(to.getDate() - days);
+    setDateRange({ from, to });
+  };
+  
+  const handleCustomRangeChange = (range: DateRange | undefined) => {
+    if (range?.from && range?.to) {
+      setIsCustomRange(true);
+      setDateRange(range);
+    }
+  };
+
+  useEffect(() => {
+    if (!dateRange?.from || !dateRange?.to) return;
+    
+    const fetchData = async () => {
+      setChartLoading(true);
+      try {
+        const result = await fetchUserGrowthData(
+          dateRange.from!.toISOString(),
+          dateRange.to!.toISOString()
+        );
+        setChartData(result);
+      } catch (error) {
+        console.error("Failed to fetch chart data", error);
+      } finally {
+        setChartLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, [dateRange]);
+
+  const handleStatsCardClick = async (type: "all" | "teacher" | "premium" | "new") => {
+    if (!dateRange?.from || !dateRange?.to) return;
+    
+    setSheetLoading(true);
+    setSheetOpen(true);
+    
+    try {
+      let users;
+      let title = "";
+      let description = "";
+      
+      if (type === "all") {
+        users = await getUserDetailsByDateRange(
+          dateRange.from.toISOString(),
+          dateRange.to.toISOString(),
+          "all"
+        );
+        title = "Tổng người dùng mới";
+        description = `Từ ${format(dateRange.from, "dd/MM/yyyy")} đến ${format(dateRange.to, "dd/MM/yyyy")}`;
+      } else if (type === "premium") {
+        users = await getUserDetailsByDateRange(
+          dateRange.from.toISOString(),
+          dateRange.to.toISOString(),
+          "premium"
+        );
+        title = "Hội viên AI Premium mới";
+        description = `Từ ${format(dateRange.from, "dd/MM/yyyy")} đến ${format(dateRange.to, "dd/MM/yyyy")}`;
+      }
+      
+      setSheetUsers(users || []);
+      setSheetTitle(title);
+      setSheetDescription(description);
+    } catch (error) {
+      console.error("Failed to fetch user details", error);
+      toast.error("Không thể tải danh sách người dùng");
+    } finally {
+      setSheetLoading(false);
+    }
+  };
+  
+
+
   const handleFilterChange = (filter: FilterType) => {
-    setActiveFilter(filter);
     const params = new URLSearchParams(searchParams.toString());
     params.delete("role");
     params.delete("premium");
+    params.delete("status");
     params.delete("page");
     
     if (filter === "teacher") {
@@ -122,12 +258,11 @@ export function UsersClient({ users, total, totalPages, currentPage, stats }: Us
     } else if (filter === "premium") {
       params.set("premium", "premium");
     } else if (filter === "new") {
-      // New users = created in last 7 days (we'll filter by status)
       params.set("status", "active");
     }
     
     startTransition(() => {
-      router.push(`${pathname}?${params.toString()}`);
+      router.push(`${pathname}?${params.toString()}`, { scroll: false });
     });
   };
 
@@ -203,11 +338,26 @@ export function UsersClient({ users, total, totalPages, currentPage, stats }: Us
 
   return (
     <div className="space-y-6">
-      {/* Stats Cards */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold">Thống kê người dùng</h2>
+          <p className="text-sm text-muted-foreground">Tăng trưởng và phân phối người dùng</p>
+        </div>
+        <DateFilter
+          dateRange={dateRange}
+          onDateRangeChange={handleCustomRangeChange}
+          quickDurations={[7, 30, 90]}
+          currentDuration={currentDuration}
+          onQuickDurationChange={handleDurationChange}
+          isCustomRange={isCustomRange}
+        />
+      </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <div 
           onClick={() => handleFilterChange("all")} 
+          onDoubleClick={() => handleStatsCardClick("all")}
           className="cursor-pointer transition-transform hover:scale-[1.02]"
+          title="Click đúp để xem chi tiết"
         >
           <StatsCard
             title="Tổng người dùng"
@@ -229,7 +379,9 @@ export function UsersClient({ users, total, totalPages, currentPage, stats }: Us
         </div>
         <div 
           onClick={() => handleFilterChange("premium")} 
+          onDoubleClick={() => handleStatsCardClick("premium")}
           className="cursor-pointer transition-transform hover:scale-[1.02]"
+          title="Click đúp để xem chi tiết"
         >
           <StatsCard
             title="Hội viên AI"
@@ -249,6 +401,20 @@ export function UsersClient({ users, total, totalPages, currentPage, stats }: Us
             className={activeFilter === "new" ? "ring-2 ring-emerald-500 bg-emerald-50/50" : ""}
           />
         </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        {chartLoading ? (
+          <div className="h-[450px] flex items-center justify-center border rounded-lg lg:col-span-5">
+            <div className="flex flex-col items-center gap-2">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              <span className="text-sm text-muted-foreground">Đang tải biểu đồ...</span>
+            </div>
+          </div>
+        ) : (
+          <UserGrowthChart data={chartData} className="lg:col-span-5" />
+        )}
+        <UserDistributionChart data={distribution} className="lg:col-span-2" />
       </div>
 
       {/* Search & Filter Badges */}
@@ -297,8 +463,8 @@ export function UsersClient({ users, total, totalPages, currentPage, stats }: Us
       </div>
 
       {/* Table */}
-      <Card>
-        <CardContent className="p-0">
+      <Card className={isPending ? "opacity-60 pointer-events-none transition-opacity duration-300" : "transition-opacity duration-300"}>
+        <CardContent className="p-0 min-h-[400px]">
           <Table>
             <TableHeader>
               <TableRow className="select-none">
@@ -474,7 +640,14 @@ export function UsersClient({ users, total, totalPages, currentPage, stats }: Us
           </CardFooter>
         )}
       </Card>
-
+       <UserDetailSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        users={sheetUsers}
+        title={sheetTitle}
+        description={sheetDescription}
+        type="all"
+      />
       {/* Modals */}
       <BanUserModal
         open={banModalOpen}

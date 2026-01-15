@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
+import Pusher from "pusher-js";
 import {
   MessageCircle,
   MoreHorizontal,
@@ -15,6 +16,7 @@ import {
   ChevronUp,
   User,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -54,6 +56,8 @@ interface CommentReply {
   noiDung: string;
   ngayTao: Date;
   nguoiDung: CommentUser;
+  trangThai?: string;
+  _count?: { baoCaos: number };
 }
 
 interface Comment {
@@ -64,6 +68,7 @@ interface Comment {
   nguoiDung: CommentUser;
   replies: CommentReply[];
   _count: { baoCaos: number };
+  trangThai?: string;
 }
 
 // Helper to build full avatar URL from relative path
@@ -114,6 +119,7 @@ interface CommentSectionProps {
   comments: Comment[];
   idBaiHoc: string;
   currentUserId: string;
+  isAdmin?: boolean;
 }
 
 // Main CommentSection Component
@@ -121,6 +127,7 @@ export function CommentSection({
   comments: initialComments,
   idBaiHoc,
   currentUserId,
+  isAdmin = false,
 }: CommentSectionProps) {
   const [comments, setComments] = useState(initialComments);
   const router = useRouter();
@@ -130,9 +137,32 @@ export function CommentSection({
     setComments(initialComments);
   }, [initialComments]);
 
+  // Real-time refresh: Listen for admin report resolution via Pusher
+  useEffect(() => {
+    if (!process.env.NEXT_PUBLIC_PUSHER_KEY) return;
+    
+    const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY, {
+      cluster: "ap1",
+    });
+
+    const channel = pusher.subscribe(`lesson-${idBaiHoc}`);
+    
+    channel.bind("comment-refresh", async () => {
+      // Refetch comments when admin resolves a report
+      const newComments = await getComments(idBaiHoc, isAdmin);
+      setComments(newComments as unknown as Comment[]);
+    });
+
+    return () => {
+      channel.unbind_all();
+      channel.unsubscribe();
+      pusher.disconnect();
+    };
+  }, [idBaiHoc, isAdmin]);
+
   const handleCommentAdded = async () => {
     // Client-side refresh to avoid page reload (video interruption)
-    const newComments = await getComments(idBaiHoc);
+    const newComments = await getComments(idBaiHoc, isAdmin);
     // Cast to compatible type if needed, effectively it matches
     setComments(newComments as unknown as Comment[]);
   };
@@ -169,6 +199,7 @@ export function CommentSection({
               idBaiHoc={idBaiHoc}
               currentUserId={currentUserId}
               onUpdate={handleCommentAdded}
+              isAdmin={isAdmin}
             />
           ))
         )}
@@ -257,6 +288,7 @@ interface CommentItemProps {
   currentUserId: string;
   onUpdate: () => void;
   isReply?: boolean;
+  isAdmin?: boolean;
 }
 
 function CommentItem({
@@ -265,6 +297,7 @@ function CommentItem({
   currentUserId,
   onUpdate,
   isReply = false,
+  isAdmin = false,
 }: CommentItemProps) {
   const [showReplies, setShowReplies] = useState(false);
   const [showReplyForm, setShowReplyForm] = useState(false);
@@ -275,6 +308,18 @@ function CommentItem({
 
   const isOwner = comment.nguoiDung.id === currentUserId;
   const hasReplies = "replies" in comment && comment.replies.length > 0;
+  
+  // Admin-only: Detect reported/hidden comments
+  const reportCount = comment._count?.baoCaos || 0;
+  const isHidden = comment.trangThai === "AN";
+  const isReported = isAdmin && reportCount > 0;
+  
+  // Border styling based on report severity
+  const getBorderClass = () => {
+    if (!isReported) return "";
+    if (isHidden) return "border-2 border-red-200 bg-red-50/30"; // 3+ reports
+    return "border-2 border-yellow-200 bg-yellow-50/20"; // 1-2 reports
+  };
 
   const handleDelete = () => {
     startTransition(async () => {
@@ -320,7 +365,7 @@ function CommentItem({
 
   return (
     <div className={`${isReply ? "ml-12 border-l-2 pl-4" : ""}`}>
-      <div className="flex gap-3">
+      <div className={`flex gap-3 p-3 rounded-lg ${getBorderClass()}`}>
         <div className="flex-shrink-0">
           {buildAvatarUrl(comment.nguoiDung.image) ? (
             <Image
@@ -342,11 +387,27 @@ function CommentItem({
         </div>
 
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="font-semibold text-sm text-primary cursor-pointer">
               {comment.nguoiDung.name}
             </span>
             <TimeAgo date={new Date(comment.ngayTao)} />
+            
+            {/* Admin-only badges */}
+            {isReported && (
+              <>
+                {isHidden ? (
+                  <Badge variant="destructive" className="text-xs gap-1">
+                    <Flag className="h-3 w-3" />
+                    Đã ẩn - {reportCount} báo cáo
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300 gap-1">
+                    ⚠️ {reportCount} báo cáo
+                  </Badge>
+                )}
+              </>
+            )}
           </div>
 
           {/* Content - Edit mode or Display mode */}
@@ -379,7 +440,7 @@ function CommentItem({
               </div>
             </div>
           ) : (
-            <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+            <p className={`text-sm text-foreground whitespace-pre-wrap leading-relaxed ${isHidden ? 'opacity-60' : ''}`}>
               {comment.noiDung}
             </p>
           )}
@@ -479,6 +540,7 @@ function CommentItem({
                   currentUserId={currentUserId}
                   onUpdate={onUpdate}
                   isReply
+                  isAdmin={isAdmin}
                 />
               ))}
             </div>

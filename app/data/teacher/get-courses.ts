@@ -24,6 +24,13 @@ export async function teacherGetCourses() {
       gia: true,
       tepKH: true,
       duongDan: true,
+      _count: {
+        select: {
+          dangKyHocs: {
+            where: { trangThai: "DaThanhToan" }
+          }
+        }
+      }
     },
   });
   

@@ -11,6 +11,7 @@ import Pusher from "pusher-js";
 import { env } from "@/lib/env";
 import { getUnreadCount } from "@/app/actions/notification";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 // ==================== TYPES ====================
 
@@ -48,6 +49,7 @@ export function NotificationProvider({
 }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const router = useRouter();
 
   // Refresh unread count from server
   const refreshCount = useCallback(async () => {
@@ -71,9 +73,11 @@ export function NotificationProvider({
         label: "Xem",
         onClick: () => {
           // Navigate to notification if has URL
-          const meta = notification.metadata as { url?: string };
-          if (meta?.url) {
-            window.location.href = meta.url;
+          const meta = notification.metadata as { url?: string; path?: string };
+          const targetUrl = meta?.path || meta?.url;
+          
+          if (targetUrl) {
+            router.push(targetUrl);
           }
         },
       },

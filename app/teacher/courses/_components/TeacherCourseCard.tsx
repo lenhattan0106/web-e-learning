@@ -1,3 +1,6 @@
+// Forces recompile
+"use client";
+
 import { TeacherCourseType } from "@/app/data/teacher/get-courses";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,12 +27,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { env } from "@/lib/env";
+import { useState } from "react";
+import { DeleteCourseModal } from "./DeleteCourseModal";
 
 interface iAppProps {
   data: TeacherCourseType;
 }
 
-// Helper function to get status display info
 function getStatusInfo(data: TeacherCourseType) {
   switch (data.trangThai) {
     case "BanChinhThuc":
@@ -45,94 +49,114 @@ function getStatusInfo(data: TeacherCourseType) {
 }
 
 export function TeacherCourseCard({ data }: iAppProps) {
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const thumbnailUrl = `https://${env.NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES}.t3.storage.dev/${data.tepKH}`;
   const statusInfo = getStatusInfo(data);
   
+  const hasStudents = (data._count?.dangKyHocs ?? 0) > 0;
+  const studentCount = data._count?.dangKyHocs ?? 0;
+  
   return (
-    <Card className="group relative py-0 gap-0">
-      {/* Status Badge - Top Left */}
-      <div className="absolute top-2 left-2 z-10">
-        <Badge className={cn("shadow-md", statusInfo.className)}>
-          {statusInfo.label}
-        </Badge>
-      </div>
-      
-      {/* Dropdown Menu - Top Right */}
-      <div className="absolute top-2 right-2 z-10">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="secondary" size="icon">
-              <MoreVertical className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem asChild>
-              <Link href={`/teacher/courses/${data.id}/edit`}>
-                <Pencil className="size-4 mr-2" />
-                Chỉnh sửa
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href={`/courses/${data.duongDan}`}>
-                <Eye className="size-4 mr-2" />
-                Xem khóa học
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href={`/teacher/courses/${data.id}/delete`}>
-                <Trash className="size-4 mr-2 text-destructive" />
-                Xóa khóa học
-              </Link>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-      <Image
-        src={thumbnailUrl}
-        alt="Hình ảnh khóa học"
-        width={600}
-        height={400}
-        className="w-full rounded-t-lg aspect-video h-full object-cover"
-        unoptimized={process.env.NODE_ENV === "development"}
-      />
-      <CardContent className="p-4">
-        <Link
-          href={`/teacher/courses/${data.id}/edit`}
-          className="font-medium text-lg line-clamp-2 hover:underline group-hover:text-primary transition-colors"
-        >
-          {data.tenKhoaHoc}
-        </Link>
-        <p className="line-clamp-2 text-sm text-muted-foreground leading-tight mt-2">
-          {data.moTaNgan}
-        </p>
-        <div className="mt-4 flex items-center gap-x-5">
-          <div className="flex items-center gap-x-1.5">
-            <School2 className="size-4 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{data.capDo}</p>
-          </div>
-          <div className="flex items-center gap-x-1.5">
-            <TimerIcon className="size-4 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{formatDuration(data.thoiLuong)}</p>
-          </div>
+    <>
+      <Card className="group relative py-0 gap-0">
+        {/* Status Badge - Top Left */}
+        <div className="absolute top-2 left-2 z-10">
+          <Badge className={cn("shadow-md", statusInfo.className)}>
+            {statusInfo.label}
+          </Badge>
         </div>
-        <div className="mt-4 flex items-center justify-between">
-          <p className="text-lg font-semibold">
-            {new Intl.NumberFormat("vi-VN", {
-              style: "currency",
-              currency: "VND",
-            }).format(data.gia)}
-          </p>
+        
+        {/* Dropdown Menu - Top Right */}
+        <div className="absolute top-2 right-2 z-10">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="secondary" size="icon">
+                <MoreVertical className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem asChild>
+                <Link href={`/teacher/courses/${data.id}/edit`}>
+                  <Pencil className="size-4 mr-2" />
+                  Chỉnh sửa
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={`/courses/${data.duongDan}`}>
+                  <Eye className="size-4 mr-2" />
+                  Xem khóa học
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setIsDeleteModalOpen(true)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash className="size-4 mr-2" />
+                Xóa khóa học
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <Image
+          src={thumbnailUrl}
+          alt="Hình ảnh khóa học"
+          width={600}
+          height={400}
+          className="w-full rounded-t-lg aspect-video h-full object-cover"
+          unoptimized={process.env.NODE_ENV === "development"}
+        />
+        <CardContent className="p-4">
           <Link
             href={`/teacher/courses/${data.id}/edit`}
-            className={buttonVariants({ size: "sm" })}
+            className="font-medium text-lg line-clamp-2 hover:underline group-hover:text-primary transition-colors"
           >
-            Chỉnh sửa
-            <ArrowRight className="size-4 ml-1" />
+            {data.tenKhoaHoc}
           </Link>
-        </div>
-      </CardContent>
-    </Card>
+          <p className="line-clamp-2 text-sm text-muted-foreground leading-tight mt-2">
+            {data.moTaNgan}
+          </p>
+          <div className="mt-4 flex items-center gap-x-5">
+            <div className="flex items-center gap-x-1.5">
+              <School2 className="size-4 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">{data.capDo}</p>
+            </div>
+            <div className="flex items-center gap-x-1.5">
+              <TimerIcon className="size-4 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">{formatDuration(data.thoiLuong)}</p>
+            </div>
+          </div>
+          <div className="mt-4 flex items-center justify-between">
+            <p className="text-lg font-semibold">
+              {data.gia == 0 || !data.gia
+                ? "Miễn phí" 
+                : new Intl.NumberFormat("vi-VN", {
+                    style: "currency",
+                    currency: "VND",
+                  }).format(Number(data.gia))
+              }
+            </p>
+            <Link
+              href={`/teacher/courses/${data.id}/edit`}
+              className={buttonVariants({ size: "sm" })}
+            >
+              Chỉnh sửa
+              <ArrowRight className="size-4 ml-1" />
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Delete Course Modal */}
+      <DeleteCourseModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        courseId={data.id}
+        courseName={data.tenKhoaHoc}
+        hasStudents={hasStudents}
+        studentCount={studentCount}
+      />
+    </>
   );
 }
 

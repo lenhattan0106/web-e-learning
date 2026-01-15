@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { DateRange } from "react-day-picker";
 import { format, differenceInDays } from "date-fns";
 import { vi } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
@@ -56,6 +57,9 @@ import { grantPremiumByEmail, grantPremium, revokePremium } from "@/app/admin/ac
 import { toast } from "sonner";
 import { MoreHorizontal, ShieldOff, Clock, Gift, Copy, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { PremiumRevenueChart } from "../../_components/charts/PremiumRevenueChart";
+import { DateFilter } from "../../_components/DateFilter";
+import { fetchPremiumRevenueData } from "@/app/admin/actions/premium-revenue";
 
 // Types
 interface PremiumPayment {
@@ -88,6 +92,26 @@ interface PremiumMember {
   }
 }
 
+interface PremiumRevenueData {
+  label: string;
+  value: number;
+  prevValue?: number;
+  fullDate?: string;
+  prevDateLabel?: string;
+}
+
+interface PremiumRevenueStats {
+  data: PremiumRevenueData[];
+  avgValue: number;
+  total: number;
+  granularity: "day" | "week" | "month";
+}
+
+import { updateSystemSetting } from "@/app/admin/actions/system-settings";
+import { SYSTEM_SETTINGS } from "@/app/data/admin/system-settings-constants";
+import { Edit, Save } from "lucide-react";
+
+
 interface PremiumClientProps {
   stats: {
     totalPremiumUsers: number;
@@ -97,37 +121,85 @@ interface PremiumClientProps {
     recentPayments: PremiumPayment[];
     expiringMembers: PremiumMember[];
     allActiveMembers: PremiumMember[];
+    activePayingUsersCount: number;
   };
+  revenueChartData: PremiumRevenueStats;
+  currentPrice: number;
 }
 
 type TabType = "transactions" | "expiring" | "active";
 
-export function PremiumClient({ stats }: PremiumClientProps) {
+export function PremiumClient({ stats, revenueChartData, currentPrice }: PremiumClientProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>("transactions");
+  
+  // Grant Premium State
   const [isGrantOpen, setIsGrantOpen] = useState(false);
   const [grantEmail, setGrantEmail] = useState("");
   const [grantDays, setGrantDays] = useState(30);
+
+  // Edit Price State
+  const [isEditPriceOpen, setIsEditPriceOpen] = useState(false);
+  const [newPrice, setNewPrice] = useState(currentPrice.toString());
+
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Date filter state for chart
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const to = new Date();
+    const from = new Date();
+    from.setDate(to.getDate() - 30);
+    return { from, to };
+  });
+  const [currentDuration, setCurrentDuration] = useState(30);
+  const [isCustomRange, setIsCustomRange] = useState(false);
+  const [chartData, setChartData] = useState<PremiumRevenueStats>(revenueChartData);
+  const [chartLoading, setChartLoading] = useState(false);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("vi-VN").format(amount);
   };
+  
+  const handleUpdatePrice = async () => {
+      const price = parseInt(newPrice.replace(/\D/g, ""));
+      if (!price || price < 0) return toast.error("Giá không hợp lệ");
+      
+      setIsLoading(true);
+      try {
+          const res = await updateSystemSetting(SYSTEM_SETTINGS.PREMIUM_MONTHLY_PRICE, price.toString());
+          if (res.success) {
+              toast.success("Cập nhật giá thành công");
+              setIsEditPriceOpen(false);
+              router.refresh();
+          } else {
+              toast.error(res.message);
+          }
+      } catch (error) {
+          toast.error("Có lỗi xảy ra");
+      } finally {
+          setIsLoading(false);
+      }
+  }
+
 
   const handleGrantPremium = async () => {
-    if (!grantEmail) return toast.error("Vui lòng nhập Email");
+    if (!grantEmail || grantDays <= 0) {
+      toast.error("Vui lòng nhập email và số ngày hợp lệ");
+      return;
+    }
     
     setIsLoading(true);
     try {
-      const res = await grantPremiumByEmail(grantEmail, grantDays);
-      if (res.success) {
-        toast.success(res.message);
+      const result = await grantPremiumByEmail(grantEmail, grantDays);
+      if (result.success) {
+        toast.success(result.message);
         setIsGrantOpen(false);
         setGrantEmail("");
+        setGrantDays(30);
         router.refresh();
       } else {
-        toast.error(res.message);
+        toast.error(result.message);
       }
     } catch (error) {
        toast.error("Có lỗi xảy ra");
@@ -135,6 +207,45 @@ export function PremiumClient({ stats }: PremiumClientProps) {
       setIsLoading(false);
     }
   };
+
+  // Date filter handlers
+  const handleDurationChange = (days: number) => {
+    setIsCustomRange(false);
+    setCurrentDuration(days);
+    const to = new Date();
+    const from = new Date();
+    from.setDate(to.getDate() - days);
+    setDateRange({ from, to });
+  };
+  
+  const handleCustomRangeChange = (range: DateRange | undefined) => {
+    if (range?.from && range?.to) {
+      setIsCustomRange(true);
+      setDateRange(range);
+    }
+  };
+
+  // Fetch chart data when date range changes
+  useEffect(() => {
+    if (!dateRange?.from || !dateRange?.to) return;
+    
+    const fetchData = async () => {
+      setChartLoading(true);
+      try {
+        const result = await fetchPremiumRevenueData(
+          dateRange.from!.toISOString(),
+          dateRange.to!.toISOString()
+        );
+        setChartData(result);
+      } catch (error) {
+        console.error("Failed to fetch chart data", error);
+      } finally {
+        setChartLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, [dateRange]);
 
   const handleRevoke = async (userId: string) => {
      if(!confirm("Bạn có chắc chắn muốn thu hồi quyền Premium của người dùng này?")) return;
@@ -183,20 +294,29 @@ export function PremiumClient({ stats }: PremiumClientProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header with Date Filter */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
+        <div className="space-y-2">
           <h1 className="text-2xl font-bold tracking-tight">Quản lý AI Premium</h1>
           <p className="text-muted-foreground">
             Theo dõi doanh thu, quản lý hội viên và cấp phát quyền Premium
           </p>
         </div>
-        <Dialog open={isGrantOpen} onOpenChange={setIsGrantOpen}>
-           <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0">
-                 <IconPlus className="mr-2 h-4 w-4" /> Cấp thủ công
-              </Button>
-           </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <DateFilter
+            dateRange={dateRange}
+            onDateRangeChange={handleCustomRangeChange}
+            quickDurations={[7, 30, 90]}
+            currentDuration={currentDuration}
+            onQuickDurationChange={handleDurationChange}
+            isCustomRange={isCustomRange}
+          />
+          <Dialog open={isGrantOpen} onOpenChange={setIsGrantOpen}>
+             <DialogTrigger asChild>
+                <Button className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0">
+                   <IconPlus className="mr-2 h-4 w-4" /> Cấp thủ công
+                </Button>
+             </DialogTrigger>
            <DialogContent>
               <DialogHeader>
                  <DialogTitle>Cấp quyền AI Premium</DialogTitle>
@@ -230,6 +350,7 @@ export function PremiumClient({ stats }: PremiumClientProps) {
               </DialogFooter>
            </DialogContent>
         </Dialog>
+       </div>
       </div>
 
       {/* Clickable Stats Cards */}
@@ -249,7 +370,7 @@ export function PremiumClient({ stats }: PremiumClientProps) {
              title="Hội viên Active"
              value={stats.activePremiumUsers}
              icon={<IconSparkles className="h-6 w-6 text-amber-500" />}
-             suffix="User"
+             suffix="Người dùng"
              footer={<span className="text-xs text-muted-foreground">Đang sử dụng AI Premium</span>}
              className={activeTab === "active" ? "ring-2 ring-amber-500 bg-amber-50/50" : ""}
           />
@@ -259,20 +380,77 @@ export function PremiumClient({ stats }: PremiumClientProps) {
              title="Sắp hết hạn"
              value={stats.expiringCount}
              icon={<IconClock className="h-6 w-6 text-rose-500" />}
-             suffix="User"
+             suffix="Người dùng"
              footer={<span className="text-xs text-muted-foreground">Trong 7 ngày tới</span>}
              className={activeTab === "expiring" ? "ring-2 ring-rose-500 bg-rose-50/50" : ""}
           />
         </div>
-        <StatsCard
-           title="Doanh thu định kỳ"
-           value={stats.activePremiumUsers * 99000}
-           icon={<IconUsers className="h-6 w-6 text-purple-500" />}
-           suffix="đ"
-           footer={<span className="text-xs text-muted-foreground">Tiền theo tháng</span>}
-           className="ring-2 ring-purple-500 bg-purple-50/50"
-        />
+        <Dialog open={isEditPriceOpen} onOpenChange={setIsEditPriceOpen}>
+          <DialogTrigger asChild>
+            <div className="cursor-pointer transition-transform hover:scale-[1.02] group relative">
+               <StatsCard
+                  title="Giá gói Premium hiện tại"
+                  value={currentPrice}
+                  icon={<IconCash className="h-6 w-6 text-purple-500" />}
+                  suffix="đ"
+                  footer={
+                    <div className="flex justify-between w-full text-xs items-center">
+                       <span className="text-muted-foreground">Áp dụng cho chu kỳ 30 ngày</span>
+                       <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-200 group-hover:bg-purple-200 transition-colors">
+                          <Edit className="w-3 h-3 mr-1" /> Chỉnh sửa
+                       </Badge>
+                    </div>
+                  }
+                  className="ring-2 ring-purple-500 bg-purple-50/50"
+               />
+            </div>
+          </DialogTrigger>
+          <DialogContent>
+             <DialogHeader>
+                <DialogTitle>Cập nhật giá Premium</DialogTitle>
+                <DialogDescription>
+                   Thay đổi giá gói Premium cho chu kỳ 30 ngày. Giá mới sẽ áp dụng cho các giao dịch trong tương lai.
+                </DialogDescription>
+             </DialogHeader>
+             <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                   <Label>Giá mới (VND)</Label>
+                   <Input 
+                      type="number"
+                      value={newPrice}
+                      onChange={(e) => setNewPrice(e.target.value)}
+                      placeholder="99000"
+                   />
+                   <p className="text-xs text-muted-foreground">
+                      Giá hiện tại: <b>{formatCurrency(currentPrice)} đ</b>
+                   </p>
+                </div>
+             </div>
+             <DialogFooter>
+                <Button variant="outline" onClick={() => setIsEditPriceOpen(false)}>Hủy</Button>
+                <Button onClick={handleUpdatePrice} disabled={isLoading}>
+                   {isLoading ? "Đang lưu..." : "Lưu thay đổi"}
+                </Button>
+             </DialogFooter>
+           </DialogContent>
+        </Dialog>
       </div>
+
+      {/* Premium Revenue Chart */}
+      {chartLoading ? (
+        <div className="h-[450px] flex items-center justify-center border rounded-lg">
+          <div className="flex flex-col items-center gap-2">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <span className="text-sm text-muted-foreground">Đang tải biểu đồ...</span>
+          </div>
+        </div>
+      ) : (
+        <PremiumRevenueChart 
+          data={chartData.data} 
+          avgValue={chartData.avgValue}
+          granularity={chartData.granularity}
+        />
+      )}
 
       {/* Detail Section */}
       <div className="space-y-4">
@@ -320,7 +498,6 @@ export function PremiumClient({ stats }: PremiumClientProps) {
   );
 }
 
-// === SUB-COMPONENTS ===
 
 function EmptyResult({ message }: { message: string }) {
   return (

@@ -1,8 +1,9 @@
 "use client";
 
 import { Sparkles, Lock, CheckCircle, Zap, Crown } from "lucide-react";
-import { useTransition } from "react";
-import { purchasePremiumAction } from "@/app/actions/purchase-premium";
+import { useTransition, useState, useEffect } from "react";
+import { createPaymentUrl } from "@/app/actions/purchase-premium";
+import { getPremiumPrice } from "@/app/admin/actions/system-settings";
 
 interface PremiumPaywallProps {
   onClose?: () => void;
@@ -10,10 +11,27 @@ interface PremiumPaywallProps {
 
 export function PremiumPaywall({ onClose }: PremiumPaywallProps) {
   const [isPending, startTransition] = useTransition();
+  const [price, setPrice] = useState(99000);
+
+  useEffect(() => {
+    const fetchPrice = async () => {
+      try {
+        const fetchedPrice = await getPremiumPrice();
+        setPrice(fetchedPrice);
+      } catch (error) {
+        console.error("Failed to fetch premium price:", error);
+      }
+    };
+    fetchPrice();
+  }, []);
+
+  const formattedPrice = new Intl.NumberFormat("vi-VN").format(price);
+  const dailyPrice = Math.round(price / 30);
+  const formattedDailyPrice = new Intl.NumberFormat("vi-VN").format(dailyPrice);
 
   const handleUpgrade = () => {
     startTransition(async () => {
-      await purchasePremiumAction();
+      await createPaymentUrl();
     });
   };
 
@@ -72,11 +90,11 @@ export function PremiumPaywall({ onClose }: PremiumPaywallProps) {
             <div>
               <p className="text-slate-400 text-xs sm:text-sm mb-0.5 sm:mb-1">Gói AI Pro</p>
               <div className="flex items-baseline gap-1.5 sm:gap-2">
-                <span className="text-2xl sm:text-3xl font-bold text-white">99.000</span>
+                <span className="text-2xl sm:text-3xl font-bold text-white">{formattedPrice}</span>
                 <span className="text-slate-400 text-sm sm:text-base">đ/tháng</span>
               </div>
               <p className="text-xs sm:text-sm text-slate-400 mt-1 sm:mt-1.5">
-                Chỉ <span className="text-amber-400 font-semibold">3.300đ/ngày</span>
+                Chỉ <span className="text-amber-400 font-semibold">{formattedDailyPrice}đ/ngày</span>
               </p>
             </div>
             <div className="w-10 sm:w-12 h-10 sm:h-12 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">

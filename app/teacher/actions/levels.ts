@@ -59,6 +59,30 @@ export async function editCapDo(id: string, tenCapDo: string) {
   }
 
   try {
+      const coursesWithLevel = await prisma.khoaHoc.findMany({
+        where: { idCapDo: id },
+        select: { id: true, idNguoiDung: true }
+      });
+
+      if (coursesWithLevel.length > 0) {
+        const enrollmentCount = await prisma.dangKyHoc.count({
+          where: {
+            idKhoaHoc: { in: coursesWithLevel.map(c => c.id) },
+            trangThai: "DaThanhToan"
+          }
+        });
+
+        const uniqueTeachers = new Set(coursesWithLevel.map(c => c.idNguoiDung));
+        return {
+          locked: true,
+          impact: {
+            courses: coursesWithLevel.length,
+            students: enrollmentCount,
+            teachers: uniqueTeachers.size
+          }
+        };
+      }
+
       const level = await prisma.capDo.update({
           where: { id },
           data: { tenCapDo }
@@ -76,13 +100,28 @@ export async function deleteCapDo(id: string) {
   const session = await requireTeacher();
 
   try {
-      // Check if level is used in courses
-      const coursesCount = await prisma.khoaHoc.count({
-          where: { idCapDo: id }
+      const coursesWithLevel = await prisma.khoaHoc.findMany({
+        where: { idCapDo: id },
+        select: { id: true, idNguoiDung: true }
       });
 
-      if (coursesCount > 0) {
-          return { error: "Không thể xóa cấp độ đang được sử dụng trong khóa học" };
+      if (coursesWithLevel.length > 0) {
+        const enrollmentCount = await prisma.dangKyHoc.count({
+          where: {
+            idKhoaHoc: { in: coursesWithLevel.map(c => c.id) },
+            trangThai: "DaThanhToan"
+          }
+        });
+
+        const uniqueTeachers = new Set(coursesWithLevel.map(c => c.idNguoiDung));
+        return {
+          locked: true,
+          impact: {
+            courses: coursesWithLevel.length,
+            students: enrollmentCount,
+            teachers: uniqueTeachers.size
+          }
+        };
       }
 
       await prisma.capDo.delete({

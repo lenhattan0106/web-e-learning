@@ -18,7 +18,7 @@ export async function getDanhMucs() {
       },
     },
     where: {
-        idDanhMucCha: null // Root categories
+        idDanhMucCha: null 
     }
   });
   return categories;
@@ -73,6 +73,36 @@ export async function editDanhMuc(id: string, tenDanhMuc: string) {
   }
 
   try {
+      const coursesInCategory = await prisma.khoaHoc.findMany({
+        where: {
+          OR: [
+            { idDanhMuc: id },
+            { danhMucRef: { idDanhMucCha: id } }
+          ]
+        },
+        select: { id: true, idNguoiDung: true }
+      });
+
+      if (coursesInCategory.length > 0) {
+        const enrollmentCount = await prisma.dangKyHoc.count({
+          where: {
+            idKhoaHoc: { in: coursesInCategory.map(c => c.id) },
+            trangThai: "DaThanhToan"
+          }
+        });
+
+        if (enrollmentCount > 0) {
+          const uniqueTeachers = new Set(coursesInCategory.map(c => c.idNguoiDung));
+          return {
+            locked: true,
+            impact: {
+              courses: coursesInCategory.length,
+              students: enrollmentCount,
+              teachers: uniqueTeachers.size
+            }
+          };
+        }
+      }
       const slug = tenDanhMuc
         .toLowerCase()
         .normalize("NFD")
@@ -119,17 +149,41 @@ export async function deleteDanhMuc(id: string) {
       });
 
       if (children > 0) {
-          return { error: "Không thể xóa danh mục có danh mục con" };
+          return { error: "Không thể xóa danh mục có danh mục con. Vui lòng xóa danh mục con trước." };
       }
 
-      // Check if category is used in courses
-      const coursesCount = await prisma.khoaHoc.count({
-          where: { idDanhMuc: id }
+      // ===== ENROLLMENT PROTECTION =====
+      // 1. Get courses in this category
+       const coursesInCategory = await prisma.khoaHoc.findMany({
+        where: { idDanhMuc: id },
+        select: { id: true, tenKhoaHoc: true, idNguoiDung: true }
       });
 
-      if (coursesCount > 0) {
-          return { error: "Không thể xóa danh mục đang được sử dụng trong khóa học" };
+      if (coursesInCategory.length > 0) {
+        const enrollmentCount = await prisma.dangKyHoc.count({
+          where: {
+            idKhoaHoc: { in: coursesInCategory.map(c => c.id) },
+            trangThai: "DaThanhToan"
+          }
+        });
+
+        if (enrollmentCount > 0) {
+          const uniqueTeachers = new Set(coursesInCategory.map(c => c.idNguoiDung));
+          return {
+            locked: true,
+            impact: {
+              courses: coursesInCategory.length,
+              students: enrollmentCount,
+              teachers: uniqueTeachers.size
+            }
+          };
+        }
+
+        return {
+          error: `Danh mục đang có ${coursesInCategory.length} khóa học. Vui lòng chuyển sang danh mục khác trước khi xóa.`
+        };
       }
+      // ===== END PROTECTION =====
 
       await prisma.danhMuc.delete({
           where: { id }

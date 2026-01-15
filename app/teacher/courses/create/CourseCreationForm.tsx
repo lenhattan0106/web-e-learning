@@ -257,12 +257,15 @@ export function CourseCreationForm({ categories, levels, statuses }: Props) {
                       <FormLabel>Giá (VNĐ)</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Giá"
-                          type="number"
-                          value={field.value || ""}
+                          placeholder="Nhập 0 cho khóa học miễn phí"
+                          type="text"
+                          value={field.value === 0 ? "0" : field.value.toLocaleString('vi-VN')}
                           onChange={(e) => {
-                            const value = e.target.value;
-                            field.onChange(value === "" ? 0 : Number(value));
+                            const rawValue = e.target.value.replace(/\./g, ''); // Remove dots
+                            const numValue = rawValue === "" || rawValue === "0" ? 0 : parseInt(rawValue, 10);
+                            if (!isNaN(numValue) && numValue >= 0) {
+                              field.onChange(numValue);
+                            }
                           }}
                         ></Input>
                       </FormControl>

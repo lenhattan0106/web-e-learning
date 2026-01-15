@@ -63,6 +63,9 @@ export function CourseStructure({ data }: iAppProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   
+  // Check if course has paid students
+  const hasStudents = (data._count?.dangKyHocs ?? 0) > 0;
+  
   // Helper function để format data
   const formatChapters = (chuongs: typeof data.chuongs) => {
     const sortedChuongs = [...chuongs].sort((a, b) => a.thuTu - b.thuTu);
@@ -337,7 +340,7 @@ export function CourseStructure({ data }: iAppProps) {
                         </div>
                         <div className="flex items-center gap-1">
                            <EditChapterModal idKhoaHoc={data.id} idChuong={item.id} tenChuong={item.tenChuong} />
-                           <DeleteChapter idChuong={item.id} idKhoaHoc={data.id}></DeleteChapter>
+                           <DeleteChapter idChuong={item.id} idKhoaHoc={data.id} hasStudents={hasStudents} />
                         </div>
                       </div>
                       <CollapsibleContent>
@@ -377,7 +380,7 @@ export function CourseStructure({ data }: iAppProps) {
                                             idBaiHoc={baiHoc.id} 
                                             tenBaiHoc={baiHoc.tenBaiHoc} 
                                        />
-                                       <DeleteLesson idChuong={item.id} idKhoaHoc={data.id} idBaiHoc={baiHoc.id}></DeleteLesson>
+                                       <DeleteLesson idChuong={item.id} idKhoaHoc={data.id} idBaiHoc={baiHoc.id} hasStudents={hasStudents} />
                                     </div>
                                   </div>
                                 )}

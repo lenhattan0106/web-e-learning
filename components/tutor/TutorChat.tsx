@@ -10,6 +10,7 @@ import { PremiumPaywall } from "./PremiumPaywall";
 interface TutorChatProps {
   isPremium?: boolean;
   premiumExpires?: Date | null;
+  userId?: string;
 }
 
 export function TutorChat({ isPremium = false, premiumExpires }: TutorChatProps) {

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/app/data/admin/require-admin";
+import { getPremiumRevenueStats } from "@/app/data/admin/get-premium-revenue-stats";
 import { PremiumClient } from "./_components/PremiumClient";
 
 async function getPremiumStats() {
@@ -67,31 +68,27 @@ async function getPremiumStats() {
       orderBy: { premiumExpires: "asc" },
     }),
 
-    // Tất cả hội viên đang active
+    // Tất cả hội viên đang active (để đếm số user PAYING)
     prisma.user.findMany({
       where: {
         isPremium: true,
         premiumExpires: { gt: now },
       },
       select: {
-        id: true,
-        name: true,
-        email: true,
-        image: true,
-        premiumExpires: true,
-        createdAt: true,
-        _count: {
-          select: { 
-            thanhToanPremiums: { 
-              where: { trangThai: "DaThanhToan" } 
-            } 
+          id: true,
+          _count: {
+              select: {
+                  thanhToanPremiums: {
+                      where: { trangThai: "DaThanhToan" }
+                  }
+              }
           }
-        }
-      },
-      orderBy: { premiumExpires: "desc" },
-      take: 50,
-    }),
+      }
+    })
   ]);
+
+  // Calculate Paying Users (at least 1 successful transaction)
+  const activePayingUsersCount = allActiveMembers.filter(u => u._count.thanhToanPremiums > 0).length;
 
   return {
     totalPremiumUsers,
@@ -101,13 +98,31 @@ async function getPremiumStats() {
     recentPayments,
     expiringMembers: expiringMembers as any[],
     allActiveMembers: allActiveMembers as any[],
+    activePayingUsersCount, // Returned for consistent calculation
   };
 }
 
-export default async function AdminPremiumPage() {
+import { getPremiumPrice } from "@/app/admin/actions/system-settings";
+
+// ... existing code ...
+
+export default async function AdminPremiumPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   await requireAdmin();
   
-  const stats = await getPremiumStats();
+  // Default date range: last 30 days
+  const toDate = new Date();
+  const fromDate = new Date();
+  fromDate.setDate(toDate.getDate() - 30);
   
-  return <PremiumClient stats={stats} />;
+  const [stats, revenueStats, currentPrice] = await Promise.all([
+    getPremiumStats(),
+    getPremiumRevenueStats(fromDate, toDate), // Default 30 days
+    getPremiumPrice(),
+  ]);
+  
+  return <PremiumClient stats={stats} revenueChartData={revenueStats} currentPrice={currentPrice} />;
 }

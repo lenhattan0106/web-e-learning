@@ -6,6 +6,8 @@ import { ApiResponse } from "@/lib/types";
 import aj, { slidingWindow } from "@/lib/arcjet";
 import { request } from "@arcjet/next";
 import { revalidatePath } from "next/cache";
+import { notifyAdmins } from "@/app/services/admin-notification-service";
+import { sendNotification } from "@/app/services/notification-service";
 
 // Rate limit: 3 comments per minute per user
 const commentArcjet = aj.withRule(
@@ -69,7 +71,7 @@ export async function createComment(
       capDo = Math.min(parentComment.capDo + 1, 1);
     }
 
-    await prisma.binhLuan.create({
+    const newComment = await prisma.binhLuan.create({
       data: {
         noiDung: input.noiDung.trim(),
         capDo,
@@ -77,7 +79,43 @@ export async function createComment(
         idBaiHoc: input.idBaiHoc,
         idCha: input.idCha || null,
       },
+      include: {
+        baiHoc: {
+          include: {
+            chuong: {
+              include: {
+                khoaHoc: { select: { duongDan: true } }
+              }
+            }
+          }
+        }
+      }
     });
+
+    // --- NOTIFICATION LOGIC: REPLY TO COMMENT ---
+    if (input.idCha) {
+      const parentComment = await prisma.binhLuan.findUnique({
+        where: { id: input.idCha },
+        select: { idNguoiDung: true }
+      });
+
+      // Notify if replying to someone else
+      if (parentComment && parentComment.idNguoiDung !== session.id) {
+         await sendNotification({
+           userId: parentComment.idNguoiDung,
+           title: "Phản hồi mới",
+           message: `${session.name || "Một người dùng"} đã trả lời bình luận của bạn.`,
+           type: "KHOA_HOC",
+           metadata: {
+             type: "COMMENT_REPLY",
+             lessonId: input.idBaiHoc,
+             commentId: newComment.id,
+             path: `/dashboard/${newComment.baiHoc.chuong.khoaHoc.duongDan}/${input.idBaiHoc}?commentId=${newComment.id}`
+           }
+         });
+      }
+    }
+    // --------------------------------------------
 
     return { status: "success", message: "Đã thêm bình luận" };
   } catch (error) {
@@ -154,12 +192,12 @@ export async function updateComment(
   }
 }
 
-export async function getComments(idBaiHoc: string) {
+export async function getComments(idBaiHoc: string, showHidden: boolean = false) {
   // Get root comments with their replies
   const comments = await prisma.binhLuan.findMany({
     where: {
       idBaiHoc,
-      trangThai: "HIEN",
+      trangThai: showHidden ? { in: ["HIEN", "AN"] } : "HIEN", // Admins can see hidden comments
       capDo: 0, // Only root comments
     },
     orderBy: { ngayTao: "desc" },
@@ -172,7 +210,7 @@ export async function getComments(idBaiHoc: string) {
         },
       },
       replies: {
-        where: { trangThai: "HIEN" },
+        where: { trangThai: showHidden ? { in: ["HIEN", "AN"] } : "HIEN" },
         orderBy: { ngayTao: "asc" },
         include: {
           nguoiDung: {
@@ -182,10 +220,21 @@ export async function getComments(idBaiHoc: string) {
               image: true,
             },
           },
+          _count: {
+            select: { 
+              baoCaos: { 
+                where: { trangThai: "ChoXuLy" } 
+              } 
+            },
+          },
         },
       },
       _count: {
-        select: { baoCaos: true },
+        select: { 
+          baoCaos: { 
+            where: { trangThai: "ChoXuLy" } 
+          } 
+        },
       },
     },
   });
@@ -246,6 +295,49 @@ export async function reportComment(
         idBinhLuan,
       },
     });
+
+    // --- ADMIN NOTIFICATION LOGIC (Anti-Spam: Only on first pending report) ---
+    const pendingCount = await prisma.baoCaoBinhLuan.count({
+      where: {
+        idBinhLuan,
+        trangThai: "ChoXuLy"
+      }
+    });
+
+    if (pendingCount === 1) {
+      // Fetch comment details for deep linking
+      const commentDetails = await prisma.binhLuan.findUnique({
+        where: { id: idBinhLuan },
+        select: {
+          idBaiHoc: true,
+          baiHoc: {
+            select: {
+              chuong: {
+                select: {
+                   khoaHoc: { select: { duongDan: true } }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (commentDetails) {
+        await notifyAdmins({
+          title: "⚠️ Báo cáo bình luận mới",
+          message: "Một bình luận vừa bị báo cáo và cần chờ xử lý.",
+          type: "KIEM_DUYET",
+          path: `/dashboard/${commentDetails.baiHoc.chuong.khoaHoc.duongDan}/${commentDetails.idBaiHoc}`,
+          metadata: {
+            type: "COMMENT_REPORT",
+            lessonId: commentDetails.idBaiHoc,
+            courseSlug: commentDetails.baiHoc.chuong.khoaHoc.duongDan,
+            commentId: idBinhLuan
+          }
+        });
+      }
+    }
+    // --------------------------------------------------------------------------
 
     // Auto-hide if threshold reached (Hậu kiểm)
     const newReportCount = comment._count.baoCaos + 1;

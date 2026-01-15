@@ -22,10 +22,12 @@ export default async function LessonContentPage({
 }
 
 async function LessonContentLoader({ lessonId }: { lessonId: string }) {
-  const [data, comments, session] = await Promise.all([
+  const session = await requireUser();
+  const isAdmin = session.role === "admin";
+  
+  const [data, comments] = await Promise.all([
     getLessonContent(lessonId),
-    getComments(lessonId),
-    requireUser(),
+    getComments(lessonId, isAdmin), // Admins can see hidden comments
   ]);
 
   return (
@@ -38,6 +40,7 @@ async function LessonContentLoader({ lessonId }: { lessonId: string }) {
           comments={comments}
           idBaiHoc={lessonId}
           currentUserId={session.id}
+          isAdmin={isAdmin}
         />
       </div>
     </div>

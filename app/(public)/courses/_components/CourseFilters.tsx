@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Search, X, Loader2 } from "lucide-react";
+import { CategoryHoverMenu } from "./CategoryHoverMenu";
 
 interface DanhMuc {
   id: string;
@@ -40,22 +41,7 @@ export function CourseFilters({ categories, levels }: CourseFiltersProps) {
   const currentLevel = searchParams.get("levelId") || "";
 
   const [keyword, setKeyword] = useState(currentKeyword);
-
-  // Flatten nested categories for select
-  const flattenCategories = (cats: DanhMuc[], prefix = ""): { id: string; label: string }[] => {
-    const result: { id: string; label: string }[] = [];
-    cats.forEach((cat) => {
-      const label = prefix ? `${prefix} > ${cat.tenDanhMuc}` : cat.tenDanhMuc;
-      result.push({ id: cat.id, label });
-      if (cat.danhMucCon && cat.danhMucCon.length > 0) {
-        result.push(...flattenCategories(cat.danhMucCon, label));
-      }
-    });
-    return result;
-  };
-
-  const flatCategories = flattenCategories(categories);
-
+  
   // Update URL with new params
   const updateFilters = useCallback(
     (updates: Record<string, string | null>) => {
@@ -76,23 +62,19 @@ export function CourseFilters({ categories, levels }: CourseFiltersProps) {
     [router, searchParams]
   );
 
-  // Handle search submit
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     updateFilters({ q: keyword.trim() || null });
   };
 
-  // Handle category change
   const handleCategoryChange = (value: string) => {
     updateFilters({ categoryId: value === "all" ? null : value });
   };
 
-  // Handle level change
   const handleLevelChange = (value: string) => {
     updateFilters({ levelId: value === "all" ? null : value });
   };
 
-  // Clear all filters
   const handleClearFilters = () => {
     setKeyword("");
     startTransition(() => {
@@ -104,7 +86,6 @@ export function CourseFilters({ categories, levels }: CourseFiltersProps) {
 
   return (
     <div className="mb-6">
-      {/* All filters in one row */}
       <form onSubmit={handleSearch} className="flex flex-wrap gap-3 items-center">
         {/* Search Input */}
         <div className="relative flex-1 min-w-[200px]">
@@ -118,25 +99,12 @@ export function CourseFilters({ categories, levels }: CourseFiltersProps) {
           />
         </div>
 
-        {/* Category Filter */}
-        <Select
-          value={currentCategory || "all"}
-          onValueChange={handleCategoryChange}
-        >
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Danh mục" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả danh mục</SelectItem>
-            {flatCategories.map((cat) => (
-              <SelectItem key={cat.id} value={cat.id}>
-                {cat.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* Level Filter */}
+        {/* Category Filter - NEW CASCADING MENU */}
+        <CategoryHoverMenu
+          categories={categories}
+          value={currentCategory}
+          onChange={handleCategoryChange}
+        />
         <Select
           value={currentLevel || "all"}
           onValueChange={handleLevelChange}
@@ -154,7 +122,6 @@ export function CourseFilters({ categories, levels }: CourseFiltersProps) {
           </SelectContent>
         </Select>
 
-        {/* Search Button */}
         <Button type="submit" disabled={isPending} className="shrink-0">
           {isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -163,7 +130,6 @@ export function CourseFilters({ categories, levels }: CourseFiltersProps) {
           )}
         </Button>
 
-        {/* Clear Filters Button */}
         {hasActiveFilters && (
           <Button
             type="button"

@@ -9,6 +9,7 @@ import { request } from "@arcjet/next";
 import { revalidatePath } from "next/cache";
 import { generateUniqueSlug, slugify } from "@/lib/slug-utils";
 import { embedKhoaHoc } from "@/lib/ai/auto-embed";
+import { triggerBatchNotification } from "@/lib/pusher";
 
 const arcjet = aj.withRule(
   fixedWindow({
@@ -113,6 +114,55 @@ export async function CreateCourse(values: KhoaHocSchemaType): Promise<ApiRespon
       validation.data.moTaNgan,
       validation.data.moTa
     );
+
+    // --- NOTIFY ALL USERS (New Published Course) ---
+    if (validation.data.trangThai === "BanChinhThuc") {
+      try {
+        // Fetch all users except the teacher
+        const allUsers = await prisma.user.findMany({
+          where: { 
+            id: { not: session.user.id },
+            banned: false
+          },
+          select: { id: true }
+        });
+
+        if (allUsers.length > 0) {
+          const userIds = allUsers.map(u => u.id);
+          
+          // Create notifications in DB
+          await prisma.thongBao.createMany({
+            data: userIds.map(userId => ({
+              idNguoiDung: userId,
+              tieuDe: "🎓 Khóa học mới trên hệ thống!",
+              noiDung: `Khóa học "${validation.data.tenKhoaHoc}" vừa được xuất bản. Khám phá ngay!`,
+              loai: "KHOA_HOC",
+              metadata: {
+                type: "NEW_COURSE",
+                courseId: createdCourse.id,
+                path: `/courses/${uniqueSlug}`
+              },
+            })),
+          });
+
+          // Send real-time notifications via Pusher
+          await triggerBatchNotification(userIds, "new-notification", {
+            title: "🎓 Khóa học mới trên hệ thống!",
+            message: `Khóa học "${validation.data.tenKhoaHoc}" vừa được xuất bản. Khám phá ngay!`,
+            type: "KHOA_HOC",
+            metadata: {
+              type: "NEW_COURSE",
+              courseId: createdCourse.id,
+              path: `/courses/${uniqueSlug}`
+            },
+            createdAt: new Date(),
+          });
+        }
+      } catch (e) {
+        console.error("Failed to notify users about new course:", e);
+      }
+    }
+    // -------------------------------------------------
     
     revalidatePath("/teacher/courses");
     return {

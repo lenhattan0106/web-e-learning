@@ -522,8 +522,6 @@ model BaoCaoKhoaHoc {
   @@map("baoCaoKhoaHoc")
 }
 
-// ========== AUDIT LOG FOR MODERATION ==========
-
 enum LoaiBaoCaoEnum {
   BINH_LUAN
   KHOA_HOC
@@ -568,4 +566,16 @@ model NhatKyXuLy {
   @@index([idBaoCaoBinhLuan])
   @@index([idBaoCaoKhoaHoc])
   @@map("nhat_ky_xu_ly")
+}
+
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique @map("khoa") // e.g., "PREMIUM_MONTHLY_PRICE"
+  value     String   @map("gia_tri")      // e.g., "99000"
+  moTa      String?  @map("mo_ta")       
+  
+  ngayTao     DateTime @default(now()) @map("ngay_tao")
+  ngayCapNhat DateTime @updatedAt @map("ngay_cap_nhat")
+
+  @@map("cau_hinh_he_thong")
 }

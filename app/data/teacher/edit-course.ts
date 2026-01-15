@@ -9,7 +9,8 @@ export async function TeacherEditCourse(id: string) {
   const data = await prisma.khoaHoc.findUnique({
     where: {
       id: id,
-      idNguoiDung: session.user.id, // Chỉ cho phép teacher edit courses của mình
+      // If admin, bypass ownership check. If teacher, strict check.
+      ...(session.user.role === "admin" ? {} : { idNguoiDung: session.user.id }),
     },
     select: {
       id: true,
@@ -25,6 +26,15 @@ export async function TeacherEditCourse(id: string) {
       idDanhMuc: true,
       idCapDo: true,
       trangThai: true,
+      
+      // Count paid enrollments for UI protection
+      _count: {
+        select: {
+          dangKyHocs: {
+            where: { trangThai: "DaThanhToan" }
+          }
+        }
+      },
       
       chuongs: {
         orderBy: {

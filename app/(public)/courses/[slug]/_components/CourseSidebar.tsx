@@ -87,24 +87,33 @@ export function CourseSidebar({
                     {appliedCoupon ? (
                       <div className="flex flex-col items-end">
                         <p className="text-sm text-muted-foreground line-through decoration-red-500">
-                          {new Intl.NumberFormat("vi-VN", {
-                            style: "currency",
-                            currency: "VND",
-                          }).format(price)}
+                          {price === 0 
+                            ? "Miễn phí" 
+                            : new Intl.NumberFormat("vi-VN", {
+                                style: "currency",
+                                currency: "VND",
+                              }).format(price)
+                          }
                         </p>
                         <p className="text-2xl font-bold text-primary animate-in fade-in zoom-in duration-300">
-                          {new Intl.NumberFormat("vi-VN", {
-                            style: "currency",
-                            currency: "VND",
-                          }).format(appliedCoupon.finalPrice)}
+                          {appliedCoupon.finalPrice === 0 
+                            ? "Miễn phí" 
+                            : new Intl.NumberFormat("vi-VN", {
+                                style: "currency",
+                                currency: "VND",
+                              }).format(appliedCoupon.finalPrice)
+                          }
                         </p>
                       </div>
                     ) : (
                       <p className="text-2xl font-bold text-primary">
-                        {new Intl.NumberFormat("vi-VN", {
-                          style: "currency",
-                          currency: "VND",
-                        }).format(price)}
+                        {price === 0 
+                          ? "Miễn phí" 
+                          : new Intl.NumberFormat("vi-VN", {
+                              style: "currency",
+                              currency: "VND",
+                            }).format(price)
+                        }
                       </p>
                     )}
                   </div>
@@ -190,6 +199,7 @@ export function CourseSidebar({
             ) : (
               <EnrollmentButton
                 courseId={courseId}
+                coursePrice={price}
                 couponCode={appliedCoupon?.code}
               />
             )}

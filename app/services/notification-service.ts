@@ -232,3 +232,43 @@ export async function notifyEnrolledStudents({
     createdAt: new Date(),
   });
 }
+
+export async function notifyAllUsers({
+  title,
+  message,
+  type = "HE_THONG",
+  metadata,
+}: {
+  title: string;
+  message: string;
+  type?: LoaiThongBao;
+  metadata?: Prisma.InputJsonValue;
+}) {
+  const users = await prisma.user.findMany({
+    select: { id: true },
+  });
+
+  if (users.length === 0) return;
+
+  const userIds = users.map((u) => u.id);
+
+  // Database
+  await prisma.thongBao.createMany({
+    data: userIds.map((userId) => ({
+      idNguoiDung: userId,
+      tieuDe: title,
+      noiDung: message,
+      loai: type,
+      metadata: metadata ?? Prisma.JsonNull,
+    })),
+  });
+
+  // Pusher
+  await triggerBatchNotification(userIds, "new-notification", {
+    title,
+    message,
+    type,
+    metadata,
+    createdAt: new Date(),
+  });
+}

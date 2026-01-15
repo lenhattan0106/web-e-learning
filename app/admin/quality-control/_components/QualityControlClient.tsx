@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useTransition } from "react";
+import { DateRange } from "react-day-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
@@ -34,8 +36,17 @@ import {
   IconEye,
   IconTrash,
   IconAlertCircle,
-  IconUserX
+  IconUserX,
+  IconInfoCircle
 } from "@tabler/icons-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 import { 
   banCourse, 
@@ -43,20 +54,64 @@ import {
   resolveCommentReport, 
   resolveCommentReportWithBan 
 } from "@/app/admin/actions/quality";
+import { fetchQualityChartData } from "@/app/admin/actions/quality-chart";
+import { QualityAnalysisChart } from "../../_components/charts/QualityAnalysisChart";
+import { DateFilter } from "../../_components/DateFilter";
+
+
+interface QualityTrendData {
+  label: string;
+  month: string;
+  reports: number;
+  resolved: number;
+  avgRating: number;
+}
+
+interface ReportTypeData {
+  label: string;
+  value: number;
+  color: string;
+}
+
+interface QualityChartStats {
+  trendData: QualityTrendData[];
+  reportTypeData: ReportTypeData[];
+  distributionByType: ReportTypeData[];
+  distributionByStatus: ReportTypeData[];
+  currentAvgRating: number;
+  pendingReports: number;
+}
 
 interface QualityControlClientProps {
   lowRatedCourses: any[];
   reportedCourses: any[];
   reportedComments: any[];
+  chartStats: QualityChartStats;
 }
 
 export const QualityControlClient = ({
   lowRatedCourses,
   reportedCourses,
   reportedComments,
+  chartStats,
 }: QualityControlClientProps) => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  
+  // Date filter state
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const to = new Date();
+    const from = new Date();
+    from.setDate(to.getDate() - 30); // Default 30 days
+    return { from, to };
+  });
+  const [currentDuration, setCurrentDuration] = useState(30);
+  const [isCustomRange, setIsCustomRange] = useState(false);
+  
+  // Chart data state
+  const [chartData, setChartData] = useState<QualityChartStats>(chartStats);
+  const [chartLoading, setChartLoading] = useState(false);
   
   // Ban User Dialog state
   const [banDialogOpen, setBanDialogOpen] = useState(false);
@@ -136,16 +191,67 @@ export const QualityControlClient = ({
     }
   };
 
-  const totalIssues = lowRatedCourses.length + reportedCourses.length + reportedComments.length;
+  // Date filter handlers
+  const handleDurationChange = (days: number) => {
+    setIsCustomRange(false);
+    setCurrentDuration(days);
+    const to = new Date();
+    const from = new Date();
+    from.setDate(to.getDate() - days);
+    setDateRange({ from, to });
+  };
+  
+  const handleCustomRangeChange = (range: DateRange | undefined) => {
+    if (range?.from && range?.to) {
+      setIsCustomRange(true);
+      setDateRange(range);
+    }
+  };
+
+  // Fetch chart data when date range changes
+  useEffect(() => {
+    if (!dateRange?.from || !dateRange?.to) return;
+    
+    const fetchChartData = async () => {
+      setChartLoading(true);
+      try {
+        const result = await fetchQualityChartData(
+          dateRange.from!.toISOString(),
+          dateRange.to!.toISOString()
+        );
+        setChartData(result);
+      } catch (error) {
+        console.error("Failed to fetch chart data", error);
+      } finally {
+        setChartLoading(false);
+      }
+    };
+    
+    fetchChartData();
+  }, [dateRange]);
+
+  const criticalLowRated = lowRatedCourses.filter(c => c.avgRating < 3.5);
+  const totalIssues = criticalLowRated.length + reportedCourses.length + reportedComments.length;
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header Section */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Quản lý Chất lượng</h1>
-        <p className="text-muted-foreground">
-          Hậu kiểm nội dung: Rating thấp, Báo cáo vi phạm, Spam
-        </p>
+      {/* Header Section with Date Filter */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight">Quản lý Chất lượng</h1>
+          <p className="text-muted-foreground">
+            Hậu kiểm nội dung: Rating thấp, Báo cáo vi phạm, Spam
+          </p>
+        </div>
+        
+        <DateFilter
+          dateRange={dateRange}
+          onDateRangeChange={handleCustomRangeChange}
+          quickDurations={[7, 30, 90]}
+          currentDuration={currentDuration}
+          onQuickDurationChange={handleDurationChange}
+          isCustomRange={isCustomRange}
+        />
       </div>
 
       {/* Stats Overview Cards */}
@@ -169,9 +275,9 @@ export const QualityControlClient = ({
             <IconStar className="h-5 w-5 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-700">{lowRatedCourses.length}</div>
+            <div className="text-2xl font-bold text-red-700">{criticalLowRated.length}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Khóa học dưới 3.0 sao
+              Khóa học dưới 3.5 sao
             </p>
           </CardContent>
         </Card>
@@ -203,12 +309,30 @@ export const QualityControlClient = ({
         </Card>
       </div>
 
+      {/* Quality Analysis Chart */}
+      {chartLoading ? (
+        <div className="h-[450px] flex items-center justify-center border rounded-lg">
+          <div className="flex flex-col items-center gap-2">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <span className="text-sm text-muted-foreground">Đang tải biểu đồ...</span>
+          </div>
+        </div>
+      ) : (
+        <QualityAnalysisChart 
+          trendData={chartData.trendData}
+          distributionByType={chartData.distributionByType}
+          distributionByStatus={chartData.distributionByStatus}
+          currentAvgRating={chartData.currentAvgRating}
+          pendingReports={chartData.pendingReports}
+        />
+      )}
+
       {/* Tabs Section */}
       <Tabs defaultValue="low-rating" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="low-rating" className="gap-2">
             <IconStar className="h-4 w-4" />
-            Rating thấp ({lowRatedCourses.length})
+            Xếp hạng đánh giá ({lowRatedCourses.length})
           </TabsTrigger>
           <TabsTrigger value="reported-courses" className="gap-2">
             <IconMessageReport className="h-4 w-4" />
@@ -226,58 +350,96 @@ export const QualityControlClient = ({
             <Card className="border-dashed">
               <CardContent className="flex flex-col items-center justify-center py-16">
                 <IconShieldCheck className="h-16 w-16 text-green-500 mb-4" />
-                <h3 className="text-lg font-semibold">Tuyệt vời!</h3>
+                <h3 className="text-lg font-semibold">Chưa có dữ liệu</h3>
                 <p className="text-muted-foreground text-center">
-                  Không có khóa học nào có rating dưới 3.0 sao.
+                  Chưa có khóa học nào được đánh giá.
                 </p>
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {lowRatedCourses.map((course) => (
-                <Card key={course.id} className="border-red-200 hover:shadow-lg transition-shadow">
-                  <CardHeader className="bg-gradient-to-br from-red-50 to-white">
-                    <CardTitle className="line-clamp-2 text-lg">{course.tenKhoaHoc}</CardTitle>
-                    <CardDescription className="flex items-center gap-1">
-                      <span className="font-medium">GV:</span> {course.nguoiDung.name}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="pt-4">
-                    <div className="flex justify-between items-center mb-4 bg-red-100 p-3 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <IconStar className="h-5 w-5 text-red-600" />
-                        <span className="text-2xl font-bold text-red-700">
-                          {course.avgRating.toFixed(1)}
-                        </span>
-                      </div>
-                      <span className="text-sm text-muted-foreground">
-                        {course.reviewCount} đánh giá
-                      </span>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button 
-                        variant="destructive" 
-                        className="flex-1 gap-2"
-                        onClick={() => handleBanCourse(course.id)}
-                        disabled={loading}
-                        size="sm"
-                      >
-                        <IconBan className="h-4 w-4" />
-                        Chặn
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        className="flex-1 gap-2"
-                        size="sm"
-                      >
-                        <IconEye className="h-4 w-4" />
-                        Xem
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[300px]">Khóa học</TableHead>
+                      <TableHead>Giảng viên</TableHead>
+                      <TableHead className="text-center">Số lượng Đánh giá</TableHead>
+                      <TableHead className="text-center">Rating</TableHead>
+                      <TableHead className="text-center">Trạng thái</TableHead>
+                      <TableHead className="text-right">Hành động</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {lowRatedCourses.map((course) => {
+                      const rating = course.avgRating;
+                      let badgeConfig = { label: "Xuất Sắc", color: "bg-green-100 text-green-700 border-green-200", icon: IconShieldCheck };
+                      
+                      if (rating < 3.0) {
+                        badgeConfig = { label: "Rating Rất Thấp", color: "bg-rose-100 text-rose-700 border-rose-200", icon: IconAlertTriangle };
+                      } else if (rating <= 3.8) {
+                        badgeConfig = { label: "Cần Cải Thiện", color: "bg-amber-100 text-amber-700 border-amber-200", icon: IconAlertCircle };
+                      } else if (rating <= 4.4) {
+                        badgeConfig = { label: "Ổn Định", color: "bg-blue-100 text-blue-700 border-blue-200", icon: IconInfoCircle };
+                      }
+
+                      return (
+                      <TableRow key={course.id}>
+                        <TableCell className="font-medium">
+                           <div className="truncate max-w-[280px]" title={course.tenKhoaHoc}>{course.tenKhoaHoc}</div>
+                        </TableCell>
+                        <TableCell>
+                            <div className="flex items-center gap-2">
+                                <Avatar className="h-6 w-6">
+                                    <AvatarImage src={course.nguoiDung.image || ""} />
+                                    <AvatarFallback>{course.nguoiDung.name?.[0]}</AvatarFallback>
+                                </Avatar>
+                                <span className="text-sm">{course.nguoiDung.name}</span>
+                            </div>
+                        </TableCell>
+                         <TableCell className="text-center">
+                           {course.reviewCount}
+                        </TableCell>
+                        <TableCell className="text-center">
+                           <div className="flex items-center justify-center gap-1 font-bold">
+                             <span>{course.avgRating.toFixed(1)}</span>
+                             <IconStar className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                           </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                            <Badge variant="outline" className={`${badgeConfig.color} shadow-none`}>
+                                <badgeConfig.icon className="h-3 w-3 mr-1" /> {badgeConfig.label}
+                            </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button 
+                              variant="destructive" 
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => handleBanCourse(course.id)}
+                              disabled={loading}
+                              title="Chặn khóa học"
+                            >
+                              <IconBan className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => window.open(`/courses/${course.duongDan}`, "_blank")}
+                              title="Xem khóa học"
+                            >
+                              <IconEye className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )})}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
 
@@ -294,57 +456,86 @@ export const QualityControlClient = ({
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-4">
-              {reportedCourses.map((report) => (
-                <Card key={report.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader className="bg-gradient-to-r from-yellow-50 to-white">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg mb-1">{report.khoaHoc.tenKhoaHoc}</CardTitle>
-                        <CardDescription className="flex items-center gap-2">
-                          <Badge variant="outline" className="gap-1">
-                            <IconMessageReport className="h-3 w-3" />
-                            {report.nguoiDung.name}
-                          </Badge>
-                          <span className="text-xs">
-                            {formatDistanceToNow(new Date(report.ngayTao), { addSuffix: true, locale: vi })}
-                          </span>
-                        </CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-4 space-y-4">
-                    <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded-r">
-                      <p className="text-sm font-semibold text-yellow-900 mb-1">Lý do báo cáo:</p>
-                      <p className="text-sm text-yellow-800">{report.lyDo}</p>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Giảng viên: <span className="font-medium">{report.khoaHoc.nguoiDung.name}</span>
-                    </p>
-                    <div className="flex gap-2">
-                      <Button 
-                        variant="destructive" 
-                        onClick={() => handleResolveCourseReport(report.id, "BAN")}
-                        disabled={loading}
-                        className="gap-2"
-                      >
-                        <IconBan className="h-4 w-4" />
-                        Chặn khóa học
-                      </Button>
-                      <Button 
-                        variant="secondary"
-                        onClick={() => handleResolveCourseReport(report.id, "IGNORE")}
-                        disabled={loading}
-                        className="gap-2"
-                      >
-                        <IconEye className="h-4 w-4" />
-                        Bỏ qua
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Loại</TableHead>
+                      <TableHead>Khóa học</TableHead>
+                      <TableHead>Người báo cáo</TableHead>
+                      <TableHead>Lý do / Chi tiết</TableHead>
+                      <TableHead className="text-right">Hành động</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {reportedCourses.map((report) => {
+                      let parsedData: any = null;
+                      let isSystemRequest = false;
+                      const lyDoTrimmed = report.lyDo?.trim() || "";
+                      if (lyDoTrimmed.startsWith("{")) {
+                        try {
+                          parsedData = JSON.parse(lyDoTrimmed);
+                          isSystemRequest = parsedData.__reportType === "SYSTEM_REQUEST" 
+                            || parsedData.objectType === "CATEGORY" 
+                            || parsedData.objectType === "LEVEL"
+                            || lyDoTrimmed.includes('"__reportType":"SYSTEM_REQUEST"');
+                        } catch (e) { console.log(e); }
+                      }
+
+                      return (
+                        <TableRow key={report.id}>
+                          <TableCell>
+                            {isSystemRequest ? (
+                              <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 whitespace-nowrap">Yêu cầu sửa</Badge>
+                            ) : (
+                              <Badge className="bg-red-100 text-red-700 hover:bg-red-100 whitespace-nowrap">Vi phạm</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="max-w-[200px]">
+                            <div className="font-medium truncate" title={report.khoaHoc.tenKhoaHoc}>{report.khoaHoc.tenKhoaHoc}</div>
+                            <div className="text-xs text-muted-foreground">GV: {report.khoaHoc.nguoiDung.name}</div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium">{report.nguoiDung.name}</span>
+                              <span className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(report.ngayTao), { addSuffix: true, locale: vi })}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="max-w-[300px]">
+                             {isSystemRequest && parsedData ? (
+                               <div className="text-sm">
+                                  <div className="font-semibold text-blue-700">
+                                    {parsedData.type?.includes('EDIT') ? 'Sửa' : 'Xóa'} {parsedData.objectType === 'CATEGORY' ? 'Danh mục' : 'Cấp độ'}
+                                  </div>
+                                  <div className="text-xs truncate" title={parsedData.reason}>Lý do: {parsedData.reason}</div>
+                               </div>
+                             ) : (
+                               <div className="text-sm text-red-700 truncate" title={report.lyDo}>{report.lyDo}</div>
+                             )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                             <div className="flex justify-end gap-2">
+                               {isSystemRequest ? (
+                                  <>
+                                    <Button size="sm" variant="default" className="bg-blue-600 h-8 px-2" onClick={() => handleResolveCourseReport(report.id, "IGNORE")}>Duyệt</Button>
+                                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleResolveCourseReport(report.id, "IGNORE")}><IconTrash className="h-4 w-4" /></Button>
+                                  </>
+                               ) : (
+                                  <>
+                                    <Button size="sm" variant="destructive" className="h-8 w-8 p-0" onClick={() => handleResolveCourseReport(report.id, "BAN")} title="Chặn khóa học"><IconBan className="h-4 w-4" /></Button>
+                                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleResolveCourseReport(report.id, "IGNORE")} title="Bỏ qua"><IconEye className="h-4 w-4" /></Button>
+                                  </>
+                               )}
+                             </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
 
@@ -361,93 +552,71 @@ export const QualityControlClient = ({
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-4">
-              {reportedComments.map((report) => {
-                const lessonUrl = report.binhLuan.baiHoc?.chuong?.khoaHoc?.duongDan 
-                  ? `/dashboard/${report.binhLuan.baiHoc.chuong.khoaHoc.duongDan}/${report.binhLuan.baiHoc.id}`
-                  : null;
-                const courseName = report.binhLuan.baiHoc?.chuong?.khoaHoc?.tenKhoaHoc;
-                const lessonName = report.binhLuan.baiHoc?.tenBaiHoc;
-                
-                return (
-                <Card key={report.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader className="bg-gradient-to-r from-orange-50 to-white">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg">Báo cáo Bình luận</CardTitle>
-                      <Badge variant="outline" className="gap-1">
-                        {formatDistanceToNow(new Date(report.ngayTao), { addSuffix: true, locale: vi })}
-                      </Badge>
-                    </div>
-                    <CardDescription>
-                      Người báo cáo: {report.nguoiDung.name}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="pt-4 space-y-4">
-                    {/* Thông tin bài học/khóa học */}
-                    {courseName && lessonName && (
-                      <div className="text-sm text-muted-foreground bg-gray-50 p-3 rounded-lg">
-                        <p><span className="font-medium">Khóa học:</span> {courseName}</p>
-                        <p><span className="font-medium">Bài học:</span> {lessonName}</p>
-                      </div>
-                    )}
-                    
-                    <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-r">
-                      <p className="text-xs text-orange-700 mb-2">
-                        Tác giả: {report.binhLuan.nguoiDung.name}
-                      </p>
-                      <p className="font-medium text-sm italic text-orange-900">
-                        &quot;{report.binhLuan.noiDung}&quot;
-                      </p>
-                    </div>
-                    
-                    {/* Action Buttons - UPDATED với "Xóa & Cấm" */}
-                    <div className="flex gap-2 flex-wrap">
-                      <Button 
-                        variant="outline" 
-                        onClick={() => handleResolveCommentReport(report.id, "DELETE")}
-                        disabled={loading}
-                        className="gap-2"
-                      >
-                        <IconTrash className="h-4 w-4" />
-                        Xóa bình luận
-                      </Button>
-                      
-                      {/* ✅ NÚT MỚI: Xóa & Cấm người dùng */}
-                      <Button 
-                        variant="destructive"
-                        onClick={() => openBanDialog(report)}
-                        disabled={loading}
-                        className="gap-2"
-                      >
-                        <IconUserX className="h-4 w-4" />
-                        Xóa và Cấm người dùng
-                      </Button>
-                      
-                      <Button 
-                        variant="secondary"
-                        onClick={() => handleResolveCommentReport(report.id, "IGNORE")}
-                        disabled={loading}
-                        className="gap-2"
-                      >
-                        <IconEye className="h-4 w-4" />
-                        Bỏ qua
-                      </Button>
-                      
-                      {lessonUrl && (
-                        <Button 
-                          variant="ghost"
-                          onClick={() => window.open(lessonUrl, "_blank")}
-                          className="gap-2"
-                        >
-                          <IconEye className="h-4 w-4" />
-                          Xem chi tiết
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )})}
-            </div>
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Người báo cáo</TableHead>
+                      <TableHead>Nội dung vi phạm</TableHead>
+                      <TableHead>Lý do</TableHead>
+                      <TableHead className="text-right">Hành động</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {reportedComments.map((report) => (
+                      <TableRow key={report.id}>
+                         <TableCell>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{report.nguoiDung.name}</span>
+                              <span className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(report.ngayTao), { addSuffix: true, locale: vi })}</span>
+                            </div>
+                         </TableCell>
+                         <TableCell className="max-w-[300px]">
+                            <div className="bg-orange-50 border-l-2 border-orange-400 p-2 rounded text-sm italic text-orange-900 truncate" title={report.binhLuan.noiDung}>
+                               &quot;{report.binhLuan.noiDung}&quot;
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">Tác giả: {report.binhLuan.nguoiDung.name}</div>
+                         </TableCell>
+                         <TableCell className="text-red-600 font-medium max-w-[200px] truncate" title={report.lyDo}>
+                            {report.lyDo}
+                         </TableCell>
+                         <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                               <Button 
+                                  size="sm" 
+                                  variant="destructive" 
+                                  className="h-8 px-2 text-xs"
+                                  onClick={() => openBanDialog(report)}
+                               >
+                                  <IconUserX className="h-3 w-3 mr-1" /> Cấm
+                               </Button>
+                               <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => handleResolveCommentReport(report.id, "DELETE")}
+                                  title="Xóa bình luận"
+                               >
+                                  <IconTrash className="h-4 w-4 text-red-500" />
+                               </Button>
+                               <Button 
+                                  size="sm" 
+                                  variant="ghost" 
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => handleResolveCommentReport(report.id, "IGNORE")}
+                                  title="Bỏ qua"
+                               >
+                                  <IconEye className="h-4 w-4" />
+                               </Button>
+                            </div>
+                         </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
       </Tabs>

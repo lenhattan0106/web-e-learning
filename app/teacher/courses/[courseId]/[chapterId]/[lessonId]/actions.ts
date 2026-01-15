@@ -109,6 +109,48 @@ export async function EditLessonAction(
       }
     }
 
+    // Only notify if there are meaningful content updates (Video, Name, Description)
+    if (updateData.maVideo || updateData.tenBaiHoc || updateData.moTa) {
+       try {
+         // 1. Fetch enrolled students
+         const enrollments = await prisma.dangKyHoc.findMany({
+           where: { 
+             idKhoaHoc: lesson.chuong.idKhoaHoc,
+             trangThai: "DaThanhToan"
+           },
+           select: { idNguoiDung: true }
+         });
+
+         if (enrollments.length > 0) {
+           // 2. Prepare course info for deep link
+           const courseInfo = await prisma.khoaHoc.findUnique({
+             where: { id: lesson.chuong.idKhoaHoc },
+             select: { duongDan: true, tenKhoaHoc: true }
+           });
+
+           if (courseInfo) {
+              // 3. Bulk Create Notifications
+              await prisma.thongBao.createMany({
+                data: enrollments.map(enrollment => ({
+                  tieuDe: `Cập nhật: ${courseInfo.tenKhoaHoc}`,
+                  noiDung: `Bài học "${updateData.tenBaiHoc || lesson.tenBaiHoc}" vừa được cập nhật nội dung mới.`,
+                  loai: "HE_THONG", // System notification for students
+                  idNguoiDung: enrollment.idNguoiDung,
+                  metadata: {
+                    type: "LESSON_UPDATE",
+                    courseId: lesson.chuong.idKhoaHoc,
+                    lessonId: idBaiHoc,
+                    path: `/dashboard/${courseInfo.duongDan}/${idBaiHoc}` // Direct link to lesson
+                  }
+                }))
+              });
+           }
+         }
+       } catch (notifyError) {
+         console.error("Failed to notify students:", notifyError);
+       }
+    }
+
     revalidatePath(`/teacher/courses/${lesson.chuong.idKhoaHoc}/edit`);
 
     return {

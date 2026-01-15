@@ -9,6 +9,7 @@ import { prisma } from "@/lib/db";
 import { request } from "@arcjet/next";
 import { env } from "@/lib/env";
 import { verifyCoupon } from "./_actions/coupon";
+import { sendNotification } from "@/app/services/notification-service";
 
 const arcjet = aj.withRule(
   fixedWindow({
@@ -44,6 +45,7 @@ export async function enrollInCourseAction(idKhoaHoc: string, couponCode?: strin
         tenKhoaHoc: true,
         gia: true,
         duongDan: true,
+        idNguoiDung: true, // Added for notification
       },
     });
 
@@ -53,7 +55,6 @@ export async function enrollInCourseAction(idKhoaHoc: string, couponCode?: strin
         message: "Không tìm thấy khóa học",
       };
     }
-    // --- 1. KIỂM TRA ENROLLMENT CŨ ---
     const existingDangKy = await prisma.dangKyHoc.findUnique({
       where: {
         idNguoiDung_idKhoaHoc: {
@@ -83,7 +84,6 @@ export async function enrollInCourseAction(idKhoaHoc: string, couponCode?: strin
       console.log("🗑️ Đã xóa enrollment cũ:", existingDangKy.id);
     }
 
-    // --- 2. LOGIC XỬ LÝ COUPON ---
     let finalPrice = khoaHoc.gia;
     let appliedCouponId = null;
     let orderInfo = `Thanh toán khoá học: ${khoaHoc.tenKhoaHoc}`;
@@ -111,13 +111,9 @@ export async function enrollInCourseAction(idKhoaHoc: string, couponCode?: strin
     // Đảm bảo giá là số nguyên
     finalPrice = Math.round(finalPrice);   
     
-    // --- 3. XỬ LÝ THANH TOÁN ---
-    
-    // MIỄN PHÍ HOẶC GIẢM 100% (Giá <= 0)
     if (finalPrice <= 0) {
          try {
             await prisma.$transaction(async (tx) => {
-                // Tạo enrollment với trạng thái ĐÃ THANH TOÁN luôn
                 await tx.dangKyHoc.create({
                     data: {
                         idNguoiDung: user.id,
@@ -138,18 +134,38 @@ export async function enrollInCourseAction(idKhoaHoc: string, couponCode?: strin
                     });
                 }
             });
+
+            // --- NOTIFICATION TO TEACHER (Free Enrollment) ---
+            // Send after transaction succeeds
+            try {
+                if (khoaHoc.idNguoiDung) {
+                    await sendNotification({
+                        userId: khoaHoc.idNguoiDung,
+                        title: "Học viên mới! 🎉",
+                        message: `Học viên ${user.name || "mới"} vừa đăng ký khóa học "${khoaHoc.tenKhoaHoc}" của bạn (Miễn phí/Coupon 100%).`,
+                        type: "KHOA_HOC",
+                        metadata: {
+                            type: "NEW_ENROLLMENT",
+                            courseId: khoaHoc.id,
+                            studentId: user.id
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to notify teacher:", err);
+                // Non-blocking error
+            }
+            // ------------------------------------------------
          } catch (error) {
              console.error("Free enrollment error:", error);
              return { status: "error", message: "Lỗi xử lý đăng ký miễn phí" };
          }
 
          // Redirect thẳng vào học
-         redirect(`/courses/${khoaHoc.duongDan}/learn`);
+         redirect(`/dashboard/${khoaHoc.duongDan}`);
     }
-
-    //THANH TOÁN QUA VNPAY (Giá > 0)
     
-    // Tạo enrollment trạng thái CHỜ XỬ LÝ
+    // Tạo enrollment trạng thái CHỜ XỬ LÝ (Giá >0)
     const dangKyHoc = await prisma.dangKyHoc.create({
       data: {
         idNguoiDung: user.id,
@@ -183,7 +199,10 @@ export async function enrollInCourseAction(idKhoaHoc: string, couponCode?: strin
     });
 
     console.log("Đã tạo URL thanh toán cho enrollment:", enrollmentId);
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === 'NEXT_REDIRECT') {
+        throw error;
+    }
     console.error("Lỗi khi mua khóa học:", error);
     return {
       status: "error",
@@ -191,6 +210,5 @@ export async function enrollInCourseAction(idKhoaHoc: string, couponCode?: strin
     };
   }
 
-  // Redirect VNPay
   redirect(paymentUrl);
 }

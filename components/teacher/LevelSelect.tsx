@@ -29,7 +29,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { createQuickCapDo, editCapDo, deleteCapDo } from "@/app/teacher/actions/levels";
+import { reportCategoryLevelError } from "@/app/teacher/actions/report-error";
 import { useRouter } from "next/navigation";
+import { ImpactWarningDialog } from "@/components/teacher/ImpactWarningDialog";
 
 interface Level {
   id: string;
@@ -47,6 +49,14 @@ export function LevelSelect({ levels, value, onChange }: LevelSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [hoveredItem, setHoveredItem] = React.useState<string | null>(null);
   
+  // Local state for optimistic updates
+  const [localLevels, setLocalLevels] = React.useState<Level[]>(levels);
+  
+  // Sync local state when props change
+  React.useEffect(() => {
+    setLocalLevels(levels);
+  }, [levels]);
+  
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
   const [newLevelName, setNewLevelName] = React.useState("");
   const [isCreating, setIsCreating] = React.useState(false);
@@ -60,9 +70,14 @@ export function LevelSelect({ levels, value, onChange }: LevelSelectProps) {
   const [deletingLevel, setDeletingLevel] = React.useState<Level | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
   
+  // Impact warning dialog states
+  const [impactWarningOpen, setImpactWarningOpen] = React.useState(false);
+  const [impactData, setImpactData] = React.useState<{courses: number; students: number; teachers?: number} | null>(null);
+  const [pendingAction, setPendingAction] = React.useState<{type: 'edit' | 'delete'; level: Level; newName?: string} | null>(null);
+  
   const selectedLevelName = React.useMemo(() => {
-    return levels.find(l => l.id === value)?.tenCapDo || "";
-  }, [value, levels]);
+    return localLevels.find(l => l.id === value)?.tenCapDo || "";
+  }, [value, localLevels]);
 
   const handleCreateLevel = async () => {
     if (!newLevelName.trim()) return;
@@ -75,10 +90,20 @@ export function LevelSelect({ levels, value, onChange }: LevelSelectProps) {
       toast.error(result.error);
     } else if (result.success && result.data) {
       toast.success("Đã tạo cấp độ mới");
+      
+      // Optimistic update - add new level to local state
+      const newLevel: Level = {
+        id: result.data.id,
+        tenCapDo: newLevelName
+      };
+      setLocalLevels(prev => [...prev, newLevel]);
+      
       setNewLevelName("");
       setCreateDialogOpen(false);
-      router.refresh();
       onChange(result.data.id);
+      React.startTransition(() => {
+        router.refresh();
+      });
     }
   };
 
@@ -89,13 +114,35 @@ export function LevelSelect({ levels, value, onChange }: LevelSelectProps) {
     const result = await editCapDo(editingLevel.id, editLevelName);
     setIsEditing(false);
     
+    // Check if locked (has enrollments)
+    if ('locked' in result && result.locked && result.impact) {
+      setPendingAction({
+        type: 'edit',
+        level: editingLevel,
+        newName: editLevelName
+      });
+      setImpactData(result.impact);
+      setEditDialogOpen(false);
+      setImpactWarningOpen(true);
+      return;
+    }
+    
     if (result.error) {
       toast.error(result.error);
     } else if (result.success) {
       toast.success("Đã cập nhật cấp độ");
+      
+      // Optimistic update - update level name in local state
+      setLocalLevels(prev => prev.map(l => 
+        l.id === editingLevel.id ? { ...l, tenCapDo: editLevelName } : l
+      ));
+      
       setEditDialogOpen(false);
       setEditingLevel(null);
-      router.refresh();
+      setEditLevelName("");
+      React.startTransition(() => {
+        router.refresh();
+      });
     }
   };
 
@@ -106,16 +153,57 @@ export function LevelSelect({ levels, value, onChange }: LevelSelectProps) {
     const result = await deleteCapDo(deletingLevel.id);
     setIsDeleting(false);
     
+    // Check if locked (has enrollments)
+    if ('locked' in result && result.locked && result.impact) {
+      setPendingAction({
+        type: 'delete',
+        level: deletingLevel
+      });
+      setImpactData(result.impact);
+      setDeleteDialogOpen(false);
+      setImpactWarningOpen(true);
+      return;
+    }
+    
     if (result.error) {
       toast.error(result.error);
     } else if (result.success) {
       toast.success("Đã xóa cấp độ");
+      
+      // Optimistic update - remove level from local state
+      setLocalLevels(prev => prev.filter(l => l.id !== deletingLevel.id));
+      
       setDeleteDialogOpen(false);
       setDeletingLevel(null);
-      router.refresh();
       if (value === deletingLevel.id) {
         onChange("");
       }
+      React.startTransition(() => {
+        router.refresh();
+      });
+    }
+  };
+  
+  // Handle error report submission
+  const handleSubmitReport = async (data: {newName?: string; reason: string}) => {
+    if (!pendingAction) return;
+    
+    const result = await reportCategoryLevelError({
+      type: 'LEVEL',
+      objectId: pendingAction.level.id,
+      objectName: pendingAction.level.tenCapDo,
+      action: pendingAction.type === 'edit' ? 'EDIT' : 'DELETE',
+      newName: data.newName,
+      reason: data.reason
+    });
+    
+    if (result.success) {
+      toast.success(result.message || "Yêu cầu đã được gửi đến admin");
+      setImpactWarningOpen(false);
+      setPendingAction(null);
+      setImpactData(null);
+    } else if (result.error) {
+      toast.error(result.error);
     }
   };
 
@@ -142,7 +230,7 @@ export function LevelSelect({ levels, value, onChange }: LevelSelectProps) {
             <CommandList>
               <CommandEmpty>Không tìm thấy cấp độ.</CommandEmpty>
               <CommandGroup>
-                {levels.map((level) => (
+                {localLevels.map((level) => (
                   <CommandItem
                     key={level.id}
                     onSelect={() => {
@@ -310,6 +398,19 @@ export function LevelSelect({ levels, value, onChange }: LevelSelectProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Impact Warning Dialog */}
+      {impactWarningOpen && pendingAction && impactData && (
+        <ImpactWarningDialog
+          open={impactWarningOpen}
+          onOpenChange={setImpactWarningOpen}
+          type="LEVEL"
+          name={pendingAction.level.tenCapDo}
+          action={pendingAction.type === 'edit' ? 'EDIT' : 'DELETE'}
+          impact={impactData}
+          onSubmitReport={handleSubmitReport}
+        />
+      )}
     </>
   );
 }

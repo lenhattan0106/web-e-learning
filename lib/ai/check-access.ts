@@ -10,10 +10,6 @@ export interface AIAccessResult {
   daysRemaining?: number;
 }
 
-/**
- * Check if a user has access to AI Chatbot features
- * Requires active Premium subscription (99k/month)
- */
 export async function checkAIAccess(userId: string): Promise<AIAccessResult> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -63,8 +59,7 @@ export async function checkAIAccess(userId: string): Promise<AIAccessResult> {
 }
 
 /**
- * Server action to get AI access status for current user
- */
+\ */
 export async function getAIAccessStatus(userId: string): Promise<AIAccessResult> {
   return checkAIAccess(userId);
 }

@@ -2,6 +2,7 @@ import "server-only";
 
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "./require-admin";
+import { Prisma } from "@prisma/client";
 
 export type AdminLogFilters = {
   loaiBaoCao?: "BINH_LUAN" | "KHOA_HOC";
@@ -28,6 +29,12 @@ export type AdminLog = {
   baoCaoBinhLuan: {
     id: string;
     lyDo: string;
+    nguoiDung: {
+      id: string;
+      name: string;
+      image: string | null;
+      role: string | null;
+    };
     binhLuan: {
       noiDung: string;
       nguoiDung: {
@@ -38,8 +45,15 @@ export type AdminLog = {
   baoCaoKhoaHoc: {
     id: string;
     lyDo: string;
+    nguoiDung: {
+      id: string;
+      name: string;
+      image: string | null;
+      role: string | null; 
+    };
     khoaHoc: {
       tenKhoaHoc: string;
+      duongDan: string;
     };
   } | null;
 };
@@ -65,8 +79,7 @@ export async function getAdminLogs(filters: AdminLogFilters = {}): Promise<Admin
   } = filters;
 
   // Build where clause
-  const where: any = {};
-
+const where: Prisma.NhatKyXuLyWhereInput = {};
   if (loaiBaoCao) {
     where.loaiBaoCao = loaiBaoCao;
   }
@@ -107,6 +120,14 @@ export async function getAdminLogs(filters: AdminLogFilters = {}): Promise<Admin
         select: {
           id: true,
           lyDo: true,
+          nguoiDung: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+              role: true, 
+            },
+          },
           binhLuan: {
             select: {
               noiDung: true,
@@ -123,9 +144,18 @@ export async function getAdminLogs(filters: AdminLogFilters = {}): Promise<Admin
         select: {
           id: true,
           lyDo: true,
+          nguoiDung: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+              role: true, 
+            },
+          },
           khoaHoc: {
             select: {
               tenKhoaHoc: true,
+              duongDan: true,
             },
           },
         },

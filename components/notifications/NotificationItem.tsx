@@ -65,10 +65,12 @@ export function NotificationItem({
       onRead();
     }
 
-    // Navigate if has URL in metadata
-    const meta = notification.metadata as { url?: string };
-    if (meta?.url) {
-      router.push(meta.url);
+    // Navigate if has URL or Path in metadata
+    const meta = notification.metadata as { url?: string; path?: string };
+    const targetUrl = meta?.path || meta?.url;
+    
+    if (targetUrl) {
+      router.push(targetUrl);
     }
   };
 

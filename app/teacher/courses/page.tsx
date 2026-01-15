@@ -1,3 +1,4 @@
+// Forces recompile
 import { teacherGetCourses } from "@/app/data/teacher/get-courses";
 import { buttonVariants } from "@/components/ui/button";
 import Link from "next/link";

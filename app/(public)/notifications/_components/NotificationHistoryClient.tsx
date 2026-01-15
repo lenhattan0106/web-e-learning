@@ -120,9 +120,11 @@ export function NotificationHistoryClient() {
     if (!notification.daXem) {
       handleMarkRead(notification.id);
     }
-    const meta = notification.metadata as { url?: string };
-    if (meta?.url) {
-      router.push(meta.url);
+    const meta = notification.metadata as { url?: string; path?: string };
+    const targetUrl = meta?.path || meta?.url;
+    
+    if (targetUrl) {
+      router.push(targetUrl);
     }
   };
 

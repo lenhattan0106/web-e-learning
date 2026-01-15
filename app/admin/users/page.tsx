@@ -1,6 +1,7 @@
 import { getUsers, type GetUsersParams } from "@/app/data/admin/get-users";
 import { prisma } from "@/lib/db";
 import { UsersClient } from "./_components/UsersClient";
+import { getUserGrowthStats, getUserDistribution } from "@/app/data/admin/get-user-growth-stats";
 
 async function getUserStats() {
   const now = new Date();
@@ -40,9 +41,16 @@ export default async function AdminUsersPage({
     premium: (params.premium as GetUsersParams["premium"]) || "all",
   };
   
-  const [data, stats] = await Promise.all([
+  // Default date range: last 30 days
+  const toDate = new Date();
+  const fromDate = new Date();
+  fromDate.setDate(toDate.getDate() - 30);
+  
+  const [data, stats, growthData, distribution] = await Promise.all([
     getUsers(queryParams),
-    getUserStats()
+    getUserStats(),
+    getUserGrowthStats(fromDate, toDate), // Default 30 days
+    getUserDistribution(),
   ]);
 
   return (
@@ -60,8 +68,11 @@ export default async function AdminUsersPage({
         totalPages={data.totalPages}
         currentPage={data.page}
         stats={stats}
+        growthData={growthData}
+        distribution={distribution}
       />
     </div>
   );
 }
+
 

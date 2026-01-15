@@ -3,7 +3,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { TrangThaiBaoCao } from "@prisma/client";
 
-// Tab 1: Khóa học kém chất lượng (Low Rating)
+// Tab 1: Xếp hạng khóa học
 export async function getLowRatedCourses() {
   // Lấy tất cả khóa học có đánh giá
   const courses = await prisma.khoaHoc.findMany({
@@ -16,8 +16,8 @@ export async function getLowRatedCourses() {
     select: {
       id: true,
       tenKhoaHoc: true,
-      // anhDaiDien: false, // Removed invalid field
-      tepKH: true, // This is the image/thumbnail?
+      duongDan: true,
+      tepKH: true,
       trangThai: true,
       nguoiDung: {
         select: {
@@ -49,8 +49,10 @@ export async function getLowRatedCourses() {
     };
   });
 
-  // Filter: Rating < 3.0 VÀ có trên 4 review (số lượng mẫu đủ lớn)
-  return processedCourses.filter((c) => c.avgRating < 3.0 && c.reviewCount >= 4);
+  // Lọc bảng xếp hạng rating
+  return processedCourses
+    .filter((c) => c.reviewCount > 0)
+    .sort((a, b) => a.avgRating - b.avgRating);
 }
 
 // Tab 2: Khóa học bị báo cáo
@@ -71,8 +73,10 @@ export async function getReportedCourses() {
         select: {
           id: true,
           tenKhoaHoc: true,
+          duongDan: true,
           nguoiDung: { // Giáo viên
             select: {
+              id: true,
               name: true,
             },
           },

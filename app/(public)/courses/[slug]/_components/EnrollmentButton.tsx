@@ -7,11 +7,12 @@ import Link from "next/link";
 
 interface EnrollmentButtonProps {
   courseId: string;
+  coursePrice?: number;
   couponCode?: string;
   isEnrolled?: boolean;
 }
 
-export function EnrollmentButton({ courseId, couponCode, isEnrolled }: EnrollmentButtonProps) {
+export function EnrollmentButton({ courseId, coursePrice = 0, couponCode, isEnrolled }: EnrollmentButtonProps) {
   const [pending, startTransition] = useTransition();
 
   if (isEnrolled) {
@@ -26,8 +27,6 @@ export function EnrollmentButton({ courseId, couponCode, isEnrolled }: Enrollmen
     startTransition(async () => {
       try {
         const result = await enrollInCourseAction(courseId, couponCode);
-
-        // Nếu có message (lỗi hoặc đã mua rồi)
         if (result) {
           if (result.status === "success") {
             toast.success(result.message);
@@ -39,7 +38,6 @@ export function EnrollmentButton({ courseId, couponCode, isEnrolled }: Enrollmen
       } catch (error) {
         // Kiểm tra xem có phải NEXT_REDIRECT error không
         if (error && typeof error === "object" && "digest" in error) {
-          // Đây là redirect error, bỏ qua (Next.js tự xử lý)
           return;
         }
         // Lỗi thật sự
@@ -57,7 +55,7 @@ export function EnrollmentButton({ courseId, couponCode, isEnrolled }: Enrollmen
           Đang chuyển hướng...
         </>
       ) : (
-        "Mua Khóa Học Ngay"
+        coursePrice === 0 ? "Vào học ngay" : "Mua Khóa Học Ngay"
       )}
     </Button>
   );

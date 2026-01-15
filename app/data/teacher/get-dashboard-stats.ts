@@ -12,17 +12,24 @@ export async function teacherGetDashBoardStatus(duration: number = 30) {
   
   const previousStartDate = new Date();
   previousStartDate.setDate(startDate.getDate() - duration);
+  const calculateNetRevenue = (enrollments: { soTien: number | null; thanhToanThuc: number | null; phiSan: number | null }[]) => {
+    return enrollments.reduce((sum, e) => {
+      const gross = e.soTien || 0;
+      const platformFee = e.phiSan ?? Math.round(gross * 0.05);
+      const net = e.thanhToanThuc ?? (gross - platformFee);
+      return sum + net;
+    }, 0);
+  };
 
-  // Helper to fetch stats for a date range
   const getStatsForPeriod = async (start: Date, end: Date) => {
-    const [revenue, users] = await Promise.all([
-        prisma.dangKyHoc.aggregate({
+    const [enrollments, users] = await Promise.all([
+        prisma.dangKyHoc.findMany({
             where: {
                 khoaHoc: { idNguoiDung: userId },
                 trangThai: "DaThanhToan",
                 ngayTao: { gte: start, lt: end }
             },
-            _sum: { soTien: true }
+            select: { soTien: true, thanhToanThuc: true, phiSan: true }
         }),
         
          prisma.dangKyHoc.findMany({
@@ -36,7 +43,7 @@ export async function teacherGetDashBoardStatus(duration: number = 30) {
         })
     ]);
     return {
-        revenue: revenue._sum.soTien || 0,
+        revenue: calculateNetRevenue(enrollments),
         newStudents: users.length
     };
   };
@@ -44,17 +51,14 @@ export async function teacherGetDashBoardStatus(duration: number = 30) {
   const currentPeriodStats = await getStatsForPeriod(startDate, now);
   const previousPeriodStats = await getStatsForPeriod(previousStartDate, startDate);
 
-  // Totals (Cumulative) - as originally requested
-  const [totalRevenue, totalUsers, totalCourses, totalLessons] = await Promise.all([
-    // Total Revenue (All time)
-    prisma.dangKyHoc.aggregate({
+  const [allEnrollments, totalUsers, totalCourses, totalLessons] = await Promise.all([
+    prisma.dangKyHoc.findMany({
       where: {
         khoaHoc: { idNguoiDung: userId },
         trangThai: "DaThanhToan",
       },
-      _sum: { soTien: true },
+      select: { soTien: true, thanhToanThuc: true, phiSan: true },
     }),
-    // Total Users (All time)
      prisma.user.count({
       where: {
         dangKyHocs: {
@@ -65,9 +69,7 @@ export async function teacherGetDashBoardStatus(duration: number = 30) {
         },
       },
     }),
-     // Total Courses
     prisma.khoaHoc.count({ where: { idNguoiDung: userId } }),
-    // Total Lessons
     prisma.baiHoc.count({
       where: { chuong: { khoaHoc: { idNguoiDung: userId } } },
     }),
@@ -79,11 +81,10 @@ export async function teacherGetDashBoardStatus(duration: number = 30) {
   };
 
   return {
-    totalRevenue: totalRevenue._sum.soTien || 0,
+    totalRevenue: calculateNetRevenue(allEnrollments), 
     totalUsers,
     totalCourses,
     totalLessons,
-    // Growth stats based on the selected duration (comparing current duration window vs previous duration window)
     revenueGrowth: calculateGrowth(currentPeriodStats.revenue, previousPeriodStats.revenue),
     usersGrowth: calculateGrowth(currentPeriodStats.newStudents, previousPeriodStats.newStudents)
   };

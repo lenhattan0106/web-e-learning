@@ -125,12 +125,15 @@ export async function PublicCourseCard({ data, isOwner = false, userRole }: iApp
               <>
                 <span className="text-lg font-medium">Giá:</span>
                 <span className="text-2xl font-bold text-primary">
-                  {new Intl.NumberFormat("vi-VN", {
-                    style: "currency",
-                    currency: "VND",
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0,
-                  }).format(data.gia)}
+                  {data.gia === 0 
+                    ? "Miễn phí" 
+                    : new Intl.NumberFormat("vi-VN", {
+                        style: "currency",
+                        currency: "VND",
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0,
+                      }).format(data.gia)
+                  }
                 </span>
               </>
             )}

@@ -10,6 +10,7 @@ import {
   IpnSuccess,
   IpnUnknownError,
 } from "vnpay";
+import { sendNotification } from "@/app/services/notification-service";
 
 export async function GET(request: NextRequest) {
   try {
@@ -225,13 +226,36 @@ async function handleCourseEnrollment(enrollmentId: string, verify: VerifyIpnCal
     }
   });
 
+  // --- NOTIFICATION TO TEACHER (Paid Enrollment) ---
+  try {
+     const courseWithTeacher = await prisma.khoaHoc.findUnique({
+         where: { id: foundDangKy.idKhoaHoc },
+         select: { idNguoiDung: true } 
+     });
+
+     if (courseWithTeacher) {
+         await sendNotification({
+             userId: courseWithTeacher.idNguoiDung,
+             title: "Học viên mới! 💰",
+             message: `Học viên ${foundDangKy.nguoiDung.name || "mới"} vừa mua khóa học "${foundDangKy.khoaHoc.tenKhoaHoc}".\nDoanh thu: ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(foundDangKy.soTien)}`,
+             type: "KHOA_HOC",
+             metadata: {
+                 type: "NEW_ENROLLMENT",
+                 courseId: foundDangKy.idKhoaHoc,
+                 amount: foundDangKy.soTien
+             }
+         });
+     }
+  } catch (notifyError) {
+      console.error("Failed to notify teacher (IPN):", notifyError);
+  }
+  // ------------------------------------------------
+
   console.log("✅ IPN thành công: Đã cập nhật enrollment", {
     enrollmentId: foundDangKy.id,
     userId: foundDangKy.nguoiDung.email,
     courseTitle: foundDangKy.khoaHoc.tenKhoaHoc,
     amount: foundDangKy.soTien,
-    transactionNo: verify.vnp_TransactionNo,
-    bankCode: verify.vnp_BankCode,
   });
 
   return NextResponse.json(IpnSuccess);

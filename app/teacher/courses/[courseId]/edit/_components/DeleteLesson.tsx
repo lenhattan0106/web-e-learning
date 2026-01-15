@@ -1,3 +1,5 @@
+"use client";
+
 import {
   AlertDialogTrigger,
   AlertDialog,
@@ -9,6 +11,12 @@ import {
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { tryCatch } from "@/hooks/try-catch";
 import { Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
@@ -16,18 +24,21 @@ import { deleteLesson } from "../action";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+interface DeleteLessonProps {
+  idChuong: string;
+  idKhoaHoc: string;
+  idBaiHoc: string;
+  hasStudents?: boolean;
+}
+
 export function DeleteLesson({
   idChuong,
   idKhoaHoc,
   idBaiHoc,
-}: {
-  idChuong: string;
-  idKhoaHoc: string;
-  idBaiHoc: string;
-}) {
+  hasStudents = false,
+}: DeleteLessonProps) {
   const [open, setOpen] = useState(false);
-  const router = useRouter()
-  
+  const router = useRouter();
   const [pending, startTransiton] = useTransition();
 
   async function onSubmit() {
@@ -52,6 +63,36 @@ export function DeleteLesson({
       }
     });
   }
+
+  // If course has students, show disabled button with tooltip
+  if (hasStudents) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="cursor-not-allowed">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                disabled
+                className="h-8 w-8 opacity-40"
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs">
+            <p className="text-sm">
+              Không thể xóa bài học này vì khóa học đã có học viên đăng ký. 
+              Bạn chỉ có thể chỉnh sửa nội dung.
+            </p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  // Normal delete flow for courses without students
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>

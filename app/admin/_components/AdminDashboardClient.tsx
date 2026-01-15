@@ -4,6 +4,7 @@ import * as React from "react";
 import { useState, useEffect, useTransition } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { DateRange } from "react-day-picker";
 import Link from "next/link";
 import { 
   Users, 
@@ -48,25 +49,14 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  ChartConfig,
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, Legend } from "recharts";
+
+
 
 import { fetchRevenueDetails, fetchPremiumDetails, fetchReportsDetails } from "@/app/admin/actions/admin-dashboard";
 import { ReportsTable } from "@/app/admin/reports/_components/ReportsTable";
-
+import { SystemRevenueChart } from "./charts/SystemRevenueChart";
+import { DateFilter } from "./DateFilter";
+import type { SystemRevenueStats } from "@/app/data/admin/get-system-revenue-stats";
 interface AdminDashboardStats {
   totalUsers: number;
   totalTeachers: number;
@@ -88,29 +78,15 @@ interface AdminDashboardStats {
 
 interface AdminDashboardClientProps {
   stats: AdminDashboardStats;
+  systemRevenue: SystemRevenueStats;
 }
 
-// Chart Colors
-const CHART_COLORS = {
-  total: "#3b82f6",    // Blue
-  premium: "#f59e0b",  // Amber
-};
 
-const chartConfig = {
-  total: {
-    label: "Người dùng mới",
-    color: CHART_COLORS.total,
-  },
-  premium: {
-    label: "Premium",
-    color: CHART_COLORS.premium,
-  },
-} satisfies ChartConfig;
 
 type TabType = "users" | "revenue" | "premium" | "reports";
 const ITEMS_PER_PAGE = 10;
 
-export function AdminDashboardClient({ stats }: AdminDashboardClientProps) {
+export function AdminDashboardClient({ stats, systemRevenue }: AdminDashboardClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -128,10 +104,18 @@ export function AdminDashboardClient({ stats }: AdminDashboardClientProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(currentPageInfo);
 
-  // Initial Data Fetch & Tab Change
+  // Date filter state
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const duration = parseInt(currentDuration);
+    const to = new Date();
+    const from = new Date();
+    from.setDate(to.getDate() - duration);
+    return { from, to };
+  });
+  const [isCustomRange, setIsCustomRange] = useState(false);
+
   useEffect(() => {
     const loadData = async () => {
-      // Return details from cache immediately if available
       if (dataCache[activeTab]) {
          setData(dataCache[activeTab]);
          setCurrentPage(1);
@@ -182,11 +166,30 @@ export function AdminDashboardClient({ stats }: AdminDashboardClientProps) {
     startTransition(() => updateUrl("view", tab));
   };
 
-  const handleDurationChange = (days: string) => {
+  const handleDurationChange = (days: number) => {
+    setIsCustomRange(false);
+    const to = new Date();
+    const from = new Date();
+    from.setDate(to.getDate() - days);
+    setDateRange({ from, to });
+    
     startTransition(() => {
-      updateUrl("days", days);
+      updateUrl("days", days.toString());
       router.refresh(); 
     });
+  };
+
+  const handleCustomRangeChange = (range: DateRange | undefined) => {
+    if (range?.from && range?.to) {
+      setIsCustomRange(true);
+      setDateRange(range);
+      
+      const diffDays = Math.ceil((range.to.getTime() - range.from.getTime()) / (1000 * 60 * 60 * 24));
+      startTransition(() => {
+        updateUrl("days", diffDays.toString());
+        router.refresh();
+      });
+    }
   };
 
   const handlePageChange = (page: number) => {
@@ -226,17 +229,14 @@ export function AdminDashboardClient({ stats }: AdminDashboardClientProps) {
       {/* Header & Controls */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h2 className="text-2xl font-bold tracking-tight">Tổng quan</h2>
-          <Select value={currentDuration} onValueChange={handleDurationChange}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Chọn thời gian" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7">7 ngày qua</SelectItem>
-              <SelectItem value="30">30 ngày qua</SelectItem>
-              <SelectItem value="90">90 ngày qua</SelectItem>
-              <SelectItem value="365">1 năm qua</SelectItem>
-            </SelectContent>
-          </Select>
+          <DateFilter
+            dateRange={dateRange}
+            onDateRangeChange={handleCustomRangeChange}
+            quickDurations={[7, 30, 90]}
+            currentDuration={parseInt(currentDuration)}
+            onQuickDurationChange={handleDurationChange}
+            isCustomRange={isCustomRange}
+          />
       </div>
 
       {/* 4 Main Stats Cards */}
@@ -394,73 +394,11 @@ export function AdminDashboardClient({ stats }: AdminDashboardClientProps) {
          </Card>
       </div>
 
-      {/* Chart Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Tăng trưởng người dùng</CardTitle>
-          <CardDescription>
-            Số lượng người dùng đăng ký mới và nâng cấp Premium theo tháng
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ChartContainer config={chartConfig} className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={stats.monthlyUserGrowth} margin={{ left: 12, right: 12, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis 
-                  dataKey="label" 
-                  tickLine={false} 
-                  axisLine={false} 
-                  tickMargin={8}
-                />
-                <YAxis 
-                  tickLine={false} 
-                  axisLine={false} 
-                  tickMargin={8}
-                  allowDecimals={false}
-                />
-                <ChartTooltip 
-                  cursor={{ fill: 'rgba(0, 0, 0, 0.05)' }}
-                  content={
-                    <ChartTooltipContent 
-                      formatter={(value, name) => (
-                        <div className="flex min-w-[130px] items-center text-xs text-muted-foreground">
-                          {name}
-                          <div className="ml-auto flex items-baseline gap-0.5 font-mono font-medium text-foreground">
-                            {value}
-                          </div>
-                        </div>
-                      )}
-                    />
-                  } 
-                />
-                <Legend 
-                  verticalAlign="top"
-                  align="right"
-                  wrapperStyle={{ paddingBottom: 10 }}
-                  formatter={(value: string) => (
-                    <span className="text-sm font-medium">{value}</span>
-                  )}
-                />
-                <Bar 
-                  dataKey="total" 
-                  fill={CHART_COLORS.total} 
-                  radius={[4, 4, 0, 0]} 
-                  name="Người dùng mới"
-                  cursor="pointer"
-                />
-                <Bar 
-                  dataKey="premium" 
-                  fill={CHART_COLORS.premium} 
-                  radius={[4, 4, 0, 0]} 
-                  name="Premium"
-                  cursor="pointer"
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartContainer>
-        </CardContent>
-      </Card>
+      {/* System Revenue Chart */}
+      <SystemRevenueChart 
+        data={systemRevenue.data} 
+        growth={systemRevenue.growth} 
+      />
     </div>
   );
 }

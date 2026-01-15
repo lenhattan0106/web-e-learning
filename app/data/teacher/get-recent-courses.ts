@@ -22,16 +22,17 @@ export async function teacherGetRecentCourses() {
       thoiLuong: true,
       capDo: true,
       trangThai: true,
-      trangThaiRef: {
-        select: {
-          tenTrangThai: true,
-          maTrangThai: true,
-        },
-      },
       gia: true,
       tepKH: true,
       duongDan: true,
       danhMuc: true,
+      _count: {
+        select: {
+          dangKyHocs: {
+            where: { trangThai: "DaThanhToan" }
+          }
+        }
+      }
     },
   });
 

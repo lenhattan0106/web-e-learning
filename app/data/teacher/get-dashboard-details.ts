@@ -40,61 +40,66 @@ export async function getRevenueDetails() {
   return data;
 }
 
+
 export async function getStudentDetails() {
   const session = await requireTeacher();
   
-  // Get all users who have purchased at least one course from this teacher
-  const students = await prisma.user.findMany({
+  // Lấy TẤT CẢ lượt mua (DangKyHoc) của các khóa học thuộc giáo viên
+  const enrollments = await prisma.dangKyHoc.findMany({
     where: {
-        dangKyHocs: {
-            some: {
-                khoaHoc: {
-                    idNguoiDung: session.user.id
-                },
-                trangThai: "DaThanhToan"
-            }
-        }
+      khoaHoc: {
+        idNguoiDung: session.user.id
+      },
+      trangThai: "DaThanhToan"
     },
     select: {
-        id: true,
-        name: true,
-        email: true,
-        image: true,
-        dangKyHocs: {
-            where: {
-                khoaHoc: {
-                    idNguoiDung: session.user.id
-                },
-                trangThai: "DaThanhToan"
-            },
-            include: {
-                khoaHoc: {
-                    select: {
-                        tenKhoaHoc: true
-                    }
-                }
-            }
-        },
-        _count: {
-             select: {
-                tienTrinhHocs: {
-                    where: {
-                        baiHoc: {
-                            chuong: {
-                                khoaHoc: {
-                                    idNguoiDung: session.user.id
-                                }
-                            }
-                        },
-                        hoanThanh: true
-                    }
-                }
-             }
+      id: true,
+      ngayTao: true,
+      soTien: true,
+      phiSan: true,
+      thanhToanThuc: true,
+      nguoiDung: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
         }
-    }
+      },
+      khoaHoc: {
+        select: {
+          id: true,
+          tenKhoaHoc: true,
+        }
+      }
+    },
+    orderBy: [
+      { ngayTao: 'desc' },  
+      { nguoiDung: { name: 'asc' } }  
+    ]
   });
 
-  return students;
+  return enrollments.map((enrollment) => {
+    // Tính toán Net nếu chưa có (legacy data)
+    const netPrice = enrollment.thanhToanThuc ?? 
+      (enrollment.soTien - (enrollment.phiSan ?? Math.round(enrollment.soTien * 0.05)));
+
+    return {
+      id: enrollment.id, // ID của lượt mua (để làm key unique)
+      student: {
+        id: enrollment.nguoiDung.id,
+        name: enrollment.nguoiDung.name,
+        email: enrollment.nguoiDung.email,
+        image: enrollment.nguoiDung.image,
+      },
+      course: {
+        id: enrollment.khoaHoc.id,
+        name: enrollment.khoaHoc.tenKhoaHoc,
+      },
+      purchaseDate: enrollment.ngayTao,
+      netPrice: netPrice,
+    };
+  });
 }
 
 export async function getCourseDetails() {

@@ -147,7 +147,6 @@ export async function editCourse(
       const level = await prisma.capDo.findUnique({ where: { id: result.data.capDo } });
       if (level) {
         updateData.idCapDo = level.id;
-        // Map Legacy Enum: UPPERCASE -> PascalCase
         const mapLevel: Record<string, string> = {
           "NGUOI_MOI": "NguoiMoi",
           "TRUNG_CAP": "TrungCap",
@@ -160,11 +159,9 @@ export async function editCourse(
     }
 
     if (result.data.trangThai) {
-      // Use enum value directly from form
       updateData.trangThai = result.data.trangThai as any;
     }
 
-    // Detect status change for notifications
     const oldStatus = currentCourse?.trangThai;
     const newStatus = result.data.trangThai;
     const statusChanged = newStatus && oldStatus !== newStatus;
@@ -180,7 +177,6 @@ export async function editCourse(
     // Send notifications if status changed
     if (statusChanged && newStatus) {
       if (newStatus === "BanLuuTru") {
-        // Course archived - notify enrolled students
         const template = NOTIFICATION_TEMPLATES.COURSE_ARCHIVED(result.data.tenKhoaHoc);
         await notifyEnrolledStudents({
           courseId: idKhoaHoc,
@@ -192,7 +188,6 @@ export async function editCourse(
           },
         });
       } else if (newStatus === "BanChinhThuc") {
-        // Course published - notify enrolled students about update
         const template = NOTIFICATION_TEMPLATES.COURSE_UPDATED(result.data.tenKhoaHoc);
         await notifyEnrolledStudents({
           courseId: idKhoaHoc,
@@ -374,6 +369,27 @@ export async function createChapter(
         },
       });
     });
+
+    try {
+        const courseInfo = await prisma.khoaHoc.findUnique({
+            where: { id: result.data.idKhoaHoc },
+            select: { tenKhoaHoc: true, duongDan: true }
+        });
+
+        if (courseInfo) {
+            await notifyEnrolledStudents({
+                courseId: result.data.idKhoaHoc,
+                title: `Chương mới: ${result.data.ten}`,
+                message: `Khóa học "${courseInfo.tenKhoaHoc}" vừa có thêm chương mới. Vào học ngay nhé!`,
+                metadata: {
+                    url: `/dashboard/${courseInfo.duongDan}`,
+                    type: "NEW_CHAPTER",
+                    courseId: result.data.idKhoaHoc
+                }
+            });
+        }
+    } catch(e) { console.error("Notify error:", e); }
+
     revalidatePath(`/teacher/courses/${result.data.idKhoaHoc}/edit`);
     return {
       status: "success",
@@ -400,7 +416,6 @@ export async function createLesson(
       };
     }
 
-    // Verify ownership through chapter
     const chapter = await prisma.chuong.findFirst({
       where: {
         id: result.data.idChuong,
@@ -417,7 +432,7 @@ export async function createLesson(
       };
     }
 
-    await prisma.$transaction(async (tx) => {
+    const createdLesson = await prisma.$transaction(async (tx) => {
       const maxPos = await tx.baiHoc.findFirst({
         where: {
           idChuong: result.data.idChuong,
@@ -443,7 +458,7 @@ export async function createLesson(
       try {
         if (result.data.moTa) {
            const cleanedContent = cleanText(result.data.moTa);
-           if (cleanedContent.length > 10) { // Only embed if enough content
+           if (cleanedContent.length > 10) {
              const embedding = await generateEmbedding(cleanedContent);
              const vectorQuery = `[${embedding.join(",")}]`;
              await tx.$executeRaw`
@@ -455,9 +470,32 @@ export async function createLesson(
         }
       } catch (aiError) {
         console.error("Failed to generate embedding for new lesson:", aiError);
-        // Do not throw, allow lesson creation to succeed
       }
+
+      return newLesson;
     });
+
+    try {
+        const courseForNotify = await prisma.khoaHoc.findUnique({
+            where: { id: result.data.idKhoaHoc },
+            select: { tenKhoaHoc: true, duongDan: true }
+        });
+
+        if (courseForNotify) {
+            await notifyEnrolledStudents({
+                courseId: result.data.idKhoaHoc,
+                title: `Bài học mới: ${result.data.ten}`,
+                message: `Khóa học "${courseForNotify.tenKhoaHoc}" vừa có thêm bài học mới. Vào học ngay nhé!`,
+                metadata: {
+                    url: `/dashboard/${courseForNotify.duongDan}/${createdLesson.id}`,
+                    type: "NEW_LESSON",
+                    courseId: result.data.idKhoaHoc,
+                    lessonId: createdLesson.id
+                }
+            });
+        }
+    } catch(e) { console.error("Notify error:", e); }
+
     revalidatePath(`/teacher/courses/${result.data.idKhoaHoc}/edit`);
     return {
       status: "success",
@@ -496,6 +534,20 @@ export async function deleteLesson({
       return {
         status: "error",
         message: "Bạn không có quyền xóa bài học của chương này",
+      };
+    }
+
+    const enrollmentCount = await prisma.dangKyHoc.count({
+      where: {
+        idKhoaHoc: idKhoaHoc,
+        trangThai: "DaThanhToan"
+      }
+    });
+
+    if (enrollmentCount > 0) {
+      return {
+        status: "error",
+        message: `Không thể xóa bài học này vì khóa học đã có ${enrollmentCount} học viên đăng ký. Bạn chỉ có thể chỉnh sửa nội dung.`,
       };
     }
 
@@ -584,6 +636,20 @@ export async function deleteChapter({
       return {
         status: "error",
         message: "Bạn không có quyền xóa chương của khóa học này",
+      };
+    }
+
+    const enrollmentCount = await prisma.dangKyHoc.count({
+      where: {
+        idKhoaHoc: idKhoaHoc,
+        trangThai: "DaThanhToan"
+      }
+    });
+
+    if (enrollmentCount > 0) {
+      return {
+        status: "error",
+        message: `Không thể xóa chương này vì khóa học đã có ${enrollmentCount} học viên đăng ký. Bạn chỉ có thể chỉnh sửa nội dung.`,
       };
     }
 
@@ -691,6 +757,26 @@ export async function updateChapter(
       },
     });
 
+    try {
+      const courseInfo = await prisma.khoaHoc.findUnique({
+        where: { id: result.data.idKhoaHoc },
+        select: { tenKhoaHoc: true, duongDan: true }
+      });
+      if (courseInfo) {
+        await notifyEnrolledStudents({
+          courseId: result.data.idKhoaHoc,
+          title: `Chương được cập nhật: ${result.data.ten}`,
+          message: `Khóa học "${courseInfo.tenKhoaHoc}" vừa cập nhật tên chương. Xem ngay!`,
+          metadata: {
+            url: `/dashboard/${courseInfo.duongDan}`,
+            type: "CHAPTER_UPDATE",
+            courseId: result.data.idKhoaHoc,
+            chapterId: idChuong
+          }
+        });
+      }
+    } catch(e) { console.error("Notify error:", e); }
+
     revalidatePath(`/teacher/courses/${result.data.idKhoaHoc}/edit`);
     return {
       status: "success",
@@ -744,6 +830,26 @@ export async function updateLessonTitle(
         tenBaiHoc: result.data.ten,
       },
     });
+
+    try {
+      const courseInfo = await prisma.khoaHoc.findUnique({
+        where: { id: result.data.idKhoaHoc },
+        select: { tenKhoaHoc: true, duongDan: true }
+      });
+      if (courseInfo) {
+        await notifyEnrolledStudents({
+          courseId: result.data.idKhoaHoc,
+          title: `Bài học được cập nhật: ${result.data.ten}`,
+          message: `Khóa học "${courseInfo.tenKhoaHoc}" vừa cập nhật tên bài học. Xem ngay!`,
+          metadata: {
+            url: `/dashboard/${courseInfo.duongDan}/${idBaiHoc}`,
+            type: "LESSON_UPDATE",
+            courseId: result.data.idKhoaHoc,
+            lessonId: idBaiHoc
+          }
+        });
+      }
+    } catch(e) { console.error("Notify error:", e); }
 
     revalidatePath(`/teacher/courses/${result.data.idKhoaHoc}/edit`);
     return {

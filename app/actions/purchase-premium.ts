@@ -8,11 +8,22 @@ import { requireUser } from "@/app/data/user/require-user";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
 
-const PREMIUM_PRICE = 99000; // 99k VND
+import { getPremiumPrice } from "@/app/admin/actions/system-settings";
+// import { currentUser } from "@clerk/nextjs/server"; // Removed incorrect import
+
+// Removed hardcoded const
+// const PREMIUM_PRICE = 99000; // 99k VND
 const PREMIUM_DAYS = 30;
 
-export async function purchasePremiumAction() {
+export async function createPaymentUrl() {
   const user = await requireUser();
+
+  if (!user || !user.id || !user.email) {
+    return { error: "Bạn cần đăng nhập để thực hiện chức năng này" };
+  }
+  
+  // Get dynamic price
+  const amount = await getPremiumPrice();
   let paymentUrl = "";
 
   try {
@@ -31,7 +42,7 @@ export async function purchasePremiumAction() {
     const payment = await prisma.thanhToanPremium.create({
       data: {
         idNguoiDung: user.id,
-        soTien: PREMIUM_PRICE,
+        soTien: amount,
         soNgay: PREMIUM_DAYS,
         trangThai: "DangXuLy"
       }
@@ -44,7 +55,7 @@ export async function purchasePremiumAction() {
       "127.0.0.1";
 
     paymentUrl = vnpay.buildPaymentUrl({
-      vnp_Amount: PREMIUM_PRICE,
+      vnp_Amount: amount,
       vnp_TxnRef: `PREMIUM_${payment.id}`,
       vnp_OrderInfo: isActivePremium 
         ? "Gia han goi AI Pro 30 ngay" 

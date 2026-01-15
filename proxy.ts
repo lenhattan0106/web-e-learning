@@ -9,8 +9,6 @@ export const config = {
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|api/auth|api/payment/ipn|payment/return).*)",
   ],
-  //Node.js runtime to support better-auth (Edge Runtime doesn't support 'stream' module)
-  runtime: 'nodejs',
 };
 
 const aj = arcjet({
@@ -40,7 +38,6 @@ export async function authMiddleWare(request: NextRequest) {
   return NextResponse.next();
 }
 
-// Role-based middleware with full session check
 export async function roleMiddleware(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
   
@@ -48,7 +45,6 @@ export async function roleMiddleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Get full session with role
   const session = await auth.api.getSession({
     headers: request.headers,
   });
@@ -60,14 +56,12 @@ export async function roleMiddleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const role = session.user.role;
 
-  // Admin route protection
   if (pathname.startsWith("/admin")) {
     if (role !== "admin") {
       return NextResponse.redirect(new URL("/", request.url));
     }
   }
 
-  // Teacher route protection - allow both teacher and admin
   if (pathname.startsWith("/teacher")) {
     if (role !== "teacher" && role !== "admin") {
       return NextResponse.redirect(new URL("/not-teacher", request.url));
@@ -88,7 +82,6 @@ export default createMiddleware(aj, async (request: NextRequest) => {
     return NextResponse.next();
   }
 
-  //  Check protected routes with role validation
   if (pathname.startsWith("/teacher") || pathname.startsWith("/admin")) {
     return roleMiddleware(request);
   }

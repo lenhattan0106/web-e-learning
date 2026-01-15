@@ -29,8 +29,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { createQuickDanhMuc, editDanhMuc, deleteDanhMuc } from "@/app/teacher/actions/categories";
+import { reportCategoryLevelError } from "@/app/teacher/actions/report-error";
 import { useRouter } from "next/navigation";
 import { Loader } from "lucide-react";
+import { ImpactWarningDialog } from "@/components/teacher/ImpactWarningDialog";
 
 export interface Category {
   id: string;
@@ -54,6 +56,14 @@ export function CascadingCategorySelect({
   const [selectedParent, setSelectedParent] = React.useState<Category | null>(null);
   const [hoveredItem, setHoveredItem] = React.useState<string | null>(null);
   
+  // Local state for optimistic updates
+  const [localCategories, setLocalCategories] = React.useState<Category[]>(categories);
+  
+  // Sync local state when props change
+  React.useEffect(() => {
+    setLocalCategories(categories);
+  }, [categories]);
+  
   // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
   const [parentForNewChild, setParentForNewChild] = React.useState<Category | null>(null);
@@ -69,17 +79,22 @@ export function CascadingCategorySelect({
   const [deletingCategory, setDeletingCategory] = React.useState<Category | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
   
-  // Find initial parent if value is set
+  // Impact warning dialog states
+  const [impactWarningOpen, setImpactWarningOpen] = React.useState(false);
+  const [impactData, setImpactData] = React.useState<{courses: number; students: number; teachers?: number} | null>(null);
+  const [pendingAction, setPendingAction] = React.useState<{type: 'edit' | 'delete'; category: Category; newName?: string} | null>(null);
+  
+  // Find initial parent if value is set - ONLY when dropdown opens
   React.useEffect(() => {
-    if (value && !selectedParent) {
-      for (const parent of categories) {
+    if (open && value && !selectedParent) {
+      for (const parent of localCategories) {
         if (parent.danhMucCon?.some((child) => child.id === value)) {
           setSelectedParent(parent);
           break;
         }
       }
     }
-  }, [value, categories, selectedParent]);
+  }, [open, value, localCategories]); // Removed selectedParent dependency to prevent infinite loop
 
   // Pre-fill edit dialog when it opens
   React.useEffect(() => {
@@ -108,13 +123,13 @@ export function CascadingCategorySelect({
   
   const selectedCategoryName = React.useMemo(() => {
      if (!value) return "";
-     for (const parent of categories) {
+     for (const parent of localCategories) {
          const child = parent.danhMucCon?.find(c => c.id === value);
          if (child) return child.tenDanhMuc;
          if (parent.id === value) return parent.tenDanhMuc;
      }
      return "";
-  }, [value, categories]);
+  }, [value, localCategories]);
 
   const handleCreateCategory = async () => {
     if (!newCategoryName.trim()) return;
@@ -127,11 +142,40 @@ export function CascadingCategorySelect({
       toast.error(result.error);
     } else if (result.success && result.data) {
       toast.success("Đã tạo danh mục mới");
+      
+      // Optimistic update - add new category to local state
+      const newCategory: Category = {
+        id: result.data.id,
+        tenDanhMuc: newCategoryName,
+        danhMucCon: []
+      };
+      
+      if (parentForNewChild) {
+        // Add to parent's children
+        setLocalCategories(prev => prev.map(cat => 
+          cat.id === parentForNewChild.id 
+            ? { ...cat, danhMucCon: [...(cat.danhMucCon || []), newCategory] }
+            : cat
+        ));
+        // Update selectedParent if we're inside it
+        if (selectedParent?.id === parentForNewChild.id) {
+          setSelectedParent(prev => prev ? {
+            ...prev,
+            danhMucCon: [...(prev.danhMucCon || []), newCategory]
+          } : null);
+        }
+      } else {
+        // Add as root category
+        setLocalCategories(prev => [...prev, newCategory]);
+      }
+      
       setNewCategoryName("");
       setCreateDialogOpen(false);
       setParentForNewChild(null);
-      router.refresh();
       onChange(result.data.id);
+      React.startTransition(() => {
+        router.refresh();
+      });
     }
   };
 
@@ -142,13 +186,55 @@ export function CascadingCategorySelect({
     const result = await editDanhMuc(editingCategory.id, editCategoryName);
     setIsEditing(false);
     
+    // Check if locked (has enrollments)
+    if ('locked' in result && result.locked && result.impact) {
+      // Save pending action and show impact warning
+      setPendingAction({
+        type: 'edit',
+        category: editingCategory,
+        newName: editCategoryName
+      });
+      setImpactData(result.impact);
+      setEditDialogOpen(false);
+      setImpactWarningOpen(true);
+      return;
+    }
+    
     if (result.error) {
       toast.error(result.error);
     } else if (result.success) {
       toast.success("Đã cập nhật danh mục");
+      
+      // Optimistic update - update category name in local state
+      const updateCategoryName = (cats: Category[]): Category[] => {
+        return cats.map(cat => {
+          if (cat.id === editingCategory.id) {
+            return { ...cat, tenDanhMuc: editCategoryName };
+          }
+          if (cat.danhMucCon) {
+            return { ...cat, danhMucCon: updateCategoryName(cat.danhMucCon) };
+          }
+          return cat;
+        });
+      };
+      setLocalCategories(prev => updateCategoryName(prev));
+      
+      // Update selectedParent if editing its child
+      if (selectedParent) {
+        setSelectedParent(prev => prev ? {
+          ...prev,
+          danhMucCon: prev.danhMucCon?.map(c => 
+            c.id === editingCategory.id ? { ...c, tenDanhMuc: editCategoryName } : c
+          )
+        } : null);
+      }
+      
       setEditDialogOpen(false);
       setEditingCategory(null);
-      router.refresh();
+      setEditCategoryName("");
+      React.startTransition(() => {
+        router.refresh();
+      });
     }
   };
 
@@ -159,16 +245,73 @@ export function CascadingCategorySelect({
     const result = await deleteDanhMuc(deletingCategory.id);
     setIsDeleting(false);
     
+    // Check if locked (has enrollments)
+    if ('locked' in result && result.locked && result.impact) {
+      setPendingAction({
+        type: 'delete',
+        category: deletingCategory
+      });
+      setImpactData(result.impact);
+      setDeleteDialogOpen(false);
+      setImpactWarningOpen(true);
+      return;
+    }
+    
     if (result.error) {
       toast.error(result.error);
     } else if (result.success) {
       toast.success("Đã xóa danh mục");
+      
+      // Optimistic update - remove category from local state
+      const removeCategoryById = (cats: Category[]): Category[] => {
+        return cats
+          .filter(cat => cat.id !== deletingCategory.id)
+          .map(cat => ({
+            ...cat,
+            danhMucCon: cat.danhMucCon ? removeCategoryById(cat.danhMucCon) : undefined
+          }));
+      };
+      setLocalCategories(prev => removeCategoryById(prev));
+      
+      // Update selectedParent if deleting its child
+      if (selectedParent) {
+        setSelectedParent(prev => prev ? {
+          ...prev,
+          danhMucCon: prev.danhMucCon?.filter(c => c.id !== deletingCategory.id)
+        } : null);
+      }
+      
       setDeleteDialogOpen(false);
       setDeletingCategory(null);
-      router.refresh();
       if (value === deletingCategory.id) {
         onChange("");
       }
+      React.startTransition(() => {
+        router.refresh();
+      });
+    }
+  };
+  
+  // Handle error report submission
+  const handleSubmitReport = async (data: {newName?: string; reason: string}) => {
+    if (!pendingAction) return;
+    
+    const result = await reportCategoryLevelError({
+      type: 'CATEGORY',
+      objectId: pendingAction.category.id,
+      objectName: pendingAction.category.tenDanhMuc,
+      action: pendingAction.type === 'edit' ? 'EDIT' : 'DELETE',
+      newName: data.newName,
+      reason: data.reason
+    });
+    
+    if (result.success) {
+      toast.success(result.message || "Yêu cầu đã được gửi đến admin");
+      setImpactWarningOpen(false);
+      setPendingAction(null);
+      setImpactData(null);
+    } else if (result.error) {
+      toast.error(result.error);
     }
   };
 
@@ -222,7 +365,7 @@ export function CascadingCategorySelect({
               {!selectedParent ? (
                 // LEVEL 1: PARENT CATEGORIES
                 <CommandGroup>
-                  {categories.map((category) => {
+                  {localCategories.map((category) => {
                     const hasChildren = category.danhMucCon && category.danhMucCon.length > 0;
                     
                     return (
@@ -486,6 +629,19 @@ export function CascadingCategorySelect({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Impact Warning Dialog */}
+      {impactWarningOpen && pendingAction && impactData && (
+        <ImpactWarningDialog
+          open={impactWarningOpen}
+          onOpenChange={setImpactWarningOpen}
+          type="CATEGORY"
+          name={pendingAction.category.tenDanhMuc}
+          action={pendingAction.type === 'edit' ? 'EDIT' : 'DELETE'}
+          impact={impactData}
+          onSubmitReport={handleSubmitReport}
+        />
+      )}
     </>
   );
 }

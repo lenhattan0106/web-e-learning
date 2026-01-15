@@ -1,4 +1,5 @@
 import { getAdminDashboardStats } from "@/app/data/admin/get-admin-dashboard-stats";
+import { getSystemRevenueStats } from "@/app/data/admin/get-system-revenue-stats";
 import { AdminDashboardClient } from "./_components/AdminDashboardClient";
 
 export default async function AdminDashboardPage({
@@ -9,7 +10,10 @@ export default async function AdminDashboardPage({
   const { days } = await searchParams;
   const duration = typeof days === "string" ? parseInt(days) : 30;
   
-  const stats = await getAdminDashboardStats(duration);
+  const [stats, systemRevenue] = await Promise.all([
+    getAdminDashboardStats(duration),
+    getSystemRevenueStats(duration), 
+  ]);
 
   return (
     <div className="space-y-6">
@@ -20,7 +24,8 @@ export default async function AdminDashboardPage({
         </p>
       </div>
       
-      <AdminDashboardClient stats={stats} />
+      <AdminDashboardClient stats={stats} systemRevenue={systemRevenue} />
     </div>
   );
 }
+

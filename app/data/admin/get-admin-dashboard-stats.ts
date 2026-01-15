@@ -3,15 +3,14 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "./require-admin";
 
+import { startOfWeek, endOfWeek, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, format, subDays } from "date-fns";
+
 export async function getAdminDashboardStats(duration: number = 30) {
   await requireAdmin();
   
   const now = new Date();
-  const startDate = new Date();
-  startDate.setDate(now.getDate() - duration);
-  
-  const previousStart = new Date();
-  previousStart.setDate(startDate.getDate() - duration);
+  const startDate = subDays(now, duration);
+  const previousStart = subDays(startDate, duration);
 
   // 1. Total Users & Conversion Rate
   const totalUsers = await prisma.user.count();
@@ -108,8 +107,8 @@ export async function getAdminDashboardStats(duration: number = 30) {
   const totalTeachers = await prisma.user.count({ where: { role: "teacher" } });
   const totalCourses = await prisma.khoaHoc.count();
   
-  // Monthly growth for chart (reuse existing logic if needed or simplify)
-  const monthlyUserGrowth = await getMonthlyUserGrowth();
+  // Monthly growth for chart using dynamic duration
+  const monthlyUserGrowth = await getUserGrowth(duration);
 
   return {
     totalUsers,
@@ -126,12 +125,17 @@ export async function getAdminDashboardStats(duration: number = 30) {
   };
 }
 
-async function getMonthlyUserGrowth() {
+// Renamed and upgraded function
+async function getUserGrowth(duration: number) {
   const now = new Date();
-  const monthsAgo = 6;
-  const startDate = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 1);
+  const startDate = subDays(now, duration);
   
-  // Get users grouped by month
+  // Determine granularity
+  let granularity: "day" | "week" | "month" = "day";
+  if (duration > 90) granularity = "month";
+  else if (duration > 30) granularity = "week";
+  
+  // Get users grouped by date
   const users = await prisma.user.findMany({
     where: {
       createdAt: { gte: startDate }
@@ -142,38 +146,69 @@ async function getMonthlyUserGrowth() {
     }
   });
   
-  // Group by month
-  const monthlyData: Record<string, { total: number; premium: number }> = {};
+  // Initialize Data Structure
+  const dataMap: Record<string, { label: string; total: number; premium: number }> = {};
   
-  for (let i = 0; i <= monthsAgo; i++) {
-    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    monthlyData[key] = { total: 0, premium: 0 };
+  if (granularity === "day") {
+      const days = eachDayOfInterval({ start: startDate, end: now });
+      days.forEach(day => {
+          const key = format(day, "yyyy-MM-dd");
+          dataMap[key] = {
+             label: format(day, "dd/MM"),
+             total: 0,
+             premium: 0
+          };
+      })
+  } else if (granularity === "week") {
+      const weeks = eachWeekOfInterval({ start: startDate, end: now }, { weekStartsOn: 1 });
+      weeks.forEach(weekStart => {
+          const key = format(weekStart, "yyyy-MM-dd");
+          const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+          dataMap[key] = {
+             label: `${format(weekStart, "dd/MM")} - ${format(weekEnd, "dd/MM")}`,
+             total: 0,
+             premium: 0
+          };
+      })
+  } else {
+      const months = eachMonthOfInterval({ start: startDate, end: now });
+      months.forEach(monthStart => {
+          const key = format(monthStart, "yyyy-MM");
+          dataMap[key] = {
+             label: format(monthStart, "MM/yyyy"),
+             total: 0,
+             premium: 0
+          };
+      })
   }
   
+  // Fill Data
   users.forEach(user => {
-    const key = `${user.createdAt.getFullYear()}-${String(user.createdAt.getMonth() + 1).padStart(2, '0')}`;
-    if (monthlyData[key]) {
-      monthlyData[key].total++;
+    let key;
+    if (granularity === "day") {
+       key = format(user.createdAt, "yyyy-MM-dd");
+    } else if (granularity === "week") {
+       const weekStart = startOfWeek(user.createdAt, { weekStartsOn: 1 });
+       key = format(weekStart, "yyyy-MM-dd");
+    } else {
+       key = format(user.createdAt, "yyyy-MM");
+    }
+
+    if (dataMap[key]) {
+      dataMap[key].total++;
       if (user.isPremium) {
-        monthlyData[key].premium++;
+        dataMap[key].premium++;
       }
     }
   });
   
-  // Convert to array and sort
-  return Object.entries(monthlyData)
-    .map(([month, data]) => ({
-      month,
-      label: formatMonthLabel(month),
+  // Convert to array
+  return Object.entries(dataMap)
+    .map(([dateKey, data]) => ({
+      month: dateKey, // Keep 'month' key name for frontend compatibility, but it could be day/week
+      label: data.label,
       total: data.total,
       premium: data.premium
     }))
     .sort((a, b) => a.month.localeCompare(b.month));
-}
-
-function formatMonthLabel(monthKey: string): string {
-  const [year, month] = monthKey.split('-');
-  const monthNames = ['Th1', 'Th2', 'Th3', 'Th4', 'Th5', 'Th6', 'Th7', 'Th8', 'Th9', 'Th10', 'Th11', 'Th12'];
-  return `${monthNames[parseInt(month) - 1]} ${year}`;
 }

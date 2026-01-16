@@ -12,11 +12,28 @@ import { authClient } from "@/lib/auth-client";
 import { CheckCircle2, Loader2, Mail, XCircle, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, Suspense } from "react";
 import { toast } from "sonner";
 import { checkEmailVerificationStatus } from "./action";
 
-export default function VerifyEmailPage() {
+// Loading skeleton component
+function VerifyEmailSkeleton() {
+  return (
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <CardContent className="py-12">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-muted-foreground">Đang tải...</p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Main content component that uses useSearchParams
+function VerifyEmailContent() {
   const router = useRouter();
   const params = useSearchParams();
   const [isVerifying, startVerifying] = useTransition();
@@ -326,5 +343,14 @@ export default function VerifyEmailPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// Main page component with Suspense wrapper
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<VerifyEmailSkeleton />}>
+      <VerifyEmailContent />
+    </Suspense>
   );
 }

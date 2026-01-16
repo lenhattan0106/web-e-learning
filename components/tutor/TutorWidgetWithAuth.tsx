@@ -30,8 +30,8 @@ export async function TutorWidgetWithAuth() {
         premiumExpires = user.premiumExpires;
       }
     }
-  } catch (error) {
-    console.error("Error fetching premium status:", error);
+  } catch {
+
   }
 
   return <TutorWidget isPremium={isPremium} premiumExpires={premiumExpires} userId={userId} />;

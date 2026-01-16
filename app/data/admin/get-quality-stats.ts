@@ -1,7 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
-import { TrangThaiBaoCao } from "@prisma/client";
+// import { TrangThaiBaoCao } from "@/lib/generated/prisma"; // unused
 
 // Tab 1: Xếp hạng khóa học
 export async function getLowRatedCourses() {

@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { updateLessonFormSchema } from "@/lib/zodSchemas";
 import { revalidatePath } from "next/cache";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/lib/generated/prisma";
 import { generateEmbedding } from "@/lib/ai/embedding";
 import { cleanText } from "@/lib/utils/clean";
 import { recalculateCourseDuration } from "@/app/teacher/actions/courses";

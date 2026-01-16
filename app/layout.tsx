@@ -5,6 +5,9 @@ import { ThemeProvider } from "@/components/ui/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TutorWidgetWithAuth } from "@/components/tutor/TutorWidgetWithAuth";
 
+
+export const dynamic = "force-dynamic";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],

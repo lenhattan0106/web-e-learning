@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { triggerUserNotification, triggerBatchNotification } from "@/lib/pusher";
-import { LoaiThongBao, Prisma } from "@prisma/client";
+import { LoaiThongBao, Prisma } from "@/lib/generated/prisma";
 
 export type NotificationPayload = {
   userId: string;

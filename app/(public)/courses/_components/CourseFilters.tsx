@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition, Suspense } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +16,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, X, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface DanhMuc {
   id: string;
@@ -33,7 +34,25 @@ interface CourseFiltersProps {
   levels: CapDo[];
 }
 
-export function CourseFilters({ categories, levels }: CourseFiltersProps) {
+// Skeleton for loading state
+function CourseFiltersSkeleton() {
+  return (
+    <div className="mb-8 space-y-6">
+      <div className="flex flex-wrap gap-4 items-center bg-white p-4 rounded-xl shadow-sm border border-slate-100 dark:bg-slate-950 dark:border-slate-800">
+        <Skeleton className="flex-1 min-w-[280px] h-10" />
+        <Skeleton className="w-[220px] h-10" />
+        <Skeleton className="w-[160px] h-10" />
+        <Skeleton className="w-[100px] h-10" />
+      </div>
+      <div className="flex justify-center sm:justify-start">
+        <Skeleton className="w-[300px] h-10 rounded-xl" />
+      </div>
+    </div>
+  );
+}
+
+// Inner component that uses useSearchParams
+function CourseFiltersContent({ categories, levels }: CourseFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
@@ -240,5 +259,14 @@ export function CourseFilters({ categories, levels }: CourseFiltersProps) {
          </Tabs>
       </div>
     </div>
+  );
+}
+
+// Main export with Suspense wrapper
+export function CourseFilters({ categories, levels }: CourseFiltersProps) {
+  return (
+    <Suspense fallback={<CourseFiltersSkeleton />}>
+      <CourseFiltersContent categories={categories} levels={levels} />
+    </Suspense>
   );
 }

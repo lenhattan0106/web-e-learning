@@ -1,4 +1,3 @@
-import { teacherGetEnrollmentStats } from "../data/teacher/get-enrollment-stats";
 import { teacherGetDashBoardStatus } from "../data/teacher/get-dashboard-stats";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
@@ -16,13 +15,12 @@ export default async function TeacherIndexPage({
   const { days } = await searchParams;
   const duration = typeof days === "string" ? parseInt(days) : 30;
   
-  const enrollmentData = await teacherGetEnrollmentStats(duration);
   const dashboardStats = await teacherGetDashBoardStatus(duration);
 
   return (
     <>
       <div className="px-4 lg:px-6 space-y-6">
-        <TeacherDashboardClient stats={dashboardStats} chartData={enrollmentData} />
+        <TeacherDashboardClient stats={dashboardStats} />
       
         <div className="space-y-4 pt-4">
           <div className="flex items-center justify-between">

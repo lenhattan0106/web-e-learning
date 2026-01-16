@@ -3,7 +3,7 @@
 import { requireTeacher } from "@/app/data/teacher/require-teacher";
 import aj, { fixedWindow } from "@/lib/arcjet";
 import { prisma } from "@/lib/db";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/lib/generated/prisma";
 import { ApiResponse } from "@/lib/types";
 import { couponFormSchema, CouponFormType } from "@/lib/zodSchemas";
 import { request } from "@arcjet/next";

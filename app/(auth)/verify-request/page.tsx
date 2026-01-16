@@ -15,10 +15,34 @@ import {
 import { authClient } from "@/lib/auth-client";
 import { Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState, useTransition, Suspense } from "react";
 import { toast } from "sonner";
 
-export default function VerifyRequest() {
+// Loading skeleton
+function VerifyRequestSkeleton() {
+  return (
+    <Card className="w-full mx-auto">
+      <CardHeader className="text-center">
+        <div className="h-6 bg-muted rounded w-64 mx-auto animate-pulse" />
+        <div className="h-4 bg-muted rounded w-80 mx-auto mt-2 animate-pulse" />
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="flex flex-col items-center space-y-2">
+          <div className="flex gap-2">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="h-12 w-10 bg-muted rounded animate-pulse" />
+            ))}
+          </div>
+          <div className="h-4 bg-muted rounded w-48 animate-pulse" />
+        </div>
+        <div className="h-10 bg-muted rounded animate-pulse" />
+      </CardContent>
+    </Card>
+  );
+}
+
+// Main content component
+function VerifyRequestContent() {
   const router = useRouter();
   const [otp, setOtp] = useState("");
   const [emailPending, startTransition] = useTransition();
@@ -67,6 +91,7 @@ export default function VerifyRequest() {
         })
     })
   }
+  
   return (
     <Card className="w-full mx-auto">
       <CardHeader className="text-center">
@@ -107,5 +132,14 @@ export default function VerifyRequest() {
         </Button>
       </CardContent>
     </Card>
+  );
+}
+
+// Main page with Suspense wrapper
+export default function VerifyRequest() {
+  return (
+    <Suspense fallback={<VerifyRequestSkeleton />}>
+      <VerifyRequestContent />
+    </Suspense>
   );
 }

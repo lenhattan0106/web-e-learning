@@ -13,11 +13,40 @@ import { authClient } from "@/lib/auth-client";
 import { Eye, EyeOff, KeyRound, Loader2, Lock, CheckCircle2, XCircle, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useMemo } from "react";
+import { useState, Suspense } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-export default function ResetPasswordPage() {
+// Loading fallback component
+function ResetPasswordSkeleton() {
+  return (
+    <div className="flex min-h-screen items-center justify-center p-4 bg-gradient-to-b from-background to-muted/30">
+      <Card className="w-full max-w-md shadow-xl border-0">
+        <CardHeader className="text-center pb-2">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg animate-pulse">
+            <KeyRound className="h-8 w-8 text-white" />
+          </div>
+          <div className="h-6 bg-muted rounded w-48 mx-auto animate-pulse" />
+          <div className="h-4 bg-muted rounded w-64 mx-auto mt-2 animate-pulse" />
+        </CardHeader>
+        <CardContent className="space-y-5 pt-4">
+          <div className="space-y-2">
+            <div className="h-4 bg-muted rounded w-24 animate-pulse" />
+            <div className="h-11 bg-muted rounded animate-pulse" />
+          </div>
+          <div className="space-y-2">
+            <div className="h-4 bg-muted rounded w-32 animate-pulse" />
+            <div className="h-11 bg-muted rounded animate-pulse" />
+          </div>
+          <div className="h-12 bg-muted rounded animate-pulse" />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Main content component that uses useSearchParams
+function ResetPasswordContent() {
   const router = useRouter();
   const params = useSearchParams();
   const email = params.get("email");
@@ -299,5 +328,14 @@ export default function ResetPasswordPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// Main page component with Suspense wrapper
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<ResetPasswordSkeleton />}>
+      <ResetPasswordContent />
+    </Suspense>
   );
 }

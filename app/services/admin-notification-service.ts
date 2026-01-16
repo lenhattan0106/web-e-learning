@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { LoaiThongBao } from "@prisma/client";
+import { LoaiThongBao } from "@/lib/generated/prisma";
 import { triggerUserNotification } from "@/lib/pusher";
 import { v4 as uuidv4 } from "uuid";
 

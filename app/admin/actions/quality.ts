@@ -16,6 +16,15 @@ async function triggerCommentRefresh(lessonId: string) {
   await pusher.trigger(`lesson-${lessonId}`, "comment-refresh", { updatedAt: Date.now() });
 }
 
+// Helper to trigger admin dashboard refresh (Quality Control, Activity Logs)
+async function triggerAdminRefresh(page: "quality-control" | "activity-logs" | "all") {
+  const pusher = getPusherServer();
+  const eventData = { updatedAt: Date.now(), page };
+  
+  // Trigger on public admin channel (all admins will receive this)
+  await pusher.trigger("admin-dashboard", "data-refresh", eventData);
+}
+
 // 1. Chặn khóa học (Ban Course) - Direct action (không qua báo cáo)
 export async function banCourse(courseId: string, reason: string) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -117,7 +126,7 @@ export async function resolveCourseReport(reportId: string, action: "BAN" | "IGN
     },
   });
 
-  // 2. Execute action
+  // 2. Execute action & Notify Teacher
   if (action === "BAN") {
     // Block course
     await prisma.khoaHoc.update({
@@ -125,7 +134,7 @@ export async function resolveCourseReport(reportId: string, action: "BAN" | "IGN
       data: { trangThai: "BiChan" },
     });
     
-    // Notify Teacher
+    // Notify Teacher - Course blocked
     await prisma.thongBao.create({
       data: {
         tieuDe: "Khóa học bị khóa do báo cáo",
@@ -133,6 +142,30 @@ export async function resolveCourseReport(reportId: string, action: "BAN" | "IGN
         loai: "KIEM_DUYET",
         idNguoiDung: report.khoaHoc.idNguoiDung,
         metadata: { courseId: report.idKhoaHoc },
+      },
+    });
+  } else {
+    // IGNORE action - Parse report reason and notify teacher as feedback
+    let reportReason = "Không rõ lý do";
+    try {
+      const reportData = JSON.parse(report.lyDo);
+      reportReason = reportData.reason || reportData.details || report.lyDo;
+    } catch {
+      reportReason = report.lyDo;
+    }
+    
+    // Notify Teacher - Feedback from student (PM requested feature)
+    await prisma.thongBao.create({
+      data: {
+        tieuDe: "💡 Góp ý từ học viên",
+        noiDung: `Khóa học "${report.khoaHoc.tenKhoaHoc}" nhận được góp ý: "${reportReason}". Admin đã xem xét và không xác định vi phạm, nhưng bạn có thể cân nhắc cải thiện nội dung.`,
+        loai: "KHOA_HOC",
+        idNguoiDung: report.khoaHoc.idNguoiDung,
+        metadata: { 
+          courseId: report.idKhoaHoc,
+          type: "COURSE_FEEDBACK",
+          reporterId: report.nguoiDung.id
+        },
       },
     });
   }
@@ -144,6 +177,10 @@ export async function resolveCourseReport(reportId: string, action: "BAN" | "IGN
 
   revalidatePath("/admin/quality-control");
   revalidatePath("/admin/activity-logs");
+  
+  // Trigger real-time refresh for admin dashboards
+  await triggerAdminRefresh("all");
+  
   return { success: true };
 }
 
@@ -237,6 +274,9 @@ export async function resolveCommentReport(reportId: string, action: "DELETE" | 
   if (lessonId) {
     await triggerCommentRefresh(lessonId);
   }
+  
+  // 5. Trigger real-time refresh for admin dashboards
+  await triggerAdminRefresh("all");
   
   return { success: true };
 }
@@ -363,6 +403,9 @@ export async function resolveCommentReportWithBan(
   revalidatePath("/admin/quality-control");
   revalidatePath("/admin/users");
   revalidatePath("/admin/activity-logs");
+  
+  // 8. Trigger real-time refresh for admin dashboards
+  await triggerAdminRefresh("all");
   
   return { 
     success: true, 

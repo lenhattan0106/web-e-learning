@@ -31,6 +31,8 @@ export async function getLessonContent(idBaiHoc: string) {
           idKhoaHoc: true,
           khoaHoc:{
             select:{
+              id: true,
+              tenKhoaHoc: true,
               duongDan:true
             }
           }

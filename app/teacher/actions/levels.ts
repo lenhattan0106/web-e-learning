@@ -2,7 +2,7 @@
 
 import { requireTeacher } from "@/app/data/teacher/require-teacher";
 import { prisma } from "@/lib/db";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 export async function getCapDos() {
   const levels = await prisma.capDo.findMany({
@@ -41,6 +41,7 @@ export async function createQuickCapDo(tenCapDo: string) {
           }
       });
       
+      revalidateTag("levels", "default");
       revalidatePath("/teacher/courses");
       revalidatePath("/teacher/courses/create");
       revalidatePath("/teacher/courses/[courseId]/edit", "page");
@@ -88,6 +89,7 @@ export async function editCapDo(id: string, tenCapDo: string) {
           data: { tenCapDo }
       });
       
+      revalidateTag("levels", "default");
       revalidatePath("/teacher/courses");
       return { success: true, data: level };
   } catch (error) {
@@ -128,6 +130,7 @@ export async function deleteCapDo(id: string) {
           where: { id }
       });
       
+      revalidateTag("levels", "default");
       revalidatePath("/teacher/courses");
       return { success: true };
   } catch (error) {

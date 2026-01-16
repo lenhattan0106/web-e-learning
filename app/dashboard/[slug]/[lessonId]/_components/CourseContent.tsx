@@ -9,6 +9,7 @@ import { useRef, useState, useTransition } from "react";
 import { markLessonComplete } from "../action";
 import { toast } from "sonner";
 import { useConfetti } from "@/hooks/use-confetti";
+import { ReportCourseButton } from "./ReportCourseButton";
 
 interface iAppProps {
   data: LessonContentType;
@@ -87,22 +88,30 @@ export function CourseContent({ data }: iAppProps) {
         </div>
       )}
 
-      <div className="py-4 border-b">
-        {isCompleted ? (
-          <Button variant="outline" className="bg-green-500/10 text-green-500">
-            <CheckCircle className="size-4 mr-2 text-green-500" />
-            Đã hoàn thành
-          </Button>
-        ) : (
-          <Button
-            variant="outline"
-            onClick={() => handleMarkComplete(false)}
-            disabled={pending}
-          >
-            <CheckCircle className="size-4 mr-2 text-green-500" />
-            Đánh dấu để hoàn thành khóa học
-          </Button>
-        )}
+      <div className="py-4 border-b flex items-center justify-between">
+        <div>
+          {isCompleted ? (
+            <Button variant="outline" className="bg-green-500/10 text-green-500">
+              <CheckCircle className="size-4 mr-2 text-green-500" />
+              Đã hoàn thành
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              onClick={() => handleMarkComplete(false)}
+              disabled={pending}
+            >
+              <CheckCircle className="size-4 mr-2 text-green-500" />
+              Đánh dấu để hoàn thành khóa học
+            </Button>
+          )}
+        </div>
+        {/* Report Course Button - PM approved placement */}
+        <ReportCourseButton
+          courseId={data.chuong.khoaHoc.id}
+          courseName={data.chuong.khoaHoc.tenKhoaHoc}
+          lessonId={data.id}
+        />
       </div>
       <div className="space-y-2 pt-3">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">

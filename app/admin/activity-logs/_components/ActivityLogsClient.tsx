@@ -66,6 +66,8 @@ type ParsedSystemReason = {
   currentName?: string;
   newName?: string;
   reason?: string;
+  details?: string; // Student report details
+  lessonId?: string; // Student report lesson context
 };
 
 interface ActivityLogsClientProps {
@@ -555,8 +557,23 @@ export function ActivityLogsClient({
                                     <span className="font-medium">Lý do:</span> {parsedReason.reason}
                                   </p>
                                 </div>
+                              ) : parsedReason?.reason ? (
+                                // Student report with reason field (new format)
+                                <div className="space-y-1">
+                                  <p className="text-sm font-medium text-red-700">
+                                    {parsedReason.reason}
+                                  </p>
+                                  {parsedReason.details && (
+                                    <p className="text-xs text-muted-foreground">
+                                      <span className="font-medium">Chi tiết:</span> {parsedReason.details}
+                                    </p>
+                                  )}
+                                  {parsedReason.lessonId && (
+                                    <p className="text-xs text-blue-600">📍 Từ bài giảng</p>
+                                  )}
+                                </div>
                               ) : (
-                                // Regular display for normal reports
+                                // Regular display for legacy reports
                                 <Tooltip>
                                   <TooltipTrigger>
                                     <p className="text-sm text-slate-600 line-clamp-3 leading-snug wrap-break-word text-left">

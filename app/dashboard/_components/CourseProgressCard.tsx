@@ -11,6 +11,7 @@ import { useConstructUrl } from "@/hooks/use-contruct-url";
 import { useCourseProgress } from "@/hooks/use-course-progress";
 import Image from "next/image";
 import Link from "next/link";
+import { ReportCourseButton } from "../[slug]/[lessonId]/_components/ReportCourseButton";
 
 interface iAppProps {
   data: EnrolledCourseType;
@@ -59,14 +60,21 @@ export function CourseProgressCard({ data }: iAppProps) {
             {completedLessons}/{totalLessons} bài học
           </p>
         </div>
-        <Link
-          href={`/dashboard/${data.khoaHoc.duongDan}`}
-          className={buttonVariants({
-            className: "w-full mt-4",
-          })}
-        >
-          Tiếp tục học
-        </Link>
+        {/* Action buttons */}
+        <div className="flex items-center gap-2 mt-4">
+          <Link
+            href={`/dashboard/${data.khoaHoc.duongDan}`}
+            className={buttonVariants({
+              className: "flex-1",
+            })}
+          >
+            Tiếp tục học
+          </Link>
+          <ReportCourseButton 
+            courseId={data.khoaHoc.id}
+            courseName={data.khoaHoc.tenKhoaHoc}
+          />
+        </div>
       </CardContent>
     </Card>
   );

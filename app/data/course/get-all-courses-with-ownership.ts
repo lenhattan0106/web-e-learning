@@ -5,21 +5,40 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { Prisma } from "@prisma/client";
 
+
 export interface CourseFilterParams {
   keyword?: string;
   categoryId?: string;
   levelId?: string;
+  tab?: string; // "all" | "free" | "purchased"
 }
 
-export async function getAllCoursesWithOwnership(filters?: CourseFilterParams) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
 
-  const userId = session?.user?.id;
-  const userRole = session?.user?.role;
+interface SessionUser {
+  id: string;
+  role: string | null | undefined;
+}
 
-  // Tạo điều kiện where động cho quyền truy cập
+export async function getAllCoursesWithOwnership(filters?: CourseFilterParams, sessionUser?: SessionUser) {
+  let userId: string | undefined;
+  let userRole: string | undefined | null;
+
+  if (sessionUser) {
+    userId = sessionUser.id;
+    userRole = sessionUser.role;
+  } else {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    userId = session?.user?.id;
+    userRole = session?.user?.role;
+  }
+  const tab = filters?.tab || "all";
+
+  if (tab === "purchased" && !userId) {
+    return [];
+  }
+
   let accessCondition: Prisma.KhoaHocWhereInput;
 
   if (!userId) {
@@ -33,16 +52,15 @@ export async function getAllCoursesWithOwnership(filters?: CourseFilterParams) {
       OR: [
         { trangThai: "BanChinhThuc" },
         {
-          trangThai: { in: ["BanLuuTru", "BiChan"] }, // Owner sees Draft/Archived/Banned
-          idNguoiDung: userId,
+          trangThai: { in: ["BanLuuTru", "BiChan"] },
+          idNguoiDung: userId, 
         },
         {
           trangThai: "BanLuuTru",
           dangKyHocs: {
             some: {
               idNguoiDung: userId,
-              trangThai: "DaThanhToan", 
-              //học viên đã mua khóa học
+              trangThai: "DaThanhToan",
             },
           },
         },
@@ -50,9 +68,9 @@ export async function getAllCoursesWithOwnership(filters?: CourseFilterParams) {
     };
   }
 
-  // Tạo điều kiện filter từ params
   const filterConditions: Prisma.KhoaHocWhereInput[] = [];
 
+  // 1. Keyword
   if (filters?.keyword && filters.keyword.trim() !== "") {
     filterConditions.push({
       tenKhoaHoc: {
@@ -62,19 +80,41 @@ export async function getAllCoursesWithOwnership(filters?: CourseFilterParams) {
     });
   }
 
+  // 2. Category
   if (filters?.categoryId && filters.categoryId !== "") {
     filterConditions.push({
       idDanhMuc: filters.categoryId,
     });
   }
 
+  // 3. Level
   if (filters?.levelId && filters.levelId !== "") {
     filterConditions.push({
       idCapDo: filters.levelId,
     });
   }
 
-  // Kết hợp điều kiện access và filter
+  // 4. Tab Logic
+  if (tab === "free") {
+    filterConditions.push({
+      gia: 0,
+    });
+  } else if (tab === "purchased") {
+    filterConditions.push({
+      OR: [
+        { idNguoiDung: userId }, 
+        {
+          dangKyHocs: {
+            some: {
+              idNguoiDung: userId,
+              trangThai: "DaThanhToan",
+            },
+          },
+        },
+      ],
+    });
+  }
+
   const whereCondition: Prisma.KhoaHocWhereInput = {
     AND: [accessCondition, ...filterConditions],
   };
@@ -126,3 +166,43 @@ export async function getAllCoursesWithOwnership(filters?: CourseFilterParams) {
 export type CourseWithOwnership = Awaited<
   ReturnType<typeof getAllCoursesWithOwnership>
 >[0];
+
+// Đếm khóa học công khai 
+export async function countAllCourses(filters?: CourseFilterParams) {
+  const filterConditions: Prisma.KhoaHocWhereInput[] = [];
+
+  // 1. Keyword
+  if (filters?.keyword && filters.keyword.trim() !== "") {
+    filterConditions.push({
+      tenKhoaHoc: {
+        contains: filters.keyword.trim(),
+        mode: "insensitive",
+      },
+    });
+  }
+
+  // 2. Category
+  if (filters?.categoryId && filters.categoryId !== "") {
+    filterConditions.push({
+      idDanhMuc: filters.categoryId,
+    });
+  }
+
+  // 3. Level
+  if (filters?.levelId && filters.levelId !== "") {
+    filterConditions.push({
+      idCapDo: filters.levelId,
+    });
+  }
+
+  const whereCondition: Prisma.KhoaHocWhereInput = {
+    AND: [
+      { trangThai: "BanChinhThuc" },
+      ...filterConditions,
+    ],
+  };
+
+  return prisma.khoaHoc.count({
+    where: whereCondition,
+  });
+}

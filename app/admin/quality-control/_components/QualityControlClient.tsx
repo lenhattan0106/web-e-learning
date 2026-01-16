@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useCallback } from "react";
 import { DateRange } from "react-day-picker";
+import Pusher from "pusher-js";
+import { env } from "@/lib/env";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +39,10 @@ import {
   IconTrash,
   IconAlertCircle,
   IconUserX,
-  IconInfoCircle
+  IconInfoCircle,
+  IconCheck,
+  IconX,
+  IconExternalLink
 } from "@tabler/icons-react";
 import {
   Table,
@@ -118,6 +123,39 @@ export const QualityControlClient = ({
   const [selectedReport, setSelectedReport] = useState<any>(null);
   const [banDuration, setBanDuration] = useState<string>("permanent");
   const [banReason, setBanReason] = useState("Vi phạm quy định bình luận");
+
+  // 🔍 Course Report Detail Dialog state
+  const [courseReportDetailOpen, setCourseReportDetailOpen] = useState(false);
+  const [selectedCourseReport, setSelectedCourseReport] = useState<any>(null);
+
+  // Handler to open course report detail dialog
+  const openCourseReportDetail = (report: any) => {
+    setSelectedCourseReport(report);
+    setCourseReportDetailOpen(true);
+  };
+
+  // ✅ Real-time refresh via Pusher
+  useEffect(() => {
+    const pusher = new Pusher(env.NEXT_PUBLIC_PUSHER_KEY, {
+      cluster: "ap1",
+    });
+
+    // Subscribe to admin dashboard public channel
+    const channel = pusher.subscribe("admin-dashboard");
+
+    // Listen for data refresh events
+    channel.bind("data-refresh", () => {
+      // Auto-refresh page data when other admin processes a report
+      router.refresh();
+    });
+
+    // Cleanup on unmount
+    return () => {
+      channel.unbind_all();
+      pusher.unsubscribe("admin-dashboard");
+      pusher.disconnect();
+    };
+  }, [router]);
 
   const handleBanCourse = async (courseId: string) => {
     if (!confirm("Bạn có chắc chắn muốn CHẶN khóa học này?")) return;
@@ -510,7 +548,21 @@ export const QualityControlClient = ({
                                   </div>
                                   <div className="text-xs truncate" title={parsedData.reason}>Lý do: {parsedData.reason}</div>
                                </div>
+                             ) : parsedData?.reason ? (
+                               // Student report with reason field
+                               <div className="text-sm">
+                                  <div className="font-medium text-red-700">{parsedData.reason}</div>
+                                  {parsedData.details && (
+                                    <div className="text-xs text-muted-foreground truncate" title={parsedData.details}>
+                                      Chi tiết: {parsedData.details}
+                                    </div>
+                                  )}
+                                  {parsedData.lessonId && (
+                                    <div className="text-xs text-blue-600">📍 Từ bài giảng</div>
+                                  )}
+                               </div>
                              ) : (
+                               // Legacy/plain text reason
                                <div className="text-sm text-red-700 truncate" title={report.lyDo}>{report.lyDo}</div>
                              )}
                           </TableCell>
@@ -523,8 +575,36 @@ export const QualityControlClient = ({
                                   </>
                                ) : (
                                   <>
-                                    <Button size="sm" variant="destructive" className="h-8 w-8 p-0" onClick={() => handleResolveCourseReport(report.id, "BAN")} title="Chặn khóa học"><IconBan className="h-4 w-4" /></Button>
-                                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleResolveCourseReport(report.id, "IGNORE")} title="Bỏ qua"><IconEye className="h-4 w-4" /></Button>
+                                    {/* Xem chi tiết (Eye icon) */}
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline" 
+                                      className="h-8 w-8 p-0"
+                                      onClick={() => openCourseReportDetail(report)}
+                                      title="Xem chi tiết báo cáo"
+                                    >
+                                      <IconEye className="h-4 w-4" />
+                                    </Button>
+                                    {/* Chặn khóa học (Ban icon - Destructive) */}
+                                    <Button 
+                                      size="sm" 
+                                      variant="destructive" 
+                                      className="h-8 w-8 p-0"
+                                      onClick={() => handleResolveCourseReport(report.id, "BAN")}
+                                      title="Chặn khóa học"
+                                    >
+                                      <IconBan className="h-4 w-4" />
+                                    </Button>
+                                    {/* Bỏ qua / Góp ý cho GV (Check icon - Success green) */}
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline" 
+                                      className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 border-green-300"
+                                      onClick={() => handleResolveCourseReport(report.id, "IGNORE")}
+                                      title="Bỏ qua (Góp ý cho GV)"
+                                    >
+                                      <IconCheck className="h-4 w-4" />
+                                    </Button>
                                   </>
                                )}
                              </div>
@@ -682,6 +762,131 @@ export const QualityControlClient = ({
             >
               {loading ? "Đang xử lý..." : "Xác nhận cấm"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ✅ NEW DIALOG: Xem chi tiết báo cáo khóa học */}
+      <Dialog open={courseReportDetailOpen} onOpenChange={setCourseReportDetailOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <IconMessageReport className="h-5 w-5 text-amber-500" />
+              Chi tiết báo cáo khóa học
+            </DialogTitle>
+            <DialogDescription>
+              Xem xét thông tin trước khi quyết định xử lý
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedCourseReport && (() => {
+            // Parse report data
+            let parsedData: any = null;
+            const lyDoTrimmed = selectedCourseReport.lyDo?.trim() || "";
+            if (lyDoTrimmed.startsWith("{")) {
+              try {
+                parsedData = JSON.parse(lyDoTrimmed);
+              } catch {}
+            }
+
+            return (
+              <div className="space-y-4 py-2">
+                {/* Khóa học */}
+                <div className="p-3 bg-slate-50 rounded-lg border">
+                  <p className="text-xs text-muted-foreground mb-1">Khóa học bị báo cáo</p>
+                  <p className="font-semibold text-slate-900">{selectedCourseReport.khoaHoc?.tenKhoaHoc}</p>
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-xs text-muted-foreground">GV: {selectedCourseReport.khoaHoc?.nguoiDung?.name}</p>
+                    <a 
+                      href={`/courses/${selectedCourseReport.khoaHoc?.duongDan}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                    >
+                      Xem khóa học <IconExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                </div>
+
+                {/* Người báo cáo */}
+                <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                  <Avatar className="h-10 w-10 border border-blue-200">
+                    <AvatarImage src={selectedCourseReport.nguoiDung?.image || ""} />
+                    <AvatarFallback>{selectedCourseReport.nguoiDung?.name?.[0]}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Người báo cáo</p>
+                    <p className="font-medium">{selectedCourseReport.nguoiDung?.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDistanceToNow(new Date(selectedCourseReport.ngayTao), { addSuffix: true, locale: vi })}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Lý do & Chi tiết */}
+                <div className="space-y-2">
+                  <div className="p-3 bg-red-50 rounded-lg border border-red-100">
+                    <p className="text-xs text-muted-foreground mb-1">Lý do báo cáo</p>
+                    <p className="font-medium text-red-700">
+                      {parsedData?.reason || selectedCourseReport.lyDo}
+                    </p>
+                  </div>
+                  
+                  {parsedData?.details && (
+                    <div className="p-3 bg-amber-50 rounded-lg border border-amber-100">
+                      <p className="text-xs text-muted-foreground mb-1">Chi tiết mô tả</p>
+                      <p className="text-sm text-amber-900">{parsedData.details}</p>
+                    </div>
+                  )}
+
+                  {parsedData?.lessonId && (
+                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                      <p className="text-xs text-muted-foreground mb-1">📍 Ngữ cảnh báo cáo</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-blue-700">Báo cáo từ bài giảng</p>
+                        <a 
+                          href={`/dashboard/${selectedCourseReport.khoaHoc?.duongDan}/${parsedData.lessonId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                        >
+                          Xem bài giảng <IconExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+          
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" onClick={() => setCourseReportDetailOpen(false)}>
+              Đóng
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="text-green-600 border-green-300 hover:bg-green-50"
+                onClick={() => {
+                  handleResolveCourseReport(selectedCourseReport.id, "IGNORE");
+                  setCourseReportDetailOpen(false);
+                }}
+                disabled={loading}
+              >
+                <IconCheck className="h-4 w-4 mr-1" /> Bỏ qua
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  handleResolveCourseReport(selectedCourseReport.id, "BAN");
+                  setCourseReportDetailOpen(false);
+                }}
+                disabled={loading}
+              >
+                <IconBan className="h-4 w-4 mr-1" /> Chặn khóa học
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

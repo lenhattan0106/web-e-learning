@@ -72,7 +72,6 @@ export function CourseSidebar({ course }: iAppProps) {
           <Progress value={progressPercentage} className="h-1.5"></Progress>
           <p className="text-xs text-muted-foreground">{progressPercentage}% hoàn thành</p>
         </div>
-        
 
       </div>
       

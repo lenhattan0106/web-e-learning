@@ -2,7 +2,7 @@
 
 import { requireTeacher } from "@/app/data/teacher/require-teacher";
 import { prisma } from "@/lib/db";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 export async function getDanhMucs() {
   const categories = await prisma.danhMuc.findMany({
@@ -55,6 +55,7 @@ export async function createQuickDanhMuc(tenDanhMuc: string, idDanhMucCha?: stri
           }
       });
       
+      revalidateTag("categories", "default");
       revalidatePath("/teacher/courses");
       revalidatePath("/teacher/courses/create");
       revalidatePath("/teacher/courses/[courseId]/edit", "page");
@@ -129,6 +130,7 @@ export async function editDanhMuc(id: string, tenDanhMuc: string) {
           }
       });
       
+      revalidateTag("categories", "default");
       revalidatePath("/teacher/courses");
       revalidatePath("/teacher/courses/create");
       revalidatePath("/teacher/courses/[courseId]/edit", "page");
@@ -189,9 +191,10 @@ export async function deleteDanhMuc(id: string) {
           where: { id }
       });
       
+      revalidateTag("categories", "default");
       revalidatePath("/teacher/courses");
-    revalidatePath("/teacher/courses/create");
-    revalidatePath("/teacher/courses/[courseId]/edit", "page");
+      revalidatePath("/teacher/courses/create");
+      revalidatePath("/teacher/courses/[courseId]/edit", "page");
     return { success: true };
   } catch (error) {
       console.error("Error deleting category:", error);

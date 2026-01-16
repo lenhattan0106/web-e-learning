@@ -1,11 +1,11 @@
 import { Suspense } from "react";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/db"; // Keep prisma if needed elsewhere? No, remove if unused. Actually keeping it safe.
 import { getAllCoursesWithOwnership } from "@/app/data/course/get-all-courses-with-ownership";
 import { getCategoriesCached, getLevelsCached } from "@/app/data/public/get-common-data";
-import { PublicCourseCard, PublicCourseCardSkeleton } from "../_components/PublicCourseCard";
+import { PublicCourseCard } from "../_components/PublicCourseCard";
 import { CourseFilters } from "./_components/CourseFilters";
+import { CoursesPagination } from "./_components/CoursesPagination";
 import { BookOpen, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -16,6 +16,7 @@ interface PageProps {
     categoryId?: string;
     levelId?: string;
     tab?: string;
+    page?: string; 
   }>;
 }
 
@@ -31,14 +32,19 @@ export default async function PublicCoursesRoute({ searchParams }: PageProps) {
 
   const session = await sessionPromise;
 
+  const pageParam = parseInt(params.page || "1", 10);
+  const page = isNaN(pageParam) || pageParam < 1 ? 1 : pageParam;
+
+  // ✅ Gọi API với pagination
   const coursesPromise = getAllCoursesWithOwnership({
     keyword: params.q,
     categoryId: params.categoryId,
     levelId: params.levelId,
     tab: params.tab,
+    page: page,
   }, session?.user ? { id: session.user.id, role: session.user.role } : undefined);
 
-  const [categories, levels, courses, totalMatchingAllTab] = await Promise.all([
+  const [categories, levels, paginatedResult, totalMatchingAllTab] = await Promise.all([
     categoriesPromise,
     levelsPromise,
     coursesPromise,
@@ -52,6 +58,8 @@ export default async function PublicCoursesRoute({ searchParams }: PageProps) {
   ]);
   
   const userRole = session?.user?.role as "user" | "teacher" | "admin" | undefined;
+
+  const { courses, totalCourses, totalPages, currentPage } = paginatedResult;
 
   return (
     <div className="mt-5">
@@ -72,16 +80,27 @@ export default async function PublicCoursesRoute({ searchParams }: PageProps) {
       {courses.length === 0 ? (
         <EmptyState tab={params.tab} totalMatchingAllTab={totalMatchingAllTab} />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {courses.map((course) => (
-            <PublicCourseCard
-              key={course.id}
-              data={course}
-              isOwner={course.isOwner}
-              userRole={userRole}
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {courses.map((course) => (
+              <PublicCourseCard
+                key={course.id}
+                data={course}
+                isOwner={course.isOwner}
+                userRole={userRole}
+              />
+            ))}
+          </div>
+
+          {/* ✅ Pagination */}
+          <Suspense fallback={null}>
+            <CoursesPagination 
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalCourses={totalCourses}
             />
-          ))}
-        </div>
+          </Suspense>
+        </>
       )}
     </div>
   );

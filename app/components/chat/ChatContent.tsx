@@ -121,7 +121,6 @@ export function ChatContent({ chatRoomId, currentUserId }: ChatContentProps) {
   const scrollViewportRef = useRef<HTMLDivElement>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Member & Presence State
   const [members, setMembers] = useState<any[]>([]);
   const [isTeacher, setIsTeacher] = useState(false);
   const [activeMemberIds, setActiveMemberIds] = useState<Set<string>>(new Set());
@@ -185,7 +184,6 @@ export function ChatContent({ chatRoomId, currentUserId }: ChatContentProps) {
         setMessages((current) => current.map(msg => msg.id === data.id ? data : msg));
     });
 
-    // Listen for member status updates (Bans)
     eventChannel.bind('member-updated', (data: { userId: string, camChat: boolean }) => {
         setMembers(prev => prev.map(m => m.userId === data.userId ? { ...m, camChat: data.camChat } : m));
         if (data.userId === currentUserId && data.camChat) {
@@ -311,9 +309,24 @@ export function ChatContent({ chatRoomId, currentUserId }: ChatContentProps) {
                 method: "POST",
                 body: JSON.stringify({ fileName: fileToUpload.name, contentType: fileToUpload.type, size: fileToUpload.size })
             });
-            if (!uploadRes.ok) throw new Error("Upload failed");
+            
+            if (!uploadRes.ok) {
+                const errData = await uploadRes.json().catch(() => ({}));
+                throw new Error(errData.error || "Khởi tạo upload thất bại");
+            }
+
             const { presignedUrl, fileUrl, fileName } = await uploadRes.json();
-            await fetch(presignedUrl, { method: "PUT", body: fileToUpload, headers: { "Content-Type": fileToUpload.type } });
+            
+            const uploadToS3 = await fetch(presignedUrl, { 
+                method: "PUT", 
+                body: fileToUpload, 
+                headers: { "Content-Type": fileToUpload.type } 
+            });
+
+            if (!uploadToS3.ok) {
+                throw new Error("Không thể tải tệp lên server lưu trữ");
+            }
+
             uploadedFileUrl = fileUrl;
             uploadedFileType = fileToUpload.type;
             uploadedFileName = fileName;
@@ -321,8 +334,9 @@ export function ChatContent({ chatRoomId, currentUserId }: ChatContentProps) {
         }
 
         const res = await sendMessage(chatRoomId, textToSend, uploadedFileUrl, uploadedFileType, uploadedFileName);
-        if (!res.message) {
-             toast.error("Gửi thất bại");
+        
+        if (res.error || !res.message) {
+             toast.error(res.error || "Gửi thất bại");
              setMessages((prev) => prev.filter((m) => m.id !== tempId));
              setInputText(textToSend);
         } else {
@@ -334,7 +348,8 @@ export function ChatContent({ chatRoomId, currentUserId }: ChatContentProps) {
              });
         }
     } catch (error) {
-        toast.error("Có lỗi xảy ra");
+        console.log(error);
+        toast.error(error instanceof Error ? error.message : "Có lỗi xảy ra");
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
         setInputText(textToSend); 
         setIsUploading(false);

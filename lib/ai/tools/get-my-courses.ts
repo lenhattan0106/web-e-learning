@@ -10,7 +10,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 
 export const getMyCoursesTool = tool({
-  description: "Lấy danh sách khóa học mà USER đã đăng ký/mua. SỬ DỤNG KHI user hỏi: 'khóa học của tôi', 'tôi đã mua gì', 'khóa học đã đăng ký', 'cho xem khóa đã mua'.",
+  description: "Lấy danh sách khóa học mà USER đã đăng ký/mua (với vai trò HỌC VIÊN). SỬ DỤNG KHI user hỏi: 'khóa học tôi đang học', 'tôi đã mua gì', 'khóa học đã đăng ký'. KHÔNG DÙNG để lấy khóa học mà giảng viên đang dạy.",
   inputSchema: z.object({
     userId: z.string().describe("ID của user hiện tại"),
   }),

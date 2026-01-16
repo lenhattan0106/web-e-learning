@@ -113,6 +113,7 @@ export async function getReportedComments() {
               id: true,
               name: true,
               image: true,
+              email: true,
             },
           },
           baiHoc: { // Bài học chứa bình luận

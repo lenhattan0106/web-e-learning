@@ -128,10 +128,20 @@ export const QualityControlClient = ({
   const [courseReportDetailOpen, setCourseReportDetailOpen] = useState(false);
   const [selectedCourseReport, setSelectedCourseReport] = useState<any>(null);
 
+  // 🔍 Comment Report Detail Dialog state
+  const [commentReportDetailOpen, setCommentReportDetailOpen] = useState(false);
+  const [selectedCommentReport, setSelectedCommentReport] = useState<any>(null);
+
   // Handler to open course report detail dialog
   const openCourseReportDetail = (report: any) => {
     setSelectedCourseReport(report);
     setCourseReportDetailOpen(true);
+  };
+
+  // ✅ Handler to open comment report detail dialog
+  const openCommentReportDetail = (report: any) => {
+    setSelectedCommentReport(report);
+    setCommentReportDetailOpen(true);
   };
 
   // ✅ Real-time refresh via Pusher
@@ -663,6 +673,16 @@ export const QualityControlClient = ({
                          </TableCell>
                          <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
+                               {/* ✅ Xem chi tiết (Eye icon) */}
+                               <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => openCommentReportDetail(report)}
+                                  title="Xem chi tiết báo cáo"
+                               >
+                                  <IconEye className="h-4 w-4" />
+                               </Button>
                                <Button 
                                   size="sm" 
                                   variant="destructive" 
@@ -683,11 +703,11 @@ export const QualityControlClient = ({
                                <Button 
                                   size="sm" 
                                   variant="ghost" 
-                                  className="h-8 w-8 p-0"
+                                  className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
                                   onClick={() => handleResolveCommentReport(report.id, "IGNORE")}
                                   title="Bỏ qua"
                                >
-                                  <IconEye className="h-4 w-4" />
+                                  <IconCheck className="h-4 w-4" />
                                </Button>
                             </div>
                          </TableCell>
@@ -885,6 +905,130 @@ export const QualityControlClient = ({
                 disabled={loading}
               >
                 <IconBan className="h-4 w-4 mr-1" /> Chặn khóa học
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ✅ NEW DIALOG: Xem chi tiết báo cáo bình luận */}
+      <Dialog open={commentReportDetailOpen} onOpenChange={setCommentReportDetailOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <IconAlertTriangle className="h-5 w-5 text-orange-500" />
+              Chi tiết báo cáo bình luận
+            </DialogTitle>
+            <DialogDescription>
+              Xem xét thông tin trước khi quyết định xử lý
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedCommentReport && (
+            <div className="space-y-4 py-2">
+              {/* Người báo cáo */}
+              <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                <Avatar className="h-10 w-10 border border-blue-200">
+                  <AvatarImage src={selectedCommentReport.nguoiDung?.image || ""} />
+                  <AvatarFallback>{selectedCommentReport.nguoiDung?.name?.[0]}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-xs text-muted-foreground">Người báo cáo</p>
+                  <p className="font-medium">{selectedCommentReport.nguoiDung?.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDistanceToNow(new Date(selectedCommentReport.ngayTao), { addSuffix: true, locale: vi })}
+                  </p>
+                </div>
+              </div>
+
+              {/* Người bị báo cáo (tác giả bình luận) */}
+              <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-100">
+                <Avatar className="h-10 w-10 border border-red-200">
+                  <AvatarImage src={selectedCommentReport.binhLuan?.nguoiDung?.image || ""} />
+                  <AvatarFallback>{selectedCommentReport.binhLuan?.nguoiDung?.name?.[0]}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-xs text-muted-foreground">Người bị báo cáo</p>
+                  <p className="font-medium text-red-700">{selectedCommentReport.binhLuan?.nguoiDung?.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedCommentReport.binhLuan?.nguoiDung?.email || "Email không có"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Nội dung bình luận vi phạm */}
+              <div className="p-4 bg-orange-50 rounded-lg border-l-4 border-orange-400">
+                <p className="text-xs text-muted-foreground mb-2">Nội dung bình luận vi phạm</p>
+                <p className="text-sm italic text-orange-900">
+                  "{selectedCommentReport.binhLuan?.noiDung}"
+                </p>
+              </div>
+
+              {/* Lý do vi phạm */}
+              <div className="p-3 bg-red-50 rounded-lg border border-red-100">
+                <p className="text-xs text-muted-foreground mb-1">Lý do báo cáo</p>
+                <p className="font-medium text-red-700">
+                  {selectedCommentReport.lyDo}
+                </p>
+              </div>
+
+              {/* Ngữ cảnh - Bài học/Khóa học */}
+              {selectedCommentReport.binhLuan?.baiHoc && (
+                <div className="p-3 bg-slate-50 rounded-lg border">
+                  <p className="text-xs text-muted-foreground mb-2">📍 Ngữ cảnh bình luận</p>
+                  <div className="space-y-1">
+                    <p className="text-sm">
+                      <span className="text-muted-foreground">Bài học:</span>{" "}
+                      <span className="font-medium">{selectedCommentReport.binhLuan.baiHoc.tenBaiHoc}</span>
+                    </p>
+                    {selectedCommentReport.binhLuan.baiHoc.chuong?.khoaHoc && (
+                      <p className="text-sm">
+                        <span className="text-muted-foreground">Khóa học:</span>{" "}
+                        <span className="font-medium">{selectedCommentReport.binhLuan.baiHoc.chuong.khoaHoc.tenKhoaHoc}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" onClick={() => setCommentReportDetailOpen(false)}>
+              Đóng
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="text-green-600 border-green-300 hover:bg-green-50"
+                onClick={() => {
+                  handleResolveCommentReport(selectedCommentReport.id, "IGNORE");
+                  setCommentReportDetailOpen(false);
+                }}
+                disabled={loading}
+              >
+                <IconCheck className="h-4 w-4 mr-1" /> Bỏ qua
+              </Button>
+              <Button
+                variant="outline"
+                className="text-red-600 border-red-300 hover:bg-red-50"
+                onClick={() => {
+                  handleResolveCommentReport(selectedCommentReport.id, "DELETE");
+                  setCommentReportDetailOpen(false);
+                }}
+                disabled={loading}
+              >
+                <IconTrash className="h-4 w-4 mr-1" /> Xóa bình luận
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  openBanDialog(selectedCommentReport);
+                  setCommentReportDetailOpen(false);
+                }}
+                disabled={loading}
+              >
+                <IconUserX className="h-4 w-4 mr-1" /> Cấm người dùng
               </Button>
             </div>
           </DialogFooter>

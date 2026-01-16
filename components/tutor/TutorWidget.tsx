@@ -3,9 +3,12 @@
 import { motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { MessageCircle, Sparkles, PanelRightClose, Crown } from "lucide-react";
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { TutorChat } from "./TutorChat";
 import { TutorProvider, useTutor } from "./TutorContext";
+import Pusher from "pusher-js";
+import { env } from "@/lib/env";
+import { toast } from "sonner";
 
 interface TutorPanelProps {
   isPremium?: boolean;
@@ -17,6 +20,29 @@ function TutorPanel({ isPremium, premiumExpires, userId }: TutorPanelProps) {
   const { isOpen, closeChat, toggleChat } = useTutor();
   const pathname = usePathname();
   const isDraggingRef = useRef(false);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const pusher = new Pusher(env.NEXT_PUBLIC_PUSHER_KEY, {
+      cluster: 'ap1',
+      authEndpoint: '/api/pusher/auth',
+    });
+
+    const channel = pusher.subscribe(`private-user-${userId}`);
+    channel.bind('premium-activated', (data: { isPremium: boolean }) => {
+      toast.success("🎉 Gói AI Pro đã được kích hoạt! Đang cập nhật...");
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    });
+
+    return () => {
+      channel.unbind_all();
+      pusher.unsubscribe(`private-user-${userId}`);
+      pusher.disconnect();
+    };
+  }, [userId]);
 
   // Only hide on Banned page
   if (pathname === "/banned") return null;

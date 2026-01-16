@@ -5,21 +5,37 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { Prisma } from "@/lib/generated/prisma";
 
-
+// ✅ Thêm pagination params
 export interface CourseFilterParams {
   keyword?: string;
   categoryId?: string;
   levelId?: string;
   tab?: string; // "all" | "free" | "purchased"
+  page?: number;
+  pageSize?: number;
 }
-
 
 interface SessionUser {
   id: string;
   role: string | null | undefined;
 }
 
-export async function getAllCoursesWithOwnership(filters?: CourseFilterParams, sessionUser?: SessionUser) {
+// ✅ Constants
+const DEFAULT_PAGE_SIZE = 6; // 3 cols x 2 rows
+
+// ✅ Return type với pagination info
+export interface PaginatedCoursesResult {
+  courses: CourseWithOwnership[];
+  totalCourses: number;
+  totalPages: number;
+  currentPage: number;
+  pageSize: number;
+}
+
+export async function getAllCoursesWithOwnership(
+  filters?: CourseFilterParams, 
+  sessionUser?: SessionUser
+): Promise<PaginatedCoursesResult> {
   let userId: string | undefined;
   let userRole: string | undefined | null;
 
@@ -33,12 +49,27 @@ export async function getAllCoursesWithOwnership(filters?: CourseFilterParams, s
     userId = session?.user?.id;
     userRole = session?.user?.role;
   }
+  
   const tab = filters?.tab || "all";
-
-  if (tab === "purchased" && !userId) {
-    return [];
+  const pageSize = filters?.pageSize || DEFAULT_PAGE_SIZE;
+  
+  // ✅ Edge case: page < 1 → default to 1
+  let requestedPage = filters?.page || 1;
+  if (requestedPage < 1 || isNaN(requestedPage)) {
+    requestedPage = 1;
   }
 
+  if (tab === "purchased" && !userId) {
+    return {
+      courses: [],
+      totalCourses: 0,
+      totalPages: 0,
+      currentPage: 1,
+      pageSize,
+    };
+  }
+
+  // ✅ Build access condition (visibility rules)
   let accessCondition: Prisma.KhoaHocWhereInput;
 
   if (!userId) {
@@ -68,6 +99,7 @@ export async function getAllCoursesWithOwnership(filters?: CourseFilterParams, s
     };
   }
 
+  // ✅ Build filter conditions (shared between count and findMany)
   const filterConditions: Prisma.KhoaHocWhereInput[] = [];
 
   // 1. Keyword
@@ -115,13 +147,36 @@ export async function getAllCoursesWithOwnership(filters?: CourseFilterParams, s
     });
   }
 
+  // ✅ SHARED where condition for both count() and findMany()
   const whereCondition: Prisma.KhoaHocWhereInput = {
     AND: [accessCondition, ...filterConditions],
   };
 
+  // ✅ Count total FIRST (same filters)
+  const totalCourses = await prisma.khoaHoc.count({
+    where: whereCondition,
+  });
+
+  // ✅ Calculate pagination
+  const totalPages = Math.ceil(totalCourses / pageSize);
+  
+  // ✅ Edge case: page > totalPages → use last page (or 1 if no results)
+  let currentPage = requestedPage;
+  if (totalPages > 0 && currentPage > totalPages) {
+    currentPage = totalPages;
+  }
+  if (totalPages === 0) {
+    currentPage = 1;
+  }
+
+  const skip = (currentPage - 1) * pageSize;
+
+  // ✅ Fetch paginated courses
   const courses = await prisma.khoaHoc.findMany({
     where: whereCondition,
     orderBy: { ngayTao: "desc" },
+    skip: skip,
+    take: pageSize,
     select: {
       id: true,
       tenKhoaHoc: true,
@@ -156,18 +211,46 @@ export async function getAllCoursesWithOwnership(filters?: CourseFilterParams, s
     },
   });
 
-  return courses.map((course) => ({
+  const coursesWithOwnership = courses.map((course) => ({
     ...course,
     isOwner: userId ? course.idNguoiDung === userId : false,
     isArchived: course.trangThai === "BanLuuTru",
   }));
+
+  return {
+    courses: coursesWithOwnership,
+    totalCourses,
+    totalPages,
+    currentPage,
+    pageSize,
+  };
 }
 
-export type CourseWithOwnership = Awaited<
-  ReturnType<typeof getAllCoursesWithOwnership>
->[0];
+export type CourseWithOwnership = {
+  id: string;
+  tenKhoaHoc: string;
+  gia: number;
+  moTaNgan: string;
+  duongDan: string;
+  capDo: string;
+  thoiLuong: number;
+  danhMuc: string | null;
+  tepKH: string;
+  idNguoiDung: string;
+  trangThai: string;
+  danhMucRef: {
+    id: string;
+    tenDanhMuc: string;
+    danhMucCha: { id: string; tenDanhMuc: string } | null;
+  } | null;
+  capDoRef: { id: string; tenCapDo: string } | null;
+  nguoiDung: { id: string; name: string | null; image: string | null };
+  danhGias: { diemDanhGia: number }[];
+  isOwner: boolean;
+  isArchived: boolean;
+};
 
-// Đếm khóa học công khai 
+// ✅ Đếm khóa học công khai (for Smart Empty State)
 export async function countAllCourses(filters?: CourseFilterParams) {
   const filterConditions: Prisma.KhoaHocWhereInput[] = [];
 
@@ -206,3 +289,4 @@ export async function countAllCourses(filters?: CourseFilterParams) {
     where: whereCondition,
   });
 }
+

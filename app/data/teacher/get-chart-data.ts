@@ -135,40 +135,55 @@ async function getRevenueData(
   granularity: Granularity,
   diffMs: number
 ) {
-  // Current period
+  // Current period - ✅ Sử dụng thanhToanThuc (Net) thay vì soTien (Gross)
   const currentData = await prisma.dangKyHoc.findMany({
     where: {
       khoaHoc: { idNguoiDung: userId },
       trangThai: "DaThanhToan",
       ngayTao: { gte: from, lte: to },
     },
-    select: { ngayTao: true, soTien: true },
+    select: { 
+      ngayTao: true, 
+      soTien: true,
+      phiSan: true,
+      thanhToanThuc: true,
+    },
   });
   
-  // Previous period
+  // Previous period - ✅ Cũng dùng Net
   const prevData = await prisma.dangKyHoc.findMany({
     where: {
       khoaHoc: { idNguoiDung: userId },
       trangThai: "DaThanhToan",
       ngayTao: { gte: prevFrom, lte: prevTo },
     },
-    select: { ngayTao: true, soTien: true },
+    select: { 
+      ngayTao: true, 
+      soTien: true,
+      phiSan: true,
+      thanhToanThuc: true,
+    },
   });
   
-  // Map current data to map for easy lookup
+  // Map current data - ✅ Tính Net Revenue
   const currentMap = new Map<string, number>();
   currentData.forEach((item) => {
     const label = formatDateLabel(new Date(item.ngayTao), granularity);
     const existing = currentMap.get(label) || 0;
-    currentMap.set(label, existing + item.soTien);
+    // Tính thực nhận: thanhToanThuc hoặc (soTien - phiSan) hoặc (soTien * 0.95)
+    const netRevenue = item.thanhToanThuc ?? 
+      (item.soTien - (item.phiSan ?? Math.round(item.soTien * 0.05)));
+    currentMap.set(label, existing + netRevenue);
   });
   
-  // Map previous data
+  // Map previous data - ✅ Tính Net Revenue
   const prevMap = new Map<string, number>();
   prevData.forEach((item) => {
     const label = formatDateLabel(new Date(item.ngayTao), granularity);
     const existing = prevMap.get(label) || 0;
-    prevMap.set(label, existing + item.soTien);
+    const netRevenue = item.thanhToanThuc ?? 
+      (item.soTien - (item.phiSan ?? Math.round(item.soTien * 0.05)));
+    prevMap.set(label, existing + netRevenue);
   });
   
   // Generate unified buckets
@@ -312,7 +327,7 @@ async function getStudentsData(
   return result;
 }
 
-// Courses data for Horizontal Bar Chart (Top 5 by revenue)
+// Courses data for Horizontal Bar Chart (Top 5 by revenue) - ✅ Dùng Net Revenue
 async function getCoursesData(userId: string) {
   const courses = await prisma.khoaHoc.findMany({
     where: { idNguoiDung: userId },
@@ -321,18 +336,30 @@ async function getCoursesData(userId: string) {
       tenKhoaHoc: true,
       dangKyHocs: {
         where: { trangThai: "DaThanhToan" },
-        select: { soTien: true },
+        select: { 
+          soTien: true,
+          phiSan: true,
+          thanhToanThuc: true,
+        },
       },
     },
   });
   
-  // Calculate revenue per course
-  const courseRevenue = courses.map((course) => ({
-    label: course.tenKhoaHoc,
-    value: course.dangKyHocs.reduce((sum, d) => sum + d.soTien, 0),
-    courseId: course.id,
-    enrollments: course.dangKyHocs.length,
-  }));
+  // Calculate NET revenue per course
+  const courseRevenue = courses.map((course) => {
+    const netTotal = course.dangKyHocs.reduce((sum, d) => {
+      const netRevenue = d.thanhToanThuc ?? 
+        (d.soTien - (d.phiSan ?? Math.round(d.soTien * 0.05)));
+      return sum + netRevenue;
+    }, 0);
+    
+    return {
+      label: course.tenKhoaHoc,
+      value: netTotal,
+      courseId: course.id,
+      enrollments: course.dangKyHocs.length,
+    };
+  });
   
   // Sort by revenue desc, take top 5
   return courseRevenue

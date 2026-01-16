@@ -109,6 +109,9 @@ function CourseFiltersContent({ categories, levels }: CourseFiltersProps) {
       params.set("tab", newParams.tab);
     }
 
+    // ✅ Reset page when filters change
+    params.delete("page");
+
     startTransition(() => {
       router.push(`/courses?${params.toString()}`, { scroll: false });
     });

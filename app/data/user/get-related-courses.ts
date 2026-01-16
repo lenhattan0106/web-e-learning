@@ -21,7 +21,7 @@ interface RelatedCourse {
     image: string | null;
   };
 }
-// Lấy khóa học gợi ý dựa trên Vector Embedding của các khóa học đã đăng ký học.
+
 async function fetchRelatedCourses(
   enrolledCourseIds: string[],
   userId: string,
@@ -36,7 +36,7 @@ async function fetchRelatedCourses(
       WITH user_avg_vector AS (
         SELECT AVG(embedding)::vector(768) as avg_embedding
         FROM "khoaHoc"
-        WHERE id = ANY(${enrolledCourseIds}::text[])
+        WHERE id = ANY(${enrolledCourseIds}::text[]) 
         AND embedding IS NOT NULL
       )
       SELECT 
@@ -49,7 +49,7 @@ async function fetchRelatedCourses(
         kh."thoiLuong",
         dm."ten_danh_muc" as "danhMuc",
         cd."ten_cap_do" as "capDo",
-        1 - (kh.embedding <=> (SELECT avg_embedding FROM user_avg_vector)) as similarity,
+        1.0 / (1.0 + (kh.embedding <=> (SELECT avg_embedding FROM user_avg_vector))) as similarity,
         nd."idND" as "nguoiDungId",
         nd."hoTen" as "nguoiDungName",
         nd."anhDaiDien" as "nguoiDungImage"

@@ -1,9 +1,10 @@
 /**
- * Auto-Embedding Helper - Tự động tạo embedding khi Create/Update
+ *Tự động tạo embedding khi Create/Update
  */
 
 import { prisma } from "@/lib/db";
 import { generateEmbedding } from "@/lib/ai/embedding";
+import { cleanText } from "@/lib/utils/clean";
 
 export async function embedKhoaHoc(
   courseId: string,
@@ -12,7 +13,9 @@ export async function embedKhoaHoc(
   moTa?: string
 ): Promise<void> {
   try {
-    const text = `${tenKhoaHoc}. ${moTaNgan}. ${moTa || ""}`.trim();
+    const rawText = `${tenKhoaHoc}. ${moTaNgan}. ${moTa || ""}`;
+    const text = cleanText(rawText);
+    
     if (text.length < 10) return;
     
     const embedding = await generateEmbedding(text);
@@ -33,7 +36,10 @@ export async function embedBaiHoc(
   moTa?: string
 ): Promise<void> {
   try {
-    const text = `${tenBaiHoc}. ${moTa || ""}`.trim();
+    // Combine title and description, then clean HTML
+    const rawText = `${tenBaiHoc}. ${moTa || ""}`;
+    const text = cleanText(rawText);
+
     if (text.length < 10) return;
     
     const embedding = await generateEmbedding(text);
@@ -54,7 +60,9 @@ export async function embedMaGiamGia(
   moTa?: string
 ): Promise<void> {
   try {
-    const text = `${tieuDe}. ${moTa || ""}`.trim();
+    const rawText = `${tieuDe}. ${moTa || ""}`;
+    const text = cleanText(rawText);
+
     if (text.length < 10) return;
     
     const embedding = await generateEmbedding(text);

@@ -6,8 +6,7 @@ import { ApiResponse } from "@/lib/types";
 import { updateLessonFormSchema } from "@/lib/zodSchemas";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@/lib/generated/prisma";
-import { generateEmbedding } from "@/lib/ai/embedding";
-import { cleanText } from "@/lib/utils/clean";
+import { embedBaiHoc } from "@/lib/ai/auto-embed";
 import { recalculateCourseDuration } from "@/app/teacher/actions/courses";
 
 export async function EditLessonAction(
@@ -89,24 +88,13 @@ export async function EditLessonAction(
       await recalculateCourseDuration(lesson.chuong.idKhoaHoc);
     }
 
-    if (updateData.moTa !== undefined) {
-      try {
-        const content = typeof updateData.moTa === 'string' ? updateData.moTa : "";
-        const cleanedContent = cleanText(content);
-        
-        if (cleanedContent.length > 10) {
-           const embedding = await generateEmbedding(cleanedContent);
-           const vectorQuery = `[${embedding.join(",")}]`;
-           
-           await prisma.$executeRaw`
-             UPDATE "baiHoc"
-             SET embedding = ${vectorQuery}::vector
-             WHERE id = ${idBaiHoc}
-           `;
-        }
-      } catch (aiError) {
-        console.error("Lỗi khi cập nhật embedding cho bài học:", aiError);
-      }
+ 
+    if (updateData.tenBaiHoc || updateData.moTa) {
+      embedBaiHoc(
+        idBaiHoc,
+        updateData.tenBaiHoc !== undefined ? (updateData.tenBaiHoc as string) : lesson.tenBaiHoc,
+        updateData.moTa !== undefined ? (updateData.moTa as string) : (lesson.moTa || undefined)
+      );
     }
 
     // Only notify if there are meaningful content updates (Video, Name, Description)

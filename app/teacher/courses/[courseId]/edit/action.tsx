@@ -17,7 +17,7 @@ import { revalidatePath } from "next/cache";
 import { generateEmbedding } from "@/lib/ai/embedding";
 import { cleanText } from "@/lib/utils/clean";
 import { generateUniqueSlug, slugify } from "@/lib/slug-utils";
-import { embedKhoaHoc } from "@/lib/ai/auto-embed";
+import { embedKhoaHoc, embedBaiHoc } from "@/lib/ai/auto-embed";
 import {
   notifyEnrolledStudents,
   NOTIFICATION_TEMPLATES,
@@ -455,22 +455,12 @@ export async function createLesson(
         },
       });
 
-      try {
-        if (result.data.moTa) {
-           const cleanedContent = cleanText(result.data.moTa);
-           if (cleanedContent.length > 10) {
-             const embedding = await generateEmbedding(cleanedContent);
-             const vectorQuery = `[${embedding.join(",")}]`;
-             await tx.$executeRaw`
-                UPDATE "baiHoc"
-                SET embedding = ${vectorQuery}::vector
-                WHERE id = ${newLesson.id}
-             `;
-           }
-        }
-      } catch (aiError) {
-        console.error("Failed to generate embedding for new lesson:", aiError);
-      }
+      // Auto-generate embedding for AI search (async, non-blocking)
+      embedBaiHoc(
+        newLesson.id,
+        result.data.ten,
+        result.data.moTa
+      );
 
       return newLesson;
     });

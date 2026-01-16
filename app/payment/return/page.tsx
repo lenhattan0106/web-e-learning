@@ -6,7 +6,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { getPusherServer } from "@/lib/pusher";
 
 export const dynamic = "force-dynamic";
@@ -152,7 +152,7 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
         }
       } else {
         paymentType = "COURSE";
-        // Xử lý Course payment (logic cũ)
+        // Xử lý Course payment
         const dangKyHoc = await prisma.dangKyHoc.findUnique({
           where: { id: txnRef },
           select: {
@@ -160,6 +160,7 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
             trangThai: true,
             maGiamGiaId: true,
             soTien: true,
+            idNguoiDung: true,
             khoaHoc: {
               select: {
                 tenKhoaHoc: true,
@@ -197,6 +198,9 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
                   });
                 }
               });
+              // Clear cache gợi ý khóa học để cập nhật ngay lập tức
+              revalidateTag(`user-${dangKyHoc.idNguoiDung}-related-courses`, "default");
+              
               displayStatus = "DaThanhToan";
             } else {
               displayStatus = "DaThanhToan";

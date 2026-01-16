@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       Key: uniqueKey,
     });
     const presignedURL = await getSignedUrl(S3, command, {
-      expiresIn: 3600, // 1 hour (was 360s = 6 min) - supports large video uploads
+      expiresIn: 3600, // 1 giờ
     });
     const response = {
       // 👇 Frontend Uploader.tsx đang expect field "presignedURL"

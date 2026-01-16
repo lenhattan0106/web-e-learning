@@ -1,6 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
+import { revalidateTag } from "next/cache";
 import { vnpay } from "@/lib/vnpay";
 import { ProductCode, VnpLocale } from "vnpay";
 import { requireUser } from "@/app/data/user/require-user";
@@ -135,8 +136,9 @@ export async function enrollInCourseAction(idKhoaHoc: string, couponCode?: strin
                 }
             });
 
-            // --- NOTIFICATION TO TEACHER (Free Enrollment) ---
-            // Send after transaction succeeds
+            // Clear cache gợi ý khóa học để cập nhật ngay lập tức
+            revalidateTag(`user-${user.id}-related-courses`, "default");
+
             try {
                 if (khoaHoc.idNguoiDung) {
                     await sendNotification({
@@ -153,15 +155,13 @@ export async function enrollInCourseAction(idKhoaHoc: string, couponCode?: strin
                 }
             } catch (err) {
                 console.error("Failed to notify teacher:", err);
-                // Non-blocking error
+               
             }
-            // ------------------------------------------------
          } catch (error) {
              console.error("Free enrollment error:", error);
              return { status: "error", message: "Lỗi xử lý đăng ký miễn phí" };
          }
 
-         // Redirect thẳng vào học
          redirect(`/dashboard/${khoaHoc.duongDan}`);
     }
     

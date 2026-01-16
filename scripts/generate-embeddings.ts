@@ -11,6 +11,7 @@
 
 import { PrismaClient } from "@prisma/client";
 import { generateEmbedding } from "../lib/ai/embedding";
+import { cleanText } from "../lib/utils/clean";
 
 const prisma = new PrismaClient();
 
@@ -23,7 +24,7 @@ async function generateBaiHocEmbeddings() {
 
   let count = 0;
   for (const lesson of lessons) {
-    const text = `${lesson.tenBaiHoc}. ${lesson.moTa || ""}`;
+    const text = cleanText(`${lesson.tenBaiHoc}. ${lesson.moTa || ""}`);
     if (text.trim().length < 10) continue;
     
     try {
@@ -50,7 +51,7 @@ async function generateKhoaHocEmbeddings() {
 
   let count = 0;
   for (const course of courses) {
-    const text = `${course.tenKhoaHoc}. ${course.moTaNgan}. ${course.moTa || ""}`;
+    const text = cleanText(`${course.tenKhoaHoc}. ${course.moTaNgan}. ${course.moTa || ""}`);
     if (text.trim().length < 10) continue;
     
     try {
@@ -77,7 +78,7 @@ async function generateMaGiamGiaEmbeddings() {
 
   let count = 0;
   for (const discount of discounts) {
-    const text = `${discount.tieuDe}. ${discount.moTa || ""}`;
+    const text = cleanText(`${discount.tieuDe}. ${discount.moTa || ""}`);
     if (text.trim().length < 10) {
       console.log(`   ⏭️ Skip: ${discount.tieuDe} (no description)`);
       continue;

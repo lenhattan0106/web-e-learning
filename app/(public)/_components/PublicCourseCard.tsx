@@ -11,7 +11,6 @@ import Link from "next/link";
 import { env } from "@/lib/env";
 import { cn } from "@/lib/utils";
 
-// Helper to calculate average rating
 function calculateAverageRating(ratings: { diemDanhGia: number }[] | undefined) {
   if (!ratings || ratings.length === 0) return { average: 0, total: 0 };
   const sum = ratings.reduce((acc, r) => acc + r.diemDanhGia, 0);

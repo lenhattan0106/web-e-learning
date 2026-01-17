@@ -24,7 +24,6 @@ const MULTIPART_THRESHOLD = MULTIPART_THRESHOLD_MB * 1024 * 1024;
 const CHUNK_SIZE_MB = 20;
 const CHUNK_SIZE = CHUNK_SIZE_MB * 1024 * 1024;
 
-// 🔥 RETRY CONFIGURATION
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY = 1000;
 const MAX_RETRY_DELAY = 10000;
@@ -115,86 +114,111 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
             await sleep(delayMs);
           }
 
+          // Check abort BEFORE starting
           if (abortController.signal.aborted) {
-            throw new Error("Upload đã bị hủy");
+            throw new Error("Upload đã bị hủy bởi người dùng");
           }
 
-          const signController = new AbortController();
-          const signTimeout = setTimeout(() => signController.abort(), 15000);
+          // ============ STEP 1: Get presigned URL ============
+          console.log(`[Multipart] Part ${partNumber}: Requesting presigned URL...`);
           
-          try {
-            const signResponse = await fetch("/api/s3/multipart/sign-part", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                uploadId,
-                key,
-                partNumber,
-              }),
-              signal: signController.signal,
-            });
+          const signPromise = fetch("/api/s3/multipart/sign-part", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              uploadId,
+              key,
+              partNumber,
+            }),
+            signal: abortController.signal,
+          });
 
-            clearTimeout(signTimeout);
+          // Timeout without aborting signal
+          const signTimeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error(`Timeout lấy URL cho phần ${partNumber} (>30s)`)), 30000);
+          });
 
-            if (!signResponse.ok) {
-              throw new Error(`Không thể lấy URL cho phần ${partNumber} (HTTP ${signResponse.status})`);
-            }
+          const signResponse = await Promise.race([signPromise, signTimeoutPromise]);
 
-            const { presignedUrl } = await signResponse.json();
-            
-            const uploadController = new AbortController();
-            const uploadTimeout = setTimeout(() => uploadController.abort(), UPLOAD_TIMEOUT);
-            
-            try {
-              const uploadResponse = await fetch(presignedUrl, {
-                method: "PUT",
-                body: chunk,
-                signal: uploadController.signal,
-              });
-
-              clearTimeout(uploadTimeout);
-
-              if (!uploadResponse.ok) {
-                throw new Error(`Upload phần ${partNumber} thất bại (HTTP ${uploadResponse.status})`);
-              }
-
-              const etag = uploadResponse.headers.get("ETag");
-              
-              if (!etag) {
-                throw new Error(`Không nhận được ETag cho phần ${partNumber}`);
-              }
-
-              const cleanETag = etag.replace(/"/g, "");
-
-              setFileState((prev) => ({
-                ...prev,
-                multipartStats: prev.multipartStats ? {
-                  ...prev.multipartStats,
-                  retryingParts: (prev.multipartStats.retryingParts || []).filter(p => p !== partNumber),
-                  failedParts: (prev.multipartStats.failedParts || []).filter(p => p !== partNumber),
-                } : undefined,
-              }));
-
-              return {
-                PartNumber: partNumber,
-                ETag: cleanETag,
-              };
-              
-            } catch (uploadError) {
-              clearTimeout(uploadTimeout);
-              throw uploadError;
-            }
-            
-          } catch (signError) {
-            clearTimeout(signTimeout);
-            throw signError;
+          if (!signResponse.ok) {
+            const errorText = await signResponse.text().catch(() => 'Unknown error');
+            throw new Error(`Không thể lấy URL cho phần ${partNumber} (HTTP ${signResponse.status}): ${errorText}`);
           }
+
+          const { presignedUrl } = await signResponse.json();
+          
+          if (!presignedUrl) {
+            throw new Error(`Server không trả về presignedUrl cho phần ${partNumber}`);
+          }
+
+          console.log(`[Multipart] Part ${partNumber}: Got presigned URL, uploading ${(chunk.size / 1024 / 1024).toFixed(1)}MB...`);
+
+          // Check abort BETWEEN steps
+          if (abortController.signal.aborted) {
+            throw new Error("Upload đã bị hủy bởi người dùng");
+          }
+
+          // ============ STEP 2: Upload to S3 ============
+          const uploadPromise = fetch(presignedUrl, {
+            method: "PUT",
+            body: chunk,
+            signal: abortController.signal,
+          });
+
+          // Dynamic timeout based on chunk size (minimum 10s per MB)
+          const uploadTimeoutMs = Math.max(UPLOAD_TIMEOUT, chunk.size / 1024 / 1024 * 10000);
+          const uploadTimeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error(`Timeout upload phần ${partNumber} (>${Math.round(uploadTimeoutMs/1000)}s)`)), uploadTimeoutMs);
+          });
+
+          const uploadResponse = await Promise.race([uploadPromise, uploadTimeoutPromise]);
+
+          if (!uploadResponse.ok) {
+            const errorText = await uploadResponse.text().catch(() => 'Unknown error');
+            throw new Error(`Upload phần ${partNumber} thất bại (HTTP ${uploadResponse.status}): ${errorText}`);
+          }
+
+          // ============ STEP 3: Extract ETag ============
+          const etag = uploadResponse.headers.get("ETag");
+          
+          if (!etag) {
+            throw new Error(
+              `Không nhận được ETag cho phần ${partNumber}. ` +
+              `Vui lòng kiểm tra CORS config của S3 bucket (ExposeHeaders: ["ETag"])`
+            );
+          }
+
+          const cleanETag = etag.replace(/"/g, "");
+
+          console.log(`[Multipart] Part ${partNumber}: Upload success! ETag: ${cleanETag.substring(0, 8)}...`);
+
+          // Success! Remove from retry list
+          setFileState((prev) => ({
+            ...prev,
+            multipartStats: prev.multipartStats ? {
+              ...prev.multipartStats,
+              retryingParts: (prev.multipartStats.retryingParts || []).filter(p => p !== partNumber),
+              failedParts: (prev.multipartStats.failedParts || []).filter(p => p !== partNumber),
+            } : undefined,
+          }));
+
+          return {
+            PartNumber: partNumber,
+            ETag: cleanETag,
+          };
 
         } catch (error) {
           lastError = error instanceof Error ? error : new Error("Unknown error");
           
-          console.error(`[Multipart] Part ${partNumber} attempt ${attempt + 1} failed:`, lastError.message);
+          // Distinguish user abort from network error
+          if (abortController.signal.aborted || lastError.message.includes("bị hủy bởi người dùng")) {
+            console.log(`[Multipart] Part ${partNumber}: User cancelled upload`);
+            throw new Error("Upload đã bị hủy bởi người dùng");
+          }
+
+          console.error(`[Multipart] Part ${partNumber} attempt ${attempt + 1}/${maxRetries + 1} failed:`, lastError.message);
           
+          // If this is the last attempt, give up
           if (attempt === maxRetries) {
             setFileState((prev) => ({
               ...prev,
@@ -205,13 +229,28 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
               } : undefined,
             }));
             
-            toast.error(`Phần ${partNumber} thất bại sau ${maxRetries} lần thử`);
+            toast.error(`Phần ${partNumber} thất bại sau ${maxRetries + 1} lần thử: ${lastError.message.substring(0, 100)}`);
             throw lastError;
           }
+          
+          // Check if error is retryable
+          const isRetryable = 
+            lastError.message.includes("Timeout") ||
+            lastError.message.includes("timeout") ||
+            lastError.message.includes("Network") ||
+            lastError.message.includes("Failed to fetch") ||
+            lastError.message.includes("HTTP 5");
+
+          if (!isRetryable) {
+            console.error(`[Multipart] Part ${partNumber}: Non-retryable error, aborting`);
+            throw lastError;
+          }
+          
+          // Continue to next retry attempt
         }
       }
       
-      throw lastError || new Error(`Part ${partNumber} failed`);
+      throw lastError || new Error(`Part ${partNumber} failed after ${maxRetries + 1} attempts`);
     },
     []
   );
@@ -251,6 +290,8 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
           } : undefined,
         }));
 
+        console.log(`[Multipart] Initiating upload for ${file.name} (${Math.round(file.size / 1024 / 1024)}MB)`);
+
         const initResponse = await fetch("/api/s3/multipart/initiate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -264,17 +305,19 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
         });
 
         if (!initResponse.ok) {
-          throw new Error("Không thể khởi tạo upload");
+          const errorText = await initResponse.text().catch(() => 'Unknown error');
+          throw new Error(`Không thể khởi tạo upload: ${errorText}`);
         }
 
         const initData = await initResponse.json();
         uploadId = initData.uploadId;
         key = initData.key;
 
-        // 🔥 FIX: Validate uploadId and key
         if (!uploadId || !key) {
           throw new Error("Server không trả về uploadId hoặc key");
         }
+
+        console.log(`[Multipart] Initiated: uploadId=${uploadId.substring(0, 20)}..., key=${key}`);
 
         const chunks: Blob[] = [];
         for (let start = 0; start < file.size; start += CHUNK_SIZE) {
@@ -292,7 +335,7 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
           } : undefined,
         }));
 
-        toast.info(`Bắt đầu upload ${totalParts} phần... (${Math.round(file.size / 1024 / 1024)}MB)`);
+        toast.info(`Bắt đầu upload ${totalParts} phần (${CHUNK_SIZE_MB}MB/phần)...`);
 
         let lastUpdateTime = Date.now();
         let lastUploadedBytes = 0;
@@ -300,7 +343,6 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
         const uploadedParts: Array<{ PartNumber: number; ETag: string }> = [];
         const PARALLEL_UPLOADS = 5;
 
-        // 🔥 FIX: Now uploadId and key are guaranteed to be string
         for (let i = 0; i < chunks.length; i += PARALLEL_UPLOADS) {
           if (abortController.signal.aborted) {
             throw new Error("Upload đã bị hủy");
@@ -319,6 +361,8 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
             );
           }
           
+          console.log(`[Multipart] Starting batch ${Math.floor(i / PARALLEL_UPLOADS) + 1}/${Math.ceil(chunks.length / PARALLEL_UPLOADS)}: Parts ${currentBatchParts.join(", ")}`);
+
           setFileState((prev) => ({
             ...prev,
             multipartStats: prev.multipartStats ? {
@@ -396,7 +440,7 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
             } : undefined,
           }));
           
-          console.log(`[Multipart] Batch complete: ${uploadedParts.length}/${totalParts} (${actualProgress}%) - Speed: ${(uploadSpeed / 1024 / 1024).toFixed(2)} MB/s`);
+          console.log(`[Multipart] Progress: ${uploadedParts.length}/${totalParts} parts (${actualProgress}%) - Speed: ${(uploadSpeed / 1024 / 1024).toFixed(2)} MB/s`);
         }
 
         if (uploadedParts.length !== totalParts) {
@@ -414,6 +458,7 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
           } : undefined,
         }));
 
+        console.log(`[Multipart] All parts uploaded successfully, completing...`);
         toast.info("Đang hoàn tất và ghép file...");
         
         const sortedParts = uploadedParts.sort((a, b) => a.PartNumber - b.PartNumber);
@@ -430,7 +475,8 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
         });
 
         if (!completeResponse.ok) {
-          throw new Error("Không thể hoàn tất upload");
+          const errorText = await completeResponse.text().catch(() => 'Unknown error');
+          throw new Error(`Không thể hoàn tất upload: ${errorText}`);
         }
 
         const { success } = await completeResponse.json();
@@ -453,27 +499,30 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
           if (key) {
             onChange?.(key);
           }
+          
+          console.log(`[Multipart] Upload completed successfully! URL: ${uploadedUrl}`);
           toast.success("Tải lên video thành công!");
         }
       } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
-          console.log("Upload cancelled by user");
+        if (error instanceof Error && (error.name === 'AbortError' || error.message.includes("bị hủy"))) {
+          console.log("[Multipart] Upload cancelled by user");
           toast.info("Đã hủy upload");
         } else {
-          console.error("Multipart upload error:", error);
+          console.error("[Multipart] Upload error:", error);
           toast.error(error instanceof Error ? error.message : "Upload thất bại");
         }
 
         if (uploadId && key) {
           try {
+            console.log(`[Multipart] Aborting incomplete upload...`);
             await fetch("/api/s3/multipart/abort", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ uploadId, key }),
             });
-            console.log("Aborted incomplete upload");
+            console.log("[Multipart] Aborted successfully");
           } catch (abortError) {
-            console.error("Failed to abort upload:", abortError);
+            console.error("[Multipart] Failed to abort upload:", abortError);
           }
         }
 
@@ -497,6 +546,8 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
         progress: 0,
       }));
       try {
+        console.log(`[Upload] Single-part upload for ${file.name} (${Math.round(file.size / 1024 / 1024)}MB)`);
+        
         const presignedResponse = await fetch("/api/s3/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -508,6 +559,7 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
             folder: folder,
           }),
         });
+        
         if (!presignedResponse.ok) {
           toast.error("Không thể lấy URL tải lên");
           setFileState((prev) => ({
@@ -518,7 +570,9 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
           }));
           return;
         }
+        
         const { presignedURL, key } = await presignedResponse.json();
+        
         await new Promise<void>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
           xhr.upload.onprogress = (event) => {
@@ -542,6 +596,7 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
                 objectUrl: uploadedUrl,
               }));
               onChange?.(key);
+              console.log(`[Upload] Single-part upload success: ${uploadedUrl}`);
               toast.success("Tải lên tệp thành công");
               resolve();
             } else {
@@ -734,6 +789,7 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
 
   const handleCancelUpload = useCallback(() => {
     if (fileState.abortController) {
+      console.log("[Upload] User requested cancel");
       fileState.abortController.abort();
       setFileState((prev) => ({
         ...prev,

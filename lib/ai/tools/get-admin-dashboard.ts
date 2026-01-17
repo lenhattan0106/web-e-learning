@@ -1,14 +1,3 @@
-/**
- * Get Admin Dashboard Tool
- * 
- * Returns system-wide statistics for Admin:
- * - Total revenue from ALL transactions (courses + premium)
- * - Total users, courses, enrollments
- * - Recent transactions
- * - Pending reports count
- * - Average rating
- */
-
 import { tool } from "ai";
 import { z } from "zod";
 import { prisma } from "@/lib/db";

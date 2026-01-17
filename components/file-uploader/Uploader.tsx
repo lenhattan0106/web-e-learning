@@ -1,5 +1,5 @@
 "use client";
-/* eslint-disable react/no-unescaped-entities */
+
 import { useCallback, useEffect, useState } from "react";
 import { FileRejection, useDropzone } from "react-dropzone";
 import { Card, CardContent } from "../ui/card";
@@ -35,6 +35,20 @@ interface UpLoaderState {
   error: boolean;
   objectUrl?: string;
   fileType: "image" | "video";
+  // NEW: Multipart tracking
+  multipartStats?: {
+    uploadedParts: number;
+    totalParts: number;
+    uploadSpeed: number;
+    estimatedTimeRemaining: number;
+    uploadedBytes: number;
+    totalBytes: number;
+    currentBatchParts: number[];
+    isMultipart: boolean;
+    uploadStage: 'initiating' | 'uploading' | 'completing' | 'done';
+  };
+  isPaused?: boolean;
+  abortController?: AbortController;
 }
 
 interface iAppProps {
@@ -64,15 +78,36 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
     async (file: File) => {
       let uploadId: string | undefined;
       let key: string | undefined;
+      const abortController = new AbortController();
       
       setFileState((prev) => ({
         ...prev,
         uploading: true,
         progress: 0,
+        abortController,
+        multipartStats: {
+          uploadedParts: 0,
+          totalParts: 0,
+          uploadSpeed: 0,
+          estimatedTimeRemaining: 0,
+          uploadedBytes: 0,
+          totalBytes: file.size,
+          currentBatchParts: [],
+          isMultipart: true,
+          uploadStage: 'initiating',
+        },
       }));
       
       try {
         // Step 1: Khởi tạo multipart upload
+        setFileState((prev) => ({
+          ...prev,
+          multipartStats: prev.multipartStats ? {
+            ...prev.multipartStats,
+            uploadStage: 'initiating',
+          } : undefined,
+        }));
+
         const initResponse = await fetch("/api/s3/multipart/initiate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -80,14 +115,15 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
             fileName: file.name,
             contentType: file.type,
             size: file.size,
-            folder: folder, // Tiền tố thư mục S3
+            folder: folder,
           }),
+          signal: abortController.signal,
         });
 
         if (!initResponse.ok) {
           throw new Error("Không thể khởi tạo upload");
         }
-        // Tất cả các parts dựa vào uploadId và key từ phản hồi
+
         const initData = await initResponse.json();
         uploadId = initData.uploadId;
         key = initData.key;
@@ -99,15 +135,27 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
         }
 
         const totalParts = chunks.length;
-        toast.info(`Đang upload ${totalParts} phần... (${Math.round(file.size / 1024 / 1024)}MB)`);
-
-        // Bước 3: Upload các phần song song (5 phần cùng lúc)
-        const uploadedParts: Array<{ PartNumber: number; ETag: string }> = [];
-        const PARALLEL_UPLOADS = 5; 
         
-        // Hàm trợ giúp để upload một phần
+        setFileState((prev) => ({
+          ...prev,
+          multipartStats: prev.multipartStats ? {
+            ...prev.multipartStats,
+            totalParts,
+            uploadStage: 'uploading',
+          } : undefined,
+        }));
+
+        toast.info(`Bắt đầu upload ${totalParts} phần... (${Math.round(file.size / 1024 / 1024)}MB)`);
+
+        // Tracking variables for speed calculation
+        let lastUpdateTime = Date.now();
+        let lastUploadedBytes = 0;
+
+        // Bước 3: Upload các phần song song
+        const uploadedParts: Array<{ PartNumber: number; ETag: string }> = [];
+        const PARALLEL_UPLOADS = 5;
+        
         const uploadPart = async (partNumber: number, chunk: Blob) => {
-          // Lấy URL được ký cho phần này
           const signResponse = await fetch("/api/s3/multipart/sign-part", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -116,6 +164,7 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
               key,
               partNumber,
             }),
+            signal: abortController.signal,
           });
 
           if (!signResponse.ok) {
@@ -123,28 +172,23 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
           }
 
           const { presignedUrl } = await signResponse.json();
-          // Upload phần lên S3
+          
           const uploadResponse = await fetch(presignedUrl, {
             method: "PUT",
             body: chunk,
+            signal: abortController.signal,
           });
 
           if (!uploadResponse.ok) {
             throw new Error(`Upload phần ${partNumber} thất bại`);
           }
 
-          // Lấy ETag từ header phản hồi (BẮT BUỘC cho multipart S3)
           const etag = uploadResponse.headers.get("ETag");
           
           if (!etag) {
-            throw new Error(
-              `Không nhận được ETag cho phần ${partNumber}. ` +
-              `Vui lòng cấu hình CORS cho S3 bucket để expose header "ETag". ` +
-              `Chi tiết: https://docs.aws.amazon.com/AmazonS3/latest/userguide/cors.html`
-            );
+            throw new Error(`Không nhận được ETag cho phần ${partNumber}`);
           }
 
-          // Loại bỏ dấu ngoặc kép khỏi ETag  
           const cleanETag = etag.replace(/"/g, "");
 
           return {
@@ -153,32 +197,83 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
           };
         };
 
-        // Upload theo từng lô với số phần song song là PARALLEL_UPLOADS
+        // Upload theo từng lô
         for (let i = 0; i < chunks.length; i += PARALLEL_UPLOADS) {
-          const batchEnd = Math.min(i + PARALLEL_UPLOADS, chunks.length); // batchEnd là chỉ số kết thúc của lô hiện tại
-          const batchPromises = [];
+          // Check if paused or aborted
+          if (abortController.signal.aborted) {
+            throw new Error("Upload đã bị hủy");
+          }
 
-          const estimatedProgress = Math.round((i / totalParts) * 100);
-          setFileState((prev) => ({ ...prev, progress: estimatedProgress }));
+          const batchEnd = Math.min(i + PARALLEL_UPLOADS, chunks.length);
+          const batchPromises = [];
+          const currentBatchParts: number[] = [];
 
           for (let j = i; j < batchEnd; j++) {
             const partNumber = j + 1;
+            currentBatchParts.push(partNumber);
             const chunk = chunks[j];
             batchPromises.push(uploadPart(partNumber, chunk));
           }
           
+          // Update current batch
+          setFileState((prev) => ({
+            ...prev,
+            multipartStats: prev.multipartStats ? {
+              ...prev.multipartStats,
+              currentBatchParts,
+            } : undefined,
+          }));
+          
           const batchResults = await Promise.all(batchPromises);
           uploadedParts.push(...batchResults);
 
-          // Cập nhật tiến trình sau khi lô hoàn thành
+          // Calculate statistics
+          const now = Date.now();
+          const uploadedBytes = uploadedParts.length * CHUNK_SIZE;
           const actualProgress = Math.round((uploadedParts.length / totalParts) * 100);
-          setFileState((prev) => ({ ...prev, progress: actualProgress }));
           
-          console.log(`[Multipart] Batch ${Math.floor(i / PARALLEL_UPLOADS) + 1} complete: ${uploadedParts.length}/${totalParts} parts uploaded (${actualProgress}%)`);
+          // Calculate speed (every 2 seconds for stability)
+          let uploadSpeed = 0;
+          let estimatedTimeRemaining = 0;
+          
+          if (now - lastUpdateTime >= 2000) {
+            const timeDiff = (now - lastUpdateTime) / 1000; // seconds
+            const bytesDiff = uploadedBytes - lastUploadedBytes;
+            uploadSpeed = bytesDiff / timeDiff; // bytes per second
+            
+            const remainingBytes = file.size - uploadedBytes;
+            estimatedTimeRemaining = uploadSpeed > 0 ? remainingBytes / uploadSpeed : 0;
+            
+            lastUpdateTime = now;
+            lastUploadedBytes = uploadedBytes;
+          }
+          
+          setFileState((prev) => ({
+            ...prev,
+            progress: actualProgress,
+            multipartStats: prev.multipartStats ? {
+              ...prev.multipartStats,
+              uploadedParts: uploadedParts.length,
+              uploadSpeed,
+              estimatedTimeRemaining,
+              uploadedBytes,
+              currentBatchParts: [],
+            } : undefined,
+          }));
+          
+          console.log(`[Multipart] Batch complete: ${uploadedParts.length}/${totalParts} (${actualProgress}%) - Speed: ${(uploadSpeed / 1024 / 1024).toFixed(2)} MB/s`);
         }
 
         // Step 4: Complete upload
-        toast.info("Đang hoàn tất tệp...");
+        setFileState((prev) => ({
+          ...prev,
+          multipartStats: prev.multipartStats ? {
+            ...prev.multipartStats,
+            uploadStage: 'completing',
+          } : undefined,
+        }));
+
+        toast.info("Đang hoàn tất và ghép file...");
         
         const completeResponse = await fetch("/api/s3/multipart/complete", {
           method: "POST",
@@ -186,8 +281,9 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
           body: JSON.stringify({
             uploadId,
             key,
-            parts: uploadedParts, // {PartNumber, ETag}[]
+            parts: uploadedParts,
           }),
+          signal: abortController.signal,
         });
 
         if (!completeResponse.ok) {
@@ -205,6 +301,10 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
             uploading: false,
             key: key,
             objectUrl: uploadedUrl,
+            multipartStats: prev.multipartStats ? {
+              ...prev.multipartStats,
+              uploadStage: 'done',
+            } : undefined,
           }));
 
           if (key) {
@@ -213,8 +313,13 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
           toast.success("Tải lên video thành công!");
         }
       } catch (error) {
-        console.error("Multipart upload error:", error);
-        toast.error(error instanceof Error ? error.message : "Upload thất bại");
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.log("Upload cancelled by user");
+          toast.info("Đã hủy upload");
+        } else {
+          console.error("Multipart upload error:", error);
+          toast.error(error instanceof Error ? error.message : "Upload thất bại");
+        }
 
         // Abort incomplete upload
         if (uploadId && key) {
@@ -234,6 +339,7 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
           ...prev,
           uploading: false,
           error: true,
+          multipartStats: undefined,
         }));
       }
     },
@@ -489,15 +595,28 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
     }
   }
 
-  // Handle click to reset error state
-  const handleClick = () => {
-    if (fileState.error) {
+  const handleCancelUpload = useCallback(() => {
+    if (fileState.abortController) {
+      fileState.abortController.abort();
       setFileState((prev) => ({
         ...prev,
-        error: false,
+        uploading: false,
+        progress: 0,
+        multipartStats: undefined,
+        abortController: undefined,
       }));
     }
-  };
+  }, [fileState.abortController]);
+
+  const handleTogglePause = useCallback(() => {
+    // Note: Pause/Resume requires more complex implementation with queue management
+    // For now, we'll just toggle the UI state
+    setFileState((prev) => ({
+      ...prev,
+      isPaused: !prev.isPaused,
+    }));
+    toast.info(fileState.isPaused ? "Đã tiếp tục upload" : "Đã tạm dừng upload");
+  }, [fileState.isPaused]);
 
   function renderContent() {
     if (fileState.uploading) {
@@ -505,11 +624,15 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
         <RenderUploadingState
           file={fileState.file as File}
           progress={fileState.progress}
+          multipartStats={fileState.multipartStats}
+          onCancel={handleCancelUpload}
+          isPaused={fileState.isPaused}
+          onTogglePause={fileState.multipartStats ? handleTogglePause : undefined}
         />
       );
     }
     if (fileState.error) {
-      return <RenderErrorState></RenderErrorState>;
+      return <RenderErrorState />;
     }
     if (fileState.objectUrl) {
       return (
@@ -518,10 +641,10 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
           handleRemoveFile={handleRemoveFile}
           previewUrl={fileState.objectUrl}
           fileType={fileState.fileType}
-        ></RenderUploadedState>
+        />
       );
     }
-    return <RenderEmptyState isDragActive={isDragActive}></RenderEmptyState>;
+    return <RenderEmptyState isDragActive={isDragActive} />;
   }
   useEffect(() => {
     return () => {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { google } from "@ai-sdk/google";
 import { streamText, UIMessage, convertToModelMessages, stepCountIs } from 'ai';
 import { headers } from "next/headers";

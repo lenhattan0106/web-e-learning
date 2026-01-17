@@ -65,7 +65,7 @@ export async function POST(req: Request) {
     }
 
     const lastMessage = messages[messages.length - 1];
-    const text = typeof lastMessage.content === 'string' ? lastMessage.content : '';
+    const text = (lastMessage as any).content || '';
 
     // GUARD: Math Detection
     // Detects: 5+5, 10/2, sqrt(2), sin(30)...
@@ -77,22 +77,9 @@ export async function POST(req: Request) {
     const hasCourseIntent = 
       /(khóa học|tìm khóa|gợi ý khóa|danh sách khóa|lộ trình|nên học|course|học gì|bài giảng)/i.test(text);
 
-    // Nếu hỏi toán mà KHÔNG có ý định tìm khóa học rõ ràng -> Chặn ngay
+    
     if (hasMath && !hasCourseIntent) {
-       // Return a mocked stream response that refuses math
-       // Since streamText returns a stream, we need to mimic that or just return a simple text stream
-       // Ideally we use a simple text response, but the client expects a stream.
-       // Easiest is to just continue but force tool_choice: 'none' and let prompt handle? 
-       // OR we can return a custom response.
-       // The PLAN said: "If math detected... -> respond directly".
-       // Let's rely on the prompt but force `toolChoice: 'none'` if we can passing it to streamText usually works.
-       // However, `toolChoice` in `streamText` is static.
-       // Better approach: Modify the request message or system prompt?
-       // Let's try to just return a standard response if we can.
-       // Actually, the simplest way to "Guard" is to just return a text response without calling Gemini if it's math.
-       // But keeping it consistent with the stream is cleaner.
-       // Let's use `toolChoice: 'none'` if possible. `streamText` options allows `toolChoice`.
-       // We can conditionalize the config.
+      
     }
 
 

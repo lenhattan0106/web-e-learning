@@ -49,11 +49,11 @@ export async function POST(request: Request) {
 
     const { fileName, contentType, size, folder } = validation.data;
     
-    // Construct key with optional folder prefix
+    // Tạo key duy nhất cho tệp trong S3
     const folderPrefix = folder ? `${folder}/` : "";
     const uniqueKey = `${folderPrefix}${uuidv4()}-${fileName}`;
 
-    // Initiate multipart upload
+    // khởi tạo multipart upload
     const command = new CreateMultipartUploadCommand({
       Bucket: env.NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES,
       Key: uniqueKey,

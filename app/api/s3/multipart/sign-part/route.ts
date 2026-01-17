@@ -48,8 +48,6 @@ export async function POST(request: Request) {
 
     const { uploadId, key, partNumber } = validation.data;
 
-    // Generate presigned URL for this part
-    // CRITICAL: Configure to expose ETag header for CORS
     const command = new UploadPartCommand({
       Bucket: env.NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES,
       Key: key,
@@ -59,7 +57,6 @@ export async function POST(request: Request) {
 
     const presignedUrl = await getSignedUrl(S3, command, {
       expiresIn: 3600, // 1 hour
-      // CORS: Ensure ETag is accessible in response headers
       unhoistableHeaders: new Set(["x-amz-server-side-encryption"]),
     });
 

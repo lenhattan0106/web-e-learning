@@ -1,10 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import * as React from "react";
 import { useState, useEffect, useTransition } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { DateRange } from "react-day-picker";
 import Link from "next/link";
 import { 
   Users, 
@@ -49,13 +49,19 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 
 import { fetchRevenueDetails, fetchPremiumDetails, fetchReportsDetails } from "@/app/admin/actions/admin-dashboard";
 import { ReportsTable } from "@/app/admin/reports/_components/ReportsTable";
 import { SystemRevenueChart } from "./charts/SystemRevenueChart";
-import { DateFilter } from "./DateFilter";
 import type { SystemRevenueStats } from "@/app/data/admin/get-system-revenue-stats";
 interface AdminDashboardStats {
   totalUsers: number;
@@ -104,18 +110,10 @@ export function AdminDashboardClient({ stats, systemRevenue }: AdminDashboardCli
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(currentPageInfo);
 
-  // Date filter state
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
-    const duration = parseInt(currentDuration);
-    const to = new Date();
-    const from = new Date();
-    from.setDate(to.getDate() - duration);
-    return { from, to };
-  });
-  const [isCustomRange, setIsCustomRange] = useState(false);
-
+  // Initial Data Fetch & Tab Change
   useEffect(() => {
     const loadData = async () => {
+      // Return details from cache immediately if available
       if (dataCache[activeTab]) {
          setData(dataCache[activeTab]);
          setCurrentPage(1);
@@ -166,30 +164,11 @@ export function AdminDashboardClient({ stats, systemRevenue }: AdminDashboardCli
     startTransition(() => updateUrl("view", tab));
   };
 
-  const handleDurationChange = (days: number) => {
-    setIsCustomRange(false);
-    const to = new Date();
-    const from = new Date();
-    from.setDate(to.getDate() - days);
-    setDateRange({ from, to });
-    
+  const handleDurationChange = (days: string) => {
     startTransition(() => {
-      updateUrl("days", days.toString());
+      updateUrl("days", days);
       router.refresh(); 
     });
-  };
-
-  const handleCustomRangeChange = (range: DateRange | undefined) => {
-    if (range?.from && range?.to) {
-      setIsCustomRange(true);
-      setDateRange(range);
-      
-      const diffDays = Math.ceil((range.to.getTime() - range.from.getTime()) / (1000 * 60 * 60 * 24));
-      startTransition(() => {
-        updateUrl("days", diffDays.toString());
-        router.refresh();
-      });
-    }
   };
 
   const handlePageChange = (page: number) => {
@@ -229,14 +208,17 @@ export function AdminDashboardClient({ stats, systemRevenue }: AdminDashboardCli
       {/* Header & Controls */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h2 className="text-2xl font-bold tracking-tight">Tổng quan</h2>
-          <DateFilter
-            dateRange={dateRange}
-            onDateRangeChange={handleCustomRangeChange}
-            quickDurations={[7, 30, 90]}
-            currentDuration={parseInt(currentDuration)}
-            onQuickDurationChange={handleDurationChange}
-            isCustomRange={isCustomRange}
-          />
+          <Select value={currentDuration} onValueChange={handleDurationChange}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Chọn thời gian" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7">7 ngày qua</SelectItem>
+              <SelectItem value="30">30 ngày qua</SelectItem>
+              <SelectItem value="90">90 ngày qua</SelectItem>
+              <SelectItem value="365">1 năm qua</SelectItem>
+            </SelectContent>
+          </Select>
       </div>
 
       {/* 4 Main Stats Cards */}
@@ -396,7 +378,7 @@ export function AdminDashboardClient({ stats, systemRevenue }: AdminDashboardCli
 
       {/* System Revenue Chart */}
       <SystemRevenueChart 
-        data={systemRevenue.data} 
+  data={systemRevenue.data} 
         growth={systemRevenue.growth} 
       />
     </div>

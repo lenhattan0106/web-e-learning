@@ -17,7 +17,6 @@ import { getPendingReportsTool } from "@/lib/ai/tools/get-pending-reports";
 import { getUserListTool } from "@/lib/ai/tools/get-user-list";
 import { getRevenueByInstructorTool } from "@/lib/ai/tools/get-revenue-by-instructor";
 
-// USER (Học viên Premium): Tìm kiếm + Học tập + RAG
 const USER_TOOLS = {
   getAllCourses: getAllCoursesTool,             // Danh sách tất cả khóa học
   searchCourses: searchCoursesTool,             // Tìm bài học theo semantic
@@ -30,7 +29,6 @@ const USER_TOOLS = {
   recordUserFeedback: recordUserFeedbackTool,   // Ghi feedback
 };
 
-// TEACHER (Giảng viên Premium): USER + Business Analytics
 const TEACHER_TOOLS = {
   getRevenueAnalytics: getRevenueAnalyticsTool,
   getDetailedInstructorData: getDetailedInstructorDataTool,
@@ -38,7 +36,6 @@ const TEACHER_TOOLS = {
   getInstructorStats: getInstructorStatsTool,
 };
 
-// ADMIN: All tools + System Stats + Admin Dashboard + User Management + Analytics
 const ADMIN_TOOLS = {
   getSystemStats: getSystemStatsTool,
   getAdminDashboard: getAdminDashboardTool,         // Doanh thu + thống kê toàn hệ thống
@@ -48,12 +45,10 @@ const ADMIN_TOOLS = {
 };
 
 export function getToolsForRole(role: string) {
-  // USER: Base tools for premium learners
   if (role === "USER") {
     return { ...USER_TOOLS };
   }
   
-  // TEACHER: User tools + Business tools
   if (role === "TEACHER") {
     return {
       ...USER_TOOLS,
@@ -61,7 +56,6 @@ export function getToolsForRole(role: string) {
     };
   }
   
-  // ADMIN: All tools
   if (role === "ADMIN") {
     return {
       ...USER_TOOLS,
@@ -73,9 +67,6 @@ export function getToolsForRole(role: string) {
   return {};
 }
 
-/**
- * Get list of tool names for a role (for logging/debugging)
- */
 export function getToolNamesForRole(role: string): string[] {
   const tools = getToolsForRole(role);
   return Object.keys(tools);

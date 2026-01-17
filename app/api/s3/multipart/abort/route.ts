@@ -48,7 +48,6 @@ export async function POST(request: Request) {
 
     console.log(`[Multipart Abort] Aborting upload for ${key}, UploadId: ${uploadId}`);
 
-    // Abort multipart upload - cleans up all parts
     const command = new AbortMultipartUploadCommand({
       Bucket: env.NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES,
       Key: key,
@@ -68,7 +67,6 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     console.error("[Multipart Abort] Error:", error);
-    // Even if abort fails, return success to not block UI
     return NextResponse.json(
       {
         success: true,

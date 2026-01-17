@@ -15,7 +15,6 @@ import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import { useConstructUrl } from "@/hooks/use-contruct-url";
 
-// File size limits
 const MAX_FILE_SIZE_MB = 1024; // 1GB
 const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
 
@@ -66,7 +65,6 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
       let uploadId: string | undefined;
       let key: string | undefined;
       
-      // Set uploading state to show progress UI
       setFileState((prev) => ({
         ...prev,
         uploading: true,
@@ -74,7 +72,7 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
       }));
       
       try {
-        // Step 1: Initiate multipart upload
+        // Step 1: Khởi tạo multipart upload
         const initResponse = await fetch("/api/s3/multipart/initiate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -82,19 +80,19 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
             fileName: file.name,
             contentType: file.type,
             size: file.size,
-            folder: folder, // S3 folder prefix
+            folder: folder, // Tiền tố thư mục S3
           }),
         });
 
         if (!initResponse.ok) {
           throw new Error("Không thể khởi tạo upload");
         }
-
+        // Tất cả các parts dựa vào uploadId và key từ phản hồi
         const initData = await initResponse.json();
         uploadId = initData.uploadId;
         key = initData.key;
 
-        // Step 2: Split file into chunks
+        // Bước 2: Chia tệp thành các phần
         const chunks: Blob[] = [];
         for (let start = 0; start < file.size; start += CHUNK_SIZE) {
           chunks.push(file.slice(start, start + CHUNK_SIZE));
@@ -103,13 +101,13 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
         const totalParts = chunks.length;
         toast.info(`Đang upload ${totalParts} phần... (${Math.round(file.size / 1024 / 1024)}MB)`);
 
-        // Step 3: Upload parts in parallel (5 concurrent uploads)
+        // Bước 3: Upload các phần song song (5 phần cùng lúc)
         const uploadedParts: Array<{ PartNumber: number; ETag: string }> = [];
-        const PARALLEL_UPLOADS = 5; // Upload 5 parts at once
+        const PARALLEL_UPLOADS = 5; 
         
-        // Helper function to upload single part
+        // Hàm trợ giúp để upload một phần
         const uploadPart = async (partNumber: number, chunk: Blob) => {
-          // Get presigned URL for this part
+          // Lấy URL được ký cho phần này
           const signResponse = await fetch("/api/s3/multipart/sign-part", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -125,8 +123,7 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
           }
 
           const { presignedUrl } = await signResponse.json();
-
-          // Upload chunk
+          // Upload phần lên S3
           const uploadResponse = await fetch(presignedUrl, {
             method: "PUT",
             body: chunk,
@@ -136,7 +133,7 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
             throw new Error(`Upload phần ${partNumber} thất bại`);
           }
 
-          // Get ETag from response header (REQUIRED for S3 multipart)
+          // Lấy ETag từ header phản hồi (BẮT BUỘC cho multipart S3)
           const etag = uploadResponse.headers.get("ETag");
           
           if (!etag) {
@@ -147,7 +144,7 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
             );
           }
 
-          // Remove quotes from ETag
+          // Loại bỏ dấu ngoặc kép khỏi ETag  
           const cleanETag = etag.replace(/"/g, "");
 
           return {
@@ -156,27 +153,24 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
           };
         };
 
-        // Upload in batches of PARALLEL_UPLOADS
+        // Upload theo từng lô với số phần song song là PARALLEL_UPLOADS
         for (let i = 0; i < chunks.length; i += PARALLEL_UPLOADS) {
-          const batchEnd = Math.min(i + PARALLEL_UPLOADS, chunks.length);
+          const batchEnd = Math.min(i + PARALLEL_UPLOADS, chunks.length); // batchEnd là chỉ số kết thúc của lô hiện tại
           const batchPromises = [];
 
-          // Update progress immediately when batch starts (optimistic update)
           const estimatedProgress = Math.round((i / totalParts) * 100);
           setFileState((prev) => ({ ...prev, progress: estimatedProgress }));
 
-          // Create promises for this batch
           for (let j = i; j < batchEnd; j++) {
             const partNumber = j + 1;
             const chunk = chunks[j];
             batchPromises.push(uploadPart(partNumber, chunk));
           }
-
-          // Upload batch in parallel
+          
           const batchResults = await Promise.all(batchPromises);
           uploadedParts.push(...batchResults);
 
-          // Update progress after batch completes
+          // Cập nhật tiến trình sau khi lô hoàn thành
           const actualProgress = Math.round((uploadedParts.length / totalParts) * 100);
           setFileState((prev) => ({ ...prev, progress: actualProgress }));
           
@@ -192,7 +186,7 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
           body: JSON.stringify({
             uploadId,
             key,
-            parts: uploadedParts,
+            parts: uploadedParts, // {PartNumber, ETag}[]
           }),
         });
 
@@ -246,7 +240,7 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
     [onChange, folder]
   );
   
-  // Single-part upload for small files (existing logic)
+
   const upLoadSinglePart = useCallback(
     async (file: File) => {
       setFileState((prev) => ({
@@ -299,7 +293,7 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
                 progress: 100,
                 uploading: false,
                 key: key,
-                objectUrl: uploadedUrl, // ✅ Update objectUrl to trigger preview
+                objectUrl: uploadedUrl, // hiển thị từ S3
               }));
               onChange?.(key);
               toast.success("Tải lên tệp thành công");
@@ -328,7 +322,7 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
     [onChange, fileTypeAccepted, folder]
   );
   
-  // Router: Choose upload strategy based on file size
+  // Chọn chiến lược upload dựa trên kích thước tệp
   const upLoadFile = useCallback(
     async (file: File) => {
       // Validate file size
@@ -336,7 +330,7 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
         toast.error(
           `File quá lớn! Vui lòng upload video dưới ${MAX_FILE_SIZE_MB}MB. ` +
           `(Video của bạn: ${Math.round(file.size / 1024 / 1024)}MB)`,
-          { duration: 5000 }
+          { duration: 5000 } 
         );
         setFileState((prev) => ({
           ...prev,
@@ -344,10 +338,8 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
         }));
         return;
       }
-
-      // Warning for large files
+       
       if (file.size > 500 * 1024 * 1024) {
-        // > 500MB
         toast.warning(
           `Video lớn (${Math.round(file.size / 1024 / 1024)}MB). ` +
           `Khuyến nghị video dưới 500MB để tải nhanh hơn.`,
@@ -355,7 +347,7 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
         );
       }
 
-      // Route to appropriate upload strategy
+      // Nếu tệp lớn hơn ngưỡng, sử dụng multipart upload
       if (file.size >= MULTIPART_THRESHOLD) {
         console.log(`[Upload] Using multipart for ${file.name} (${Math.round(file.size / 1024 / 1024)}MB)`);
         await upLoadMultipart(file);
@@ -367,35 +359,29 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
     [upLoadMultipart, upLoadSinglePart]
   );
 
-
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
       if (acceptedFiles.length > 0) {
         const file = acceptedFiles[0];
         const objectUrl = URL.createObjectURL(file);
 
-        // Get video duration if it is a video
         if (fileTypeAccepted === "video" && onDurationChange) {
             const video = document.createElement("video");
             video.preload = "metadata";
-            
-            // ⚠️ Critical: Add timeout to prevent hanging if metadata never loads
             let metadataLoaded = false;
-            const METADATA_TIMEOUT = 10000; // 10 seconds
-            
+            const METADATA_TIMEOUT = 10000; 
             const timeoutId = setTimeout(() => {
               if (!metadataLoaded) {
-                console.warn("Video metadata timeout - proceeding with upload anyway");
+                console.warn("video meta load quá thời gian, đặt thời lượng về 0");
                 window.URL.revokeObjectURL(video.src);
-                onDurationChange(0); // Default to 0 if can't extract
+                onDurationChange(0);
               }
             }, METADATA_TIMEOUT);
             
             video.onloadedmetadata = function() {
               metadataLoaded = true;
               clearTimeout(timeoutId);
-              window.URL.revokeObjectURL(video.src);
-              
+              window.URL.revokeObjectURL(video.src); 
               if (!isNaN(video.duration) && isFinite(video.duration)) {
                 onDurationChange(Math.round(video.duration));
               } else {
@@ -404,13 +390,12 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
               }
             };
             
-            // ⚠️ Critical: Handle errors when video metadata can't be loaded
             video.onerror = function(e) {
               metadataLoaded = true;
               clearTimeout(timeoutId);
               console.error("Failed to load video metadata:", e);
               window.URL.revokeObjectURL(video.src);
-              onDurationChange(0); // Proceed with upload even if duration extraction fails
+              onDurationChange(0); 
               toast.warning("Không thể đọc thời lượng video, nhưng vẫn tiếp tục tải lên");
             };
             
@@ -418,16 +403,14 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
         }
 
         setFileState((prev) => {
-          // ✅ Revoke previous blob URL if exists
           if (prev.objectUrl && !prev.objectUrl.startsWith("http")) {
             URL.revokeObjectURL(prev.objectUrl);
           }
-
           return {
             file: file,
-            uploading: false, // Will be set to true by upLoadFile
+            uploading: false, 
             progress: 0,
-            objectUrl: undefined, // ❌ DO NOT show preview until upload complete
+            objectUrl: undefined,
             error: false,
             id: uuidv4(),
             isDeleting: false,

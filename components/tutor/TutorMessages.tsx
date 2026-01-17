@@ -4,6 +4,7 @@ import type { UIMessage } from "ai";
 import { Sparkles, User, Search, Loader2, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useTutor } from "./TutorContext";
 
 interface TutorMessagesProps {
@@ -109,7 +110,22 @@ function MessageContent({ content, role }: { content: string, role: string }) {
 
   return (
     <Markdown
+      remarkPlugins={[remarkGfm]}
       components={{
+        table: ({ children }: any) => (
+          <div className="overflow-x-auto my-4 border border-slate-700/50 rounded-lg shadow-sm">
+            <table className="min-w-full divide-y divide-slate-700/50 bg-slate-900/30 text-sm overflow-hidden">{children}</table>
+          </div>
+        ),
+        thead: ({ children }: any) => <thead className="bg-slate-800/60 text-slate-200">{children}</thead>,
+        tbody: ({ children }: any) => <tbody className="divide-y divide-slate-700/50 bg-transparent">{children}</tbody>,
+        tr: ({ children }: any) => <tr className="hover:bg-slate-800/40 transition-colors">{children}</tr>,
+        th: ({ children }: any) => (
+          <th className="px-4 py-3 text-left font-semibold text-sky-400 uppercase tracking-wider text-xs whitespace-nowrap">
+            {children}
+          </th>
+        ),
+        td: ({ children }: any) => <td className="px-4 py-3 text-slate-300 whitespace-normal">{children}</td>,
         a: (props: any) => {
           const { href, children } = props;
           if (!href) return <span>{children}</span>;

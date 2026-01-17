@@ -54,13 +54,12 @@ export async function POST(request: Request) {
 
     console.log(`[Multipart Complete] Assembling ${parts.length} parts for ${key}`);
 
-    // Complete multipart upload
     const command = new CompleteMultipartUploadCommand({
       Bucket: env.NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES,
       Key: key,
       UploadId: uploadId,
       MultipartUpload: {
-        Parts: parts,
+        Parts: parts, // {PartNumber, ETag}[]
       },
     });
 
@@ -72,7 +71,7 @@ export async function POST(request: Request) {
       {
         success: true,
         key: key,
-        location: response.Location,
+        location: response.Location, 
       },
       { status: 200 }
     );

@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     });
 
     const presignedUrl = await getSignedUrl(S3, command, {
-      expiresIn: 3600, // 1 hour
+      expiresIn: 3600, 
       unhoistableHeaders: new Set(["x-amz-server-side-encryption"]),
     });
 

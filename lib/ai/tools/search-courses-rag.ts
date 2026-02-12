@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { tool } from "ai";
 import { z } from "zod";
@@ -35,7 +36,7 @@ export const searchCoursesRAGTool = tool({
         AND kh."trangThai" = 'BanChinhThuc'
         AND 1 - (kh.embedding <=> ${vectorQuery}::vector) > 0.3
         ORDER BY similarity DESC
-        LIMIT 5
+        LIMIT 10
       `;
       
       // ✅ KẾT QUẢ TÌM THẤY

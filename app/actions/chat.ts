@@ -79,7 +79,6 @@ export async function getMessages(chatRoomId: string, cursor?: string) {
             }
         });
 
-        // Reverse to show chronological order (oldest -> newest)
         return { messages: messages.reverse() };
     } catch (error) {
         console.error("Error fetching messages:", error);
@@ -151,7 +150,6 @@ export async function getChatMembers(chatRoomId: string) {
     const session = await requireUser();
     
     try {
-        // ... existing findUnique
         const chatRoom = await prisma.phongChat.findUnique({
             where: { id: chatRoomId },
             select: { khoaHoc: { select: { idNguoiDung: true } }, khoaHocId: true }
@@ -176,7 +174,6 @@ export async function getChatMembers(chatRoomId: string) {
             }
         });
 
-        // Get Teacher (Course Owner)
         const teacher = await prisma.user.findUnique({
             where: { id: chatRoom.khoaHoc.idNguoiDung },
             select: { id: true, name: true, image: true, email: true }
@@ -282,7 +279,6 @@ export async function toggleChatBan(chatRoomId: string, memberId: string) {
         await pusher.trigger('nt-elearning', 'event', systemMessage);
         await pusher.trigger('nt-elearning', 'member-updated', { userId: memberId, camChat: newStatus });
 
-        // Send notification to the affected member
         const courseName = chatRoom.khoaHoc.tenKhoaHoc;
         const courseSlug = chatRoom.khoaHoc.duongDan;
         const template = newStatus

@@ -119,7 +119,6 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
             throw new Error("Upload đã bị hủy bởi người dùng");
           }
 
-          // ============ STEP 1: Get presigned URL ============
           console.log(`[Multipart] Part ${partNumber}: Requesting presigned URL...`);
           
           const signPromise = fetch("/api/s3/multipart/sign-part", {
@@ -132,8 +131,7 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
             }),
             signal: abortController.signal,
           });
-
-          // Timeout without aborting signal
+           // Timreout lấy lại 
           const signTimeoutPromise = new Promise<never>((_, reject) => {
             setTimeout(() => reject(new Error(`Timeout lấy URL cho phần ${partNumber} (>30s)`)), 30000);
           });
@@ -153,12 +151,11 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
 
           console.log(`[Multipart] Part ${partNumber}: Got presigned URL, uploading ${(chunk.size / 1024 / 1024).toFixed(1)}MB...`);
 
-          // Check abort BETWEEN steps
           if (abortController.signal.aborted) {
             throw new Error("Upload đã bị hủy bởi người dùng");
           }
 
-          // ============ STEP 2: Upload to S3 ============
+          // ============ Upload lên S3============
           const uploadPromise = fetch(presignedUrl, {
             method: "PUT",
             body: chunk,
@@ -210,7 +207,6 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
         } catch (error) {
           lastError = error instanceof Error ? error : new Error("Unknown error");
           
-          // Distinguish user abort from network error
           if (abortController.signal.aborted || lastError.message.includes("bị hủy bởi người dùng")) {
             console.log(`[Multipart] Part ${partNumber}: User cancelled upload`);
             throw new Error("Upload đã bị hủy bởi người dùng");
@@ -218,7 +214,6 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
 
           console.error(`[Multipart] Part ${partNumber} attempt ${attempt + 1}/${maxRetries + 1} failed:`, lastError.message);
           
-          // If this is the last attempt, give up
           if (attempt === maxRetries) {
             setFileState((prev) => ({
               ...prev,
@@ -233,7 +228,6 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
             throw lastError;
           }
           
-          // Check if error is retryable
           const isRetryable = 
             lastError.message.includes("Timeout") ||
             lastError.message.includes("timeout") ||
@@ -246,7 +240,6 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
             throw lastError;
           }
           
-          // Continue to next retry attempt
         }
       }
       
@@ -479,16 +472,21 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
           throw new Error(`Không thể hoàn tất upload: ${errorText}`);
         }
 
-        const { success } = await completeResponse.json();
+        // ✅ Nhận đầy đủ response từ complete endpoint
+        const completeData = await completeResponse.json();
 
-        if (success) {
-          const uploadedUrl = `https://${env.NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES}.t3.storage.dev/${key}`;
+        if (completeData.success) {
+          // ✅ Sử dụng key đã được S3 confirm (đảm bảo tính chính xác)
+          const finalKey = completeData.key || key;
+          
+          // ✅ Tạo URL từ key đã được S3 xác nhận
+          const uploadedUrl = `https://${env.NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES}.t3.storage.dev/${finalKey}`;
 
           setFileState((prev) => ({
             ...prev,
             progress: 100,
             uploading: false,
-            key: key,
+            key: finalKey, // ✅ Sử dụng key từ S3 response
             objectUrl: uploadedUrl,
             multipartStats: prev.multipartStats ? {
               ...prev.multipartStats,
@@ -496,11 +494,15 @@ export function Uploader({ onChange, onDurationChange, value, fileTypeAccepted, 
             } : undefined,
           }));
 
-          if (key) {
-            onChange?.(key);
+          if (finalKey) {
+            onChange?.(finalKey); // ✅ Truyền key chính xác từ S3
           }
           
-          console.log(`[Multipart] Upload completed successfully! URL: ${uploadedUrl}`);
+          // ✅ Log cả URL và location từ S3 để tracking
+          console.log(`[Multipart] Upload completed successfully!`);
+          console.log(`[Multipart] Key: ${finalKey}`);
+          console.log(`[Multipart] S3 Location: ${completeData.location}`);
+          console.log(`[Multipart] Access URL: ${uploadedUrl}`);
           toast.success("Tải lên video thành công!");
         }
       } catch (error) {

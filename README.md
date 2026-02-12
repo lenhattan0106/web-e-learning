@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DATN E-Learning Platform
 
-## Getting Started
+Dự án Đồ án Tốt nghiệp E-Learning Platform, xây dựng bằng Next.js 15, Prisma, TailwindCSS và các công nghệ hiện đại khác.
 
-First, run the development server:
+## 📦 Yêu cầu
+
+- [Node.js](https://nodejs.org/) (Phiên bản 18.x trở lên)
+- [pnpm](https://pnpm.io/) (Khuyến nghị sử dụng pnpm để quản lý gói nhanh và hiệu quả)
+
+## 🚀 Hướng dẫn Cài đặt & Chạy (Dành cho Giảng viên/Reviewer)
+
+Dự án này đã được tối ưu hóa dung lượng bằng cách loại bỏ `node_modules` và `.next`. Vui lòng làm theo các bước sau để khôi phục và chạy dự án:
+
+### 1. Cài đặt thư viện
+
+Mở terminal tại thư mục gốc của dự án và chạy lệnh:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+> **Lưu ý:** Lệnh này sẽ tự động tải tất cả các thư viện cần thiết dựa trên file `pnpm-lock.yaml` và chạy `prisma generate` để khởi tạo client cơ sở dữ liệu.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 2. Cấu hình Môi trường
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Dự án cần các biến môi trường để hoạt động. File `.env.example` đã được cung cấp làm mẫu.
+Vui lòng tạo file `.env` và điền các giá trị tương ứng (nếu có yêu cầu từ sinh viên cung cấp file .env riêng).
 
-## Learn More
+### 3. Chạy dự án
 
-To learn more about Next.js, take a look at the following resources:
+Chạy server phát triển:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+pnpm dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Truy cập [http://localhost:3000](http://localhost:3000) để xem ứng dụng.
 
-## Deploy on Vercel
+## 🛠 Công nghệ sử dụng
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Framework:** Next.js 15 (App Router)
+- **Database:** PostgreSQL (kết nối qua Prisma ORM)
+- **Styling:** TailwindCSS, Shadcn UI
+- **Authentication:** Better Auth
+- **Realtime:** Pusher
+- **Payment:** VNPAY
+- **AI:** Google Generative AI (Gemini)
+- **Storage:** AWS S3 Compatible Storage
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📝 Cấu trúc thư mục nộp
+
+- `app/`: Mã nguồn chính của ứng dụng
+- `components/`: Các component tái sử dụng
+- `lib/`: Các hàm tiện ích và cấu hình
+- `prisma/`: Schema cơ sở dữ liệu
+- `public/`: Tài nguyên tĩnh (ảnh, icon)

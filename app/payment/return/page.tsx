@@ -6,8 +6,9 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { getPusherServer } from "@/lib/pusher";
+import { RevalidateOnSuccess } from "./RevalidateOnSuccess";
 
 export const dynamic = "force-dynamic";
 
@@ -134,7 +135,6 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
             } catch (pusherError) {
               console.error("Pusher trigger failed:", pusherError);
             }
-            revalidatePath("/", "layout");
             
             displayStatus = "DaThanhToan";
           } else if (!isSuccess && payment.trangThai !== "DaHuy") {
@@ -313,6 +313,7 @@ async function PaymentResult({ searchParams }: PaymentReturnProps) {
                   )
                 : "Giao dịch không thể hoàn thành"}
             </p>
+            {isSuccess && <RevalidateOnSuccess />}
           </div>
 
           {/* Success/Failure Message */}

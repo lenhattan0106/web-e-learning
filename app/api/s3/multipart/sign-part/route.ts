@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         presignedUrl,
-        partNumber,
+        partNumber, 
       },
       { status: 200 }
     );
